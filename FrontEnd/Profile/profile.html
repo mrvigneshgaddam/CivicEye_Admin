@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CivikEye - Profile</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="/FrontEnd/Dashboard/dashboard.css">
+    <link rel="stylesheet" href="profile.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <h3><i class="fas fa-shield-alt"></i> CivikEye</h3>
+                <button class="sidebar-collapse-btn" id="sidebarCollapse">
+                    <i class="fas fa-bars"></i>
+                </button>
+            </div>
+            <ul class="sidebar-menu">
+                <li><a href="dashboard.html"><i class="fas fa-tachometer-alt"></i><span>Dashboard</span></a></li>
+                <li><a href="#"><i class="fas fa-comments"></i><span>Chat App</span></a></li>
+                <li><a href="#"><i class="fas fa-file-alt"></i><span>FIR Management</span></a></li>
+                <li><a href="#"><i class="fas fa-users"></i><span>Officer Management</span></a></li>
+                <li><a href="#"><i class="fas fa-exclamation-triangle"></i><span>Emergency Management</span></a></li>
+                <li><a href="profile.html" class="active"><i class="fas fa-user-circle"></i><span>Profile</span></a></li>
+                <li><a href="settings.html"><i class="fas fa-cog"></i><span>Settings</span></a></li>
+            </ul>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main">
+            <!-- Header -->
+            <header class="header">
+                <div class="header-left">
+                    <h2>My Profile</h2>
+                </div>
+                <div class="header-right">
+                    <div class="search-box">
+                        <i class="fas fa-search"></i>
+                        <input type="text" placeholder="Search...">
+                    </div>
+                    <button class="notification-btn">
+                        <i class="fas fa-bell"></i>
+                        <span class="notification-badge">5</span>
+                    </button>
+                    <div class="profile-dropdown">
+                        <img src="https://randomuser.me/api/portraits/men/32.jpg" alt="Profile" class="profile-img">
+                        <div class="dropdown-content">
+                            <a href="profile.html"><i class="fas fa-user"></i> Profile</a>
+                            <a href="settings.html"><i class="fas fa-cog"></i> Settings</a>
+                            <a href="#"><i class="fas fa-sign-out-alt"></i> Logout</a>
+                        </div>
+                    </div>
+                </div>
+            </header>
+
+            <!-- Content -->
+            <div class="content">
+                <div class="page-title">
+                    <h1>Profile</h1>
+                    <div class="breadcrumb">
+                        <a href="dashboard.html">Home</a>
+                        <i class="fas fa-chevron-right"></i>
+                        <span>Profile</span>
+                    </div>
+                </div>
+
+                <!-- Profile Card -->
+                <div class="profile-section">
+                    <div class="profile-card">
+                        <div class="profile-header">
+                            <div class="profile-avatar">
+                                <img src="https://randomuser.me/api/portraits/men/32.jpg" alt="Profile Picture">
+                                <button class="edit-avatar-btn" id="editAvatarBtn">
+                                    <i class="fas fa-camera"></i>
+                                </button>
+                            </div>
+                            <div class="profile-info">
+                                <h2>John D. Anderson</h2>
+                                <p class="profile-role">Senior Police Officer</p>
+                                <p class="profile-department">Metropolitan Police Department</p>
+                                <div class="profile-badges">
+                                    <span class="badge"><i class="fas fa-shield-alt"></i> 5 Years Service</span>
+                                    <span class="badge"><i class="fas fa-star"></i> Top Performer</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="profile-details">
+                            <div class="detail-group">
+                                <h3>Personal Information</h3>
+                                <div class="detail-row">
+                                    <span class="detail-label"><i class="fas fa-envelope"></i> Email</span>
+                                    <span class="detail-value">john.anderson@police.gov</span>
+                                </div>
+                                <div class="detail-row">
+                                    <span class="detail-label"><i class="fas fa-phone"></i> Phone</span>
+                                    <span class="detail-value">+1 (555) 123-4567</span>
+                                </div>
+                                <div class="detail-row">
+                                    <span class="detail-label"><i class="fas fa-id-card"></i> Badge Number</span>
+                                    <span class="detail-value">MPD-8472</span>
+                                </div>
+                                <div class="detail-row">
+                                    <span class="detail-label"><i class="fas fa-map-marker-alt"></i> Station</span>
+                                    <span class="detail-value">Central District Station</span>
+                                </div>
+                            </div>
+
+                            <div class="detail-group">
+                                <h3>About Me</h3>
+                                <p class="profile-bio">
+                                    Senior police officer with 5 years of experience in law enforcement. 
+                                    Specialized in community policing and emergency response. 
+                                    Committed to public safety and building trust within the community.
+                                </p>
+                            </div>
+
+                            <div class="detail-group">
+                                <h3>Activity Stats</h3>
+                                <div class="stats-grid">
+                                    <div class="stat-item">
+                                        <div class="stat-icon">
+                                            <i class="fas fa-calendar-check"></i>
+                                        </div>
+                                        <div class="stat-info">
+                                            <span class="stat-value">142</span>
+                                            <span class="stat-label">Cases Handled</span>
+                                        </div>
+                                    </div>
+                                    <div class="stat-item">
+                                        <div class="stat-icon">
+                                            <i class="fas fa-medal"></i>
+                                        </div>
+                                        <div class="stat-info">
+                                            <span class="stat-value">24</span>
+                                            <span class="stat-label">Commendations</span>
+                                        </div>
+                                    </div>
+                                    <div class="stat-item">
+                                        <div class="stat-icon">
+                                            <i class="fas fa-clock"></i>
+                                        </div>
+                                        <div class="stat-info">
+                                            <span class="stat-value">98%</span>
+                                            <span class="stat-label">On-time Response</span>
+                                        </div>
+                                    </div>
+                                    <div class="stat-item">
+                                        <div class="stat-icon">
+                                            <i class="fas fa-users"></i>
+                                        </div>
+                                        <div class="stat-info">
+                                            <span class="stat-value">87</span>
+                                            <span class="stat-label">Community Events</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="profile-actions">
+                            <button class="btn btn-primary" id="editProfileBtn">
+                                <i class="fas fa-edit"></i> Edit Profile
+                            </button>
+                            <button class="btn btn-secondary">
+                                <i class="fas fa-download"></i> Download Profile
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Edit Profile Modal -->
+    <div class="modal" id="editProfileModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Edit Profile</h3>
+                <button class="modal-close" id="closeEditProfileModal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="profileForm">
+                    <div class="form-group">
+                        <label for="fullName">Full Name</label>
+                        <input type="text" id="fullName" value="John D. Anderson">
+                    </div>
+                    <div class="form-group">
+                        <label for="email">Email</label>
+                        <input type="email" id="email" value="john.anderson@police.gov">
+                    </div>
+                    <div class="form-group">
+                        <label for="phone">Phone</label>
+                        <input type="tel" id="phone" value="+1 (555) 123-4567">
+                    </div>
+                    <div class="form-group">
+                        <label for="badgeNumber">Badge Number</label>
+                        <input type="text" id="badgeNumber" value="MPD-8472" disabled>
+                    </div>
+                    <div class="form-group">
+                        <label for="station">Station</label>
+                        <select id="station">
+                            <option value="central">Central District Station</option>
+                            <option value="north">North District Station</option>
+                            <option value="south">South District Station</option>
+                            <option value="east">East District Station</option>
+                            <option value="west">West District Station</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="bio">About Me</label>
+                        <textarea id="bio" rows="4">Senior police officer with 5 years of experience in law enforcement. Specialized in community policing and emergency response. Committed to public safety and building trust within the community.</textarea>
+                    </div>
+                    <div class="form-actions">
+                        <button type="button" class="btn btn-secondary" id="cancelEditProfile">Cancel</button>
+                        <button type="submit" class="btn btn-primary">Save Changes</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="/FrontEnd/Dashboard/dashboard.js"></script>
+    <script src="profile.js"></script>
+</body>
+</html>
