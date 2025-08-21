@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CivikEye - Admin Dashboard</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="dashboard.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <h3><i class="fas fa-shield-alt"></i> CivikEye</h3>
+                <button class="sidebar-collapse-btn" id="sidebarCollapse">
+                    <i class="fas fa-bars"></i>
+                </button>
+            </div>
+            <ul class="sidebar-menu">
+                <li><a href="#" class="active"><i class="fas fa-tachometer-alt"></i><span>Dashboard</span></a></li>
+                <li><a href="#"><i class="fas fa-comments"></i><span>Chat App</span></a></li>
+                <li><a href="#"><i class="fas fa-file-alt"></i><span>FIR Management</span></a></li>
+                <li><a href="#"><i class="fas fa-users"></i><span>Officer Management</span></a></li>
+                <li><a href="#"><i class="fas fa-exclamation-triangle"></i><span>Emergency Management</span></a></li>
+                <li><a href="#"><i class="fas fa-user-circle"></i><span>Profile</span></a></li>
+                <li><a href="#"><i class="fas fa-cog"></i><span>Settings</span></a></li>
+            </ul>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main">
+            <!-- Header -->
+            <header class="header">
+                <div class="header-left">
+                    <h2>Dashboard Overview</h2>
+                </div>
+                <div class="header-right">
+                    <div class="search-box">
+                        <i class="fas fa-search"></i>
+                        <input type="text" placeholder="Search...">
+                    </div>
+                    <button class="notification-btn">
+                        <i class="fas fa-bell"></i>
+                        <span class="notification-badge">5</span>
+                    </button>
+                    <div class="profile-dropdown">
+                        <img src="https://randomuser.me/api/portraits/men/32.jpg" alt="Profile" class="profile-img">
+                        <div class="dropdown-content">
+                            <a href="#"><i class="fas fa-user"></i> Profile</a>
+                            <a href="#"><i class="fas fa-cog"></i> Settings</a>
+                            <a href="#"><i class="fas fa-sign-out-alt"></i> Logout</a>
+                        </div>
+                    </div>
+                </div>
+            </header>
+
+            <!-- Content -->
+            <div class="content">
+                <div class="page-title">
+                    <h1>Dashboard</h1>
+                    <div class="breadcrumb">
+                        <a href="#">Home</a>
+                        <i class="fas fa-chevron-right"></i>
+                        <span>Dashboard</span>
+                    </div>
+                </div>
+
+                <!-- Stats Cards -->
+                <div class="stats-cards">
+                    <div class="stats-card">
+                        <div class="stats-card-icon" style="background-color: rgba(76, 201, 240, 0.1);">
+                            <i class="fas fa-users" style="color: #4cc9f0;"></i>
+                        </div>
+                        <h3>Active Users</h3>
+                        <h2>1,248</h2>
+                        <div class="stats-card-change positive">
+                            <i class="fas fa-arrow-up"></i>
+                            <span>12.5%</span>
+                        </div>
+                    </div>
+                    <div class="stats-card">
+                        <div class="stats-card-icon" style="background-color: rgba(248, 149, 34, 0.1);">
+                            <i class="fas fa-exclamation-triangle" style="color: #f8961e;"></i>
+                        </div>
+                        <h3>Total Incidents</h3>
+                        <h2>86</h2>
+                        <div class="stats-card-change negative">
+                            <i class="fas fa-arrow-down"></i>
+                            <span>5.2%</span>
+                        </div>
+                    </div>
+                    <div class="stats-card">
+                        <div class="stats-card-icon" style="background-color: rgba(67, 97, 238, 0.1);">
+                            <i class="fas fa-user-shield" style="color: #4361ee;"></i>
+                        </div>
+                        <h3>Active Officers</h3>
+                        <h2>56</h2>
+                        <div class="stats-card-change positive">
+                            <i class="fas fa-arrow-up"></i>
+                            <span>3.7%</span>
+                        </div>
+                    </div>
+                    <div class="stats-card">
+                        <div class="stats-card-icon" style="background-color: rgba(247, 37, 133, 0.1);">
+                            <i class="fas fa-envelope" style="color: #f72585;"></i>
+                        </div>
+                        <h3>New Messages</h3>
+                        <h2>18</h2>
+                        <div class="stats-card-change positive">
+                            <i class="fas fa-arrow-up"></i>
+                            <span>22.2%</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Charts Row -->
+                <div class="charts-row">
+                    <!-- Incidents Chart -->
+                    <div class="chart-card">
+                        <div class="chart-header">
+                            <h3>Incidents Overview</h3>
+                            <div class="chart-period">
+                                <button class="active" data-period="day">Day</button>
+                                <button data-period="week">Week</button>
+                                <button data-period="month">Month</button>
+                            </div>
+                        </div>
+                        <div class="chart-container">
+                            <canvas id="incidentsChart"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Incident Types Chart -->
+                    <div class="chart-card">
+                        <div class="chart-header">
+                            <h3>Incident Types</h3>
+                            <div class="chart-period">
+                                <button class="active" data-period="day">Day</button>
+                                <button data-period="week">Week</button>
+                                <button data-period="month">Month</button>
+                            </div>
+                        </div>
+                        <div class="chart-container">
+                            <canvas id="incidentTypesChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Recent Activity and Quick Actions -->
+                <div class="bottom-row">
+                    <!-- Recent Activity -->
+                    <div class="recent-activity">
+                        <div class="section-header">
+                            <h3>Recent Activity</h3>
+                            <a href="#" class="view-all">View All <i class="fas fa-arrow-right"></i></a>
+                        </div>
+                        <div class="activity-list">
+                            <div class="activity-item">
+                                <div class="activity-icon" style="background-color: rgba(248, 149, 34, 0.1); color: #f8961e;">
+                                    <i class="fas fa-fire"></i>
+                                </div>
+                                <div class="activity-content">
+                                    <p>New fire incident reported in District 5</p>
+                                    <span class="activity-time">10 minutes ago</span>
+                                </div>
+                            </div>
+                            <div class="activity-item">
+                                <div class="activity-icon" style="background-color: rgba(72, 149, 239, 0.1); color: #4895ef;">
+                                    <i class="fas fa-car-crash"></i>
+                                </div>
+                                <div class="activity-content">
+                                    <p>Traffic accident on Main Street</p>
+                                    <span class="activity-time">35 minutes ago</span>
+                                </div>
+                            </div>
+                            <div class="activity-item">
+                                <div class="activity-icon" style="background-color: rgba(67, 97, 238, 0.1); color: #4361ee;">
+                                    <i class="fas fa-user-plus"></i>
+                                </div>
+                                <div class="activity-content">
+                                    <p>New officer registered: John Doe</p>
+                                    <span class="activity-time">2 hours ago</span>
+                                </div>
+                            </div>
+                            <div class="activity-item">
+                                <div class="activity-icon" style="background-color: rgba(76, 201, 240, 0.1); color: #4cc9f0;">
+                                    <i class="fas fa-check-circle"></i>
+                                </div>
+                                <div class="activity-content">
+                                    <p>Medical emergency resolved</p>
+                                    <span class="activity-time">5 hours ago</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Quick Actions -->
+                    <div class="quick-actions">
+                        <div class="section-header">
+                            <h3>Quick Actions</h3>
+                        </div>
+                        <div class="actions-grid">
+                            <button class="action-btn" data-action="assign-officer">
+                                <i class="fas fa-user-plus"></i>
+                                <span>Assign Officer</span>
+                            </button>
+                            <button class="action-btn" data-action="dispatch">
+                                <i class="fas fa-ambulance"></i>
+                                <span>Dispatch Team</span>
+                            </button>
+                            <button class="action-btn" data-action="alert">
+                                <i class="fas fa-bullhorn"></i>
+                                <span>Public Alert</span>
+                            </button>
+                            <button class="action-btn" data-action="monitor">
+                                <i class="fas fa-video"></i>
+                                <span>Monitor Cameras</span>
+                            </button>
+                            <button class="action-btn" data-action="report">
+                                <i class="fas fa-file-alt"></i>
+                                <span>Generate Report</span>
+                            </button>
+                            <button class="action-btn" data-action="map">
+                                <i class="fas fa-map-marked-alt"></i>
+                                <span>View Live Map</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="dashboard.js"></script>
+</body>
+</html>
