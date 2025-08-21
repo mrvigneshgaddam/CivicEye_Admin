@@ -84,10 +84,9 @@
               <span>Officer Management</span>
             </a>
           </li>
-          <li class="menu-item" data-page="officers">
-            <a href="#" onclick="showPage('officers')">
+          <li class="menu-item" data-page="chat">
+            <a href="#" onclick="showPage('chat')">
               <i class="fa-solid fa-comments"></i>
-              <!-- to talk with other user -->
               <span>Chat App</span>
             </a>
           </li>
@@ -413,6 +412,177 @@
         </div>
         <div class="emergency-card-grid" id="emergencyCardGrid">
           <!-- Emergency service cards will be populated by JavaScript -->
+        </div>
+      </div>
+
+      <!-- Chat Application Page -->
+      <div class="page" id="chat">
+        <div class="page-header">
+          <h1>Chat Application</h1>
+          <div class="chat-header-controls">
+            <button class="btn-secondary" onclick="createNewChat()">
+              <i class="fas fa-plus"></i> New Chat
+            </button>
+            <button class="btn-secondary" onclick="toggleChatSettings()">
+              <i class="fas fa-cog"></i> Settings
+            </button>
+          </div>
+        </div>
+
+        <div class="chat-container">
+          <!-- Chat Sidebar -->
+          <div class="chat-sidebar" id="chatSidebar">
+            <div class="chat-sidebar-header">
+              <div class="search-chat">
+                <i class="fas fa-search"></i>
+                <input type="text" placeholder="Search conversations..." id="chatSearch" />
+              </div>
+            </div>
+            
+            <div class="chat-list" id="chatList">
+              <!-- Chat conversations will be populated by JavaScript -->
+            </div>
+          </div>
+
+          <!-- Chat Main Area -->
+          <div class="chat-main" id="chatMain">
+            <div class="chat-welcome" id="chatWelcome">
+              <div class="welcome-content">
+                <i class="fas fa-comments"></i>
+                <h2>Welcome to CivicEye Chat</h2>
+                <p>Select a conversation or start a new chat to begin messaging</p>
+                <button class="btn-primary" onclick="createNewChat()">
+                  <i class="fas fa-plus"></i> Start New Chat
+                </button>
+              </div>
+            </div>
+
+            <div class="chat-conversation" id="chatConversation" style="display: none;">
+              <div class="chat-header">
+                <div class="chat-user-info">
+                  <img src="policeman_5600529.png" alt="User" class="chat-user-avatar" id="chatUserAvatar" />
+                  <div class="chat-user-details">
+                    <h3 id="chatUserName">User Name</h3>
+                    <span id="chatUserStatus">Online</span>
+                  </div>
+                </div>
+                <div class="chat-actions">
+                  <button class="chat-action-btn" onclick="toggleChatInfo()">
+                    <i class="fas fa-info-circle"></i>
+                  </button>
+                  <button class="chat-action-btn" onclick="toggleChatMenu()">
+                    <i class="fas fa-ellipsis-v"></i>
+                  </button>
+                </div>
+              </div>
+
+              <div class="chat-messages" id="chatMessages">
+                <!-- Messages will be populated by JavaScript -->
+              </div>
+
+              <div class="chat-input-area">
+                <div class="chat-input-container">
+                  <button class="chat-attachment-btn" onclick="toggleAttachmentMenu()">
+                    <i class="fas fa-paperclip"></i>
+                  </button>
+                  <div class="chat-input-wrapper">
+                    <textarea 
+                      id="chatMessageInput" 
+                      placeholder="Type your message..." 
+                      rows="1"
+                      onkeydown="handleMessageKeydown(event)"
+                    ></textarea>
+                    <div class="chat-input-actions">
+                      <button class="chat-emoji-btn" onclick="toggleEmojiPicker()">
+                        <i class="fas fa-smile"></i>
+                      </button>
+                    </div>
+                  </div>
+                  <button class="chat-send-btn" onclick="sendMessage()">
+                    <i class="fas fa-paper-plane"></i>
+                  </button>
+                </div>
+                
+                <!-- Attachment Menu -->
+                <div class="attachment-menu" id="attachmentMenu" style="display: none;">
+                  <div class="attachment-option" onclick="attachFile('image')">
+                    <i class="fas fa-image"></i>
+                    <span>Photo</span>
+                  </div>
+                  <div class="attachment-option" onclick="attachFile('document')">
+                    <i class="fas fa-file"></i>
+                    <span>Document</span>
+                  </div>
+                  <div class="attachment-option" onclick="attachFile('location')">
+                    <i class="fas fa-map-marker-alt"></i>
+                    <span>Location</span>
+                  </div>
+                </div>
+
+                <!-- Emoji Picker -->
+                <div class="emoji-picker" id="emojiPicker" style="display: none;">
+                  <div class="emoji-grid">
+                    <span class="emoji" onclick="insertEmoji('😊')">😊</span>
+                    <span class="emoji" onclick="insertEmoji('👍')">👍</span>
+                    <span class="emoji" onclick="insertEmoji('👎')">👎</span>
+                    <span class="emoji" onclick="insertEmoji('❤️')">❤️</span>
+                    <span class="emoji" onclick="insertEmoji('😂')">😂</span>
+                    <span class="emoji" onclick="insertEmoji('😢')">😢</span>
+                    <span class="emoji" onclick="insertEmoji('😡')">😡</span>
+                    <span class="emoji" onclick="insertEmoji('🎉')">🎉</span>
+                    <span class="emoji" onclick="insertEmoji('🔥')">🔥</span>
+                    <span class="emoji" onclick="insertEmoji('💯')">💯</span>
+                    <span class="emoji" onclick="insertEmoji('👏')">👏</span>
+                    <span class="emoji" onclick="insertEmoji('🙏')">🙏</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Chat Info Panel -->
+            <div class="chat-info-panel" id="chatInfoPanel" style="display: none;">
+              <div class="chat-info-header">
+                <h3>Chat Information</h3>
+                <button class="close-btn" onclick="toggleChatInfo()">
+                  <i class="fas fa-times"></i>
+                </button>
+              </div>
+              <div class="chat-info-content">
+                <div class="chat-info-section">
+                  <h4>Participants</h4>
+                  <div class="participant-list" id="participantList">
+                    <!-- Participants will be populated by JavaScript -->
+                  </div>
+                </div>
+                <div class="chat-info-section">
+                  <h4>Shared Files</h4>
+                  <div class="shared-files" id="sharedFiles">
+                    <!-- Shared files will be populated by JavaScript -->
+                  </div>
+                </div>
+                <div class="chat-info-section">
+                  <h4>Chat Settings</h4>
+                  <div class="chat-settings">
+                    <div class="setting-item">
+                      <label>Mute Notifications</label>
+                      <div class="toggle-switch">
+                        <input type="checkbox" id="muteChat" />
+                        <label for="muteChat" class="toggle-label"></label>
+                      </div>
+                    </div>
+                    <div class="setting-item">
+                      <label>Archive Chat</label>
+                      <button class="btn-secondary">Archive</button>
+                    </div>
+                    <div class="setting-item">
+                      <label>Delete Chat</label>
+                      <button class="btn-danger">Delete</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
