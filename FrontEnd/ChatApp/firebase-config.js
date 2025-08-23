@@ -8,7 +8,8 @@ const firebaseConfig = {
   storageBucket: "civikeye-chat.firebasestorage.app",
   messagingSenderId: "18367232043",
   appId: "1:18367232043:web:3590ccd8a59f772e95d26e",
-  measurementId: "G-CRTF4KNR3E"
+  measurementId: "G-CRTF4KNR3E",
+  databaseURL: "https://civikeye-chat-default-rtdb.firebaseio.com"
 };
 
 // Initialize once
