@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>CivikEye – Secure Chat</title>
+
+  <!-- Icons & Dashboard styles -->
+  <link rel="stylesheet"
+        href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"/>
+  <link rel="stylesheet" href="/FrontEnd/Dashboard/dashboard.css"/>
+  <link rel="stylesheet" href="chatapp.css"/>
+
+  <!-- Firebase Modular SDK -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
+    import { getAuth } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
+    import { getFirestore } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
+    import { getDatabase } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-database.js";
+    
+    const firebaseConfig = {
+      apiKey: "AIzaSyA4jEkTJpjY98Btsqm2A-_5ycQBUvvGTuA",
+      authDomain: "civikeye-chat.firebaseapp.com",
+      projectId: "civikeye-chat",
+      storageBucket: "civikeye-chat.firebasestorage.app",
+      messagingSenderId: "18367232043",
+      appId: "1:18367232043:web:3590ccd8a59f772e95d26e",
+      measurementId: "G-CRTF4KNR3E"
+    };
+    
+    // Initialize Firebase
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+    const rtdb = getDatabase(app);
+    
+    // Make them globally available for the chat app
+    window.firebaseAuth = auth;
+    window.firebaseDb = db;
+    window.firebaseRtdb = rtdb;
+  </script>
+
+  <!-- Prevent zoom-shifts on mobile address bars -->
+  <meta name="theme-color" content="#4361ee"/>
+</head>
+<body>
+  <div class="container">
+    <!-- Sidebar (from your dashboard) -->
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <h3><i class="fas fa-shield-alt"></i> CivikEye</h3>
+        <button class="sidebar-collapse-btn" id="sidebarCollapse">
+          <i class="fas fa-bars"></i>
+        </button>
+      </div>
+      <ul class="sidebar-menu">
+        <li><a href="/FrontEnd/Dashboard/dashboard.html"><i class="fas fa-tachometer-alt"></i><span>Dashboard</span></a></li>
+        <li><a class="active" href="#"><i class="fas fa-comments"></i><span>Chat App</span></a></li>
+        <li><a href="#"><i class="fas fa-file-alt"></i><span>FIR Management</span></a></li>
+        <li><a href="#"><i class="fas fa-users"></i><span>Officer Management</span></a></li>
+        <li><a href="#"><i class="fas fa-exclamation-triangle"></i><span>Emergency Management</span></a></li>
+        <li><a href="#"><i class="fas fa-cog"></i><span>Settings</span></a></li>
+      </ul>
+    </aside>
+
+    <!-- Main -->
+    <main class="main">
+      <!-- Header -->
+      <header class="header">
+        <div class="header-left"><h2>Secure Communications</h2></div>
+        <div class="header-right">
+          <div class="search-box">
+            <i class="fas fa-search"></i>
+            <input id="global-search" type="text" placeholder="Search conversations…"/>
+          </div>
+          <button class="notification-btn">
+            <i class="fas fa-bell"></i><span class="notification-badge" id="notif-count">0</span>
+          </button>
+          <div class="profile-dropdown">
+            <img id="profile-img" src="https://randomuser.me/api/portraits/men/32.jpg" class="profile-img" alt="Profile"/>
+            <div class="dropdown-content">
+              <a href="#"><i class="fas fa-user"></i> Profile</a>
+              <a href="#"><i class="fas fa-cog"></i> Settings</a>
+              <a id="logout-btn" href="#"><i class="fas fa-sign-out-alt"></i> Logout</a>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <!-- Chat Shell -->
+      <div class="chat-container">
+        <!-- Chat list -->
+        <aside class="chat-sidebar">
+          <div class="chat-sidebar-header">
+            <div class="search-box">
+              <i class="fas fa-search"></i>
+              <input id="search-conversations" type="text" placeholder="Search officers…"/>
+            </div>
+          </div>
+
+          <div id="conversation-list" class="conversation-list">
+            <div class="spinner"></div>
+          </div>
+
+          <div class="setup-panel">
+            <h3>Setup</h3>
+            <p>To start a secure chat:</p>
+            <ol>
+              <li>Copy your ID: <span id="current-user-id">Loading…</span></li>
+              <li>Click "New Chat" and paste the other officer's ID</li>
+            </ol>
+            <button id="new-chat-btn" class="new-chat-btn"><i class="fas fa-plus"></i> New Chat</button>
+          </div>
+          
+          <!-- Security Info Container -->
+          <div class="security-container">
+            <div id="security-info">
+              <div class="security-loading">Loading security information...</div>
+            </div>
+          </div>
+        </aside>
+
+        <!-- Chat area -->
+        <div class="chat-main">
+          <div class="chat-header">
+            <div class="chat-partner">
+              <img id="partner-avatar" class="partner-avatar" src="https://randomuser.me/api/portraits/lego/2.jpg" alt=""/>
+              <div class="partner-info">
+                <h3 id="partner-name">Select a conversation</h3>
+                <p class="status">
+                  <i id="presence-dot" class="fas fa-circle offline"></i>
+                  <span id="status-text">Offline</span>
+                  <span class="encryption-status"><i class="fas fa-lock"></i> E2E encrypted</span>
+                </p>
+              </div>
+            </div>
+            <div class="chat-actions">
+              <button class="action-btn" title="More"><i class="fas fa-ellipsis-v"></i></button>
+            </div>
+          </div>
+
+          <div id="message-container" class="message-container">
+            <div id="no-chat-selected" class="no-chat-selected">
+              <i class="fas fa-user-shield"></i>
+              <h3>CivikEye Secure Messaging</h3>
+              <p>Select a chat to begin</p>
+              <div class="security-badge">
+                <i class="fas fa-lock"></i> E2E encryption enabled
+              </div>
+            </div>
+          </div>
+
+          <div id="typing-indicator" class="typing-indicator" style="display:none;">
+            <span id="typing-text"></span>
+          </div>
+
+          <div id="message-input-container" class="message-input-container" style="display:none;">
+            <button id="attach-btn" class="attachment-btn" title="Attach"><i class="fas fa-paperclip"></i></button>
+            <input id="message-input" class="message-input" type="text" placeholder="Type secure message…"/>
+            <button id="send-btn" class="send-btn" title="Send"><i class="fas fa-paper-plane"></i></button>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- Modal: New chat -->
+  <div class="modal" id="new-chat-modal" aria-hidden="true">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>Start New Chat</h3>
+        <span class="close" id="new-chat-close">&times;</span>
+      </div>
+      <div class="modal-body">
+        <p>Enter the officer's User ID:</p>
+        <input id="new-chat-userid" type="text" placeholder="Paste User ID"/>
+        <button id="start-chat-btn">Start Chat</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- App Scripts -->
+  <script src="/FrontEnd/Dashboard/dashboard.js"></script>
+  <script src="chatapp.js"></script>
+</body>
+</html>
