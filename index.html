@@ -1,5 +1,49 @@
 <!DOCTYPE html>
 <html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CivicEye - Login</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="login-container">
+        <div class="login-card">
+            <div class="login-header">
+                <div class="logo">
+                    <i class="fas fa-shield-alt"></i>
+                    <h1>CivicEye</h1>
+                </div>
+                <p>Public Safety Management System</p>
+            </div>
+            
+            <form id="loginForm" class="login-form">
+                <div class="input-group">
+                    <i class="fas fa-user"></i>
+                    <input type="text" id="email" name="email" placeholder="Email" required>
+                </div>
+                
+                <div class="input-group">
+                    <i class="fas fa-lock"></i>
+                    <input type="password" id="password" name="password" placeholder="Password" required>
+                    <button type="button" class="toggle-password">
+                        <i class="far fa-eye"></i>
+                    </button>
+                </div>
+                
+                <button type="submit" class="login-btn">
+                    <span>Login</span>
+                    <i class="fas fa-arrow-right"></i>
+                </button>
+            </form>
+            
+            <div class="login-footer">
+                <a href="#">Forgot Password?</a>
+                <span>|</span>
+                <a href="#">Contact Support</a>
+=======
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -820,214 +864,25 @@
             <div class="form-group">
               <label>New Password</label>
               <input type="password" class="form-input" />
+
             </div>
-            <div class="form-group">
-              <label>Confirm New Password</label>
-              <input type="password" class="form-input" />
+            
+            <!-- Debug panel (visible only in development) -->
+            <div id="debugPanel" class="debug-panel">
+                <h3>API Debug Information</h3>
+                <p>Endpoint: <code>POST http://localhost:5000/api/auth/login</code></p>
+                <div id="debugStatus">Status: Not attempted</div>
+                <div id="debugResponse">Response: None</div>
             </div>
-            <button class="btn-secondary">Change Password</button>
-          </div>
         </div>
-      </div>
-
-      <!-- Logs & Audit Page -->
-      <div class="page" id="logs">
-        <div class="page-header">
-          <h1>Logs & Audit Trail</h1>
-          <div class="header-controls">
-            <button class="btn-secondary">
-              <i class="fas fa-file-csv"></i> Export CSV
-            </button>
-            <button class="btn-secondary">
-              <i class="fas fa-file-pdf"></i> Export PDF
-            </button>
-          </div>
-        </div>
-
-        <div class="filters-section">
-          <div class="search-bar">
-            <i class="fas fa-search"></i>
-            <input type="text" placeholder="Search logs..." id="logSearch" />
-          </div>
-          <div class="filter-controls">
-            <select id="logTypeFilter">
-              <option value="">All Types</option>
-              <option value="Login">Login</option>
-              <option value="Data Access">Data Access</option>
-              <option value="System">System</option>
-              <option value="Error">Error</option>
-            </select>
-            <select id="logLevelFilter">
-              <option value="">All Levels</option>
-              <option value="Info">Info</option>
-              <option value="Warning">Warning</option>
-              <option value="Error">Error</option>
-              <option value="Critical">Critical</option>
-            </select>
-            <input type="date" id="logDateFilter" />
-          </div>
-        </div>
-
-        <div class="table-container">
-          <table class="data-table" id="logTable">
-            <thead>
-              <tr>
-                <th onclick="sortTable('logTable', 0)">
-                  Timestamp <i class="fas fa-sort"></i>
-                </th>
-                <th onclick="sortTable('logTable', 1)">
-                  User <i class="fas fa-sort"></i>
-                </th>
-                <th onclick="sortTable('logTable', 2)">
-                  Action <i class="fas fa-sort"></i>
-                </th>
-                <th onclick="sortTable('logTable', 3)">
-                  Type <i class="fas fa-sort"></i>
-                </th>
-                <th onclick="sortTable('logTable', 4)">
-                  Level <i class="fas fa-sort"></i>
-                </th>
-                <th>Details</th>
-              </tr>
-            </thead>
-            <tbody id="logTableBody">
-              <!-- Data populated by JavaScript -->
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      <!-- Help & Support Page -->
-      <div class="page" id="help">
-        <div class="page-header">
-          <h1>Help & Support</h1>
-          <button class="btn-primary">Contact Support</button>
-        </div>
-
-        <div class="help-grid">
-          <div class="faq-section">
-            <h3>Frequently Asked Questions</h3>
-            <div class="accordion">
-              <div class="accordion-item">
-                <div class="accordion-header" onclick="toggleAccordion(this)">
-                  <span>How do I file a new FIR?</span>
-                  <i class="fas fa-chevron-down"></i>
-                </div>
-                <div class="accordion-content">
-                  <p>
-                    To file a new FIR, navigate to the FIR Management page and
-                    click the "New FIR" button. Fill in all required information
-                    including incident type, location, and description.
-                  </p>
-                </div>
-              </div>
-              <div class="accordion-item">
-                <div class="accordion-header" onclick="toggleAccordion(this)">
-                  <span>How can I track case status?</span>
-                  <i class="fas fa-chevron-down"></i>
-                </div>
-                <div class="accordion-content">
-                  <p>
-                    Case status can be tracked from the FIR Management page. Use
-                    the search function to find specific cases or filter by
-                    status to view all cases in a particular state.
-                  </p>
-                </div>
-              </div>
-              <div class="accordion-item">
-                <div class="accordion-header" onclick="toggleAccordion(this)">
-                  <span>How do I reset my password?</span>
-                  <i class="fas fa-chevron-down"></i>
-                </div>
-                <div class="accordion-content">
-                  <p>
-                    You can reset your password from the Admin Profile page.
-                    Navigate to the "Change Password" section and follow the
-                    prompts to update your credentials.
-                  </p>
-                </div>
-              </div>
-              <div class="accordion-item">
-                <div class="accordion-header" onclick="toggleAccordion(this)">
-                  <span>How do I generate reports?</span>
-                  <i class="fas fa-chevron-down"></i>
-                </div>
-                <div class="accordion-content">
-                  <p>
-                    Reports can be generated from the Analytics & Reports page.
-                    Select your date range and click "Generate Report". You can
-                    export reports in CSV, PDF, or Excel format.
-                  </p>
-                </div>
-              </div>
+        
+        <div class="login-illustration">
+            <div class="illustration-container">
+                <img src="https://illustrations.popsy.co/amber/digital-nomad.svg" alt="Security Illustration">
             </div>
-          </div>
-
-          <div class="support-form">
-            <h3>Submit Support Ticket</h3>
-            <form class="ticket-form">
-              <div class="form-group">
-                <label>Subject</label>
-                <input
-                  type="text"
-                  class="form-input"
-                  placeholder="Brief description of your issue"
-                />
-              </div>
-              <div class="form-group">
-                <label>Priority</label>
-                <select class="form-select">
-                  <option>Low</option>
-                  <option>Medium</option>
-                  <option>High</option>
-                  <option>Critical</option>
-                </select>
-              </div>
-              <div class="form-group">
-                <label>Category</label>
-                <select class="form-select">
-                  <option>Technical Issue</option>
-                  <option>Feature Request</option>
-                  <option>Bug Report</option>
-                  <option>General Question</option>
-                </select>
-              </div>
-              <div class="form-group">
-                <label>Description</label>
-                <textarea
-                  class="form-textarea"
-                  rows="5"
-                  placeholder="Detailed description of your issue or request"
-                ></textarea>
-              </div>
-              <div class="form-group">
-                <label>Attachment</label>
-                <input type="file" class="form-input" />
-              </div>
-              <button type="submit" class="btn-primary">Submit Ticket</button>
-            </form>
-          </div>
         </div>
-      </div>
-    </main>
-
-    <!-- Modal for confirmations -->
-    <div class="modal" id="confirmModal">
-      <div class="modal-content">
-        <div class="modal-header">
-          <h3 id="modalTitle">Confirm Action</h3>
-          <button class="modal-close" onclick="closeModal()">&times;</button>
-        </div>
-        <div class="modal-body">
-          <p id="modalMessage">Are you sure you want to perform this action?</p>
-        </div>
-        <div class="modal-footer">
-          <button class="btn-secondary" onclick="closeModal()">Cancel</button>
-          <button class="btn-primary" id="confirmButton">Confirm</button>
-        </div>
-      </div>
     </div>
 
     <script src="script.js"></script>
-  </body>
+</body>
 </html>
