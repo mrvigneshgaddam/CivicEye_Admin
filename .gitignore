@@ -1,0 +1,6 @@
+# Ignore sensitive certs and secrets
+Backend/certs/*.crt
+Backend/certs/*.key
+Backend/certs/*.json
+.env
+node_modules
