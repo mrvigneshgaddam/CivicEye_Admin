@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CivikEye - FIR Management</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="FirManagement.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <h3><i class="fas fa-shield-alt"></i> CivikEye</h3>
+                <button class="sidebar-collapse-btn" id="sidebarCollapse">
+                    <i class="fas fa-bars"></i>
+                </button>
+            </div>
+            <ul class="sidebar-menu">
+                <li><a href="/FrontEnd/Dashboard/dashboard.html"><i class="fas fa-tachometer-alt"></i><span>Dashboard</span></a></li>
+                <li><a href="/FrontEnd/ChatApp/chatapp.html"><i class="fas fa-comments"></i><span>Chat App</span></a></li>
+                <li><a href="#" class="active"><i class="fas fa-file-alt"></i><span>FIR Management</span></a></li>
+                <li><a href="/FrontEnd/OfficerManagement/OfficerManagement.html"><i class="fas fa-users"></i><span>Officer Management</span></a></li>
+                <li><a href="/FrontEnd/EmergencyManagement/Emergency.html"><i class="fas fa-exclamation-triangle"></i><span>Emergency Management</span></a></li>
+                <li><a href="/FrontEnd/Profile/profile.html"><i class="fas fa-user-circle"></i><span>Profile</span></a></li>
+                <li><a href="/FrontEnd/Setting/setting.html"><i class="fas fa-cog"></i><span>Settings</span></a></li>
+            </ul>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main">
+            <!-- Header -->
+            <header class="header">
+                <div class="header-left">
+                    <h2>FIR Management</h2>
+                </div>
+                <div class="header-right">
+                    <div class="search-box">
+                        <i class="fas fa-search"></i>
+                        <input type="text" placeholder="Search FIRs...">
+                    </div>
+                    <button class="notification-btn">
+                        <i class="fas fa-bell"></i>
+                        <span class="notification-badge">3</span>
+                    </button>
+                    <div class="profile-dropdown">
+                        <img src="https://randomuser.me/api/portraits/men/32.jpg" alt="Profile" class="profile-img">
+                        <div class="dropdown-content">
+                            <a href="#"><i class="fas fa-user"></i> Profile</a>
+                            <a href="#"><i class="fas fa-cog"></i> Settings</a>
+                            <a href="#"><i class="fas fa-sign-out-alt"></i> Logout</a>
+                        </div>
+                    </div>
+                </div>
+            </header>
+
+            <!-- Content -->
+            <div class="content">
+                <div class="page-title">
+                    <h1>FIR Management</h1>
+                    <div class="breadcrumb">
+                        <a href="/FrontEnd/Dashboard/dashboard.html">Home</a>
+                        <i class="fas fa-chevron-right"></i>
+                        <span>FIR Management</span>
+                    </div>
+                </div>
+
+                <!-- Stats Cards -->
+                <div class="stats-cards">
+                    <div class="stats-card">
+                        <div class="stats-card-icon" style="background-color: rgba(76, 201, 240, 0.1);">
+                            <i class="fas fa-file-alt" style="color: #4cc9f0;"></i>
+                        </div>
+                        <h3>Total FIRs</h3>
+                        <h2>156</h2>
+                        <div class="stats-card-change positive">
+                            <i class="fas fa-arrow-up"></i>
+                            <span>8.3%</span>
+                        </div>
+                    </div>
+                    <div class="stats-card">
+                        <div class="stats-card-icon" style="background-color: rgba(248, 149, 34, 0.1);">
+                            <i class="fas fa-hourglass-half" style="color: #f8961e;"></i>
+                        </div>
+                        <h3>Pending FIRs</h3>
+                        <h2>42</h2>
+                        <div class="stats-card-change negative">
+                            <i class="fas fa-arrow-up"></i>
+                            <span>5.6%</span>
+                        </div>
+                    </div>
+                    <div class="stats-card">
+                        <div class="stats-card-icon" style="background-color: rgba(67, 97, 238, 0.1);">
+                            <i class="fas fa-check-circle" style="color: #4361ee;"></i>
+                        </div>
+                        <h3>Resolved FIRs</h3>
+                        <h2>89</h2>
+                        <div class="stats-card-change positive">
+                            <i class="fas fa-arrow-up"></i>
+                            <span>12.7%</span>
+                        </div>
+                    </div>
+                    <div class="stats-card">
+                        <div class="stats-card-icon" style="background-color: rgba(247, 37, 133, 0.1);">
+                            <i class="fas fa-exclamation-circle" style="color: #f72585;"></i>
+                        </div>
+                        <h3>Urgent FIRs</h3>
+                        <h2>15</h2>
+                        <div class="stats-card-change negative">
+                            <i class="fas fa-arrow-up"></i>
+                            <span>3.2%</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- FIR Actions -->
+                <div class="actions-row">
+                    <button class="btn btn-primary">
+                        <i class="fas fa-plus"></i>
+                        <span>New FIR</span>
+                    </button>
+                    <button class="btn btn-secondary">
+                        <i class="fas fa-filter"></i>
+                        <span>Filter</span>
+                    </button>
+                    <button class="btn btn-secondary">
+                        <i class="fas fa-download"></i>
+                        <span>Export</span>
+                    </button>
+                </div>
+
+                <!-- FIR List Table -->
+                <div class="table-card">
+                    <div class="table-header">
+                        <h3>Recent FIRs</h3>
+                        <div class="table-actions">
+                            <div class="search-box small">
+                                <i class="fas fa-search"></i>
+                                <input type="text" placeholder="Search FIRs...">
+                            </div>
+                            <button class="btn-icon">
+                                <i class="fas fa-sync-alt"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="table-container">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>FIR ID</th>
+                                    <th>Complainant</th>
+                                    <th>Incident Type</th>
+                                    <th>Location</th>
+                                    <th>Date/Time</th>
+                                    <th>Status</th>
+                                    <th>Assigned Officer</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>FIR-2023-00125</td>
+                                    <td>John Smith</td>
+                                    <td>Theft</td>
+                                    <td>District 5, Sector B</td>
+                                    <td>24 Oct 2023, 14:30</td>
+                                    <td><span class="status-badge pending">Pending</span></td>
+                                    <td>Officer James</td>
+                                    <td>
+                                        <div class="action-buttons">
+                                            <button class="btn-icon small"><i class="fas fa-eye"></i></button>
+                                            <button class="btn-icon small"><i class="fas fa-edit"></i></button>
+                                            <button class="btn-icon small"><i class="fas fa-trash"></i></button>
+                                        </div>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td>FIR-2023-00124</td>
+                                    <td>Emma Johnson</td>
+                                    <td>Assault</td>
+                                    <td>Central Market</td>
+                                    <td>24 Oct 2023, 11:15</td>
+                                    <td><span class="status-badge in-progress">In Progress</span></td>
+                                    <td>Officer Brown</td>
+                                    <td>
+                                        <div class="action-buttons">
+                                            <button class="btn-icon small"><i class="fas fa-eye"></i></button>
+                                            <button class="btn-icon small"><i class="fas fa-edit"></i></button>
+                                            <button class="btn-icon small"><i class="fas fa-trash"></i></button>
+                                        </div>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td>FIR-2023-00123</td>
+                                    <td>Robert Williams</td>
+                                    <td>Burglary</td>
+                                    <td>Residential Area C</td>
+                                    <td>23 Oct 2023, 22:45</td>
+                                    <td><span class="status-badge resolved">Resolved</span></td>
+                                    <td>Officer Davis</td>
+                                    <td>
+                                        <div class="action-buttons">
+                                            <button class="btn-icon small"><i class="fas fa-eye"></i></button>
+                                            <button class="btn-icon small"><i class="fas fa-edit"></i></button>
+                                            <button class="btn-icon small"><i class="fas fa-trash"></i></button>
+                                        </div>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td>FIR-2023-00122</td>
+                                    <td>Sarah Miller</td>
+                                    <td>Vandalism</td>
+                                    <td>Public Park</td>
+                                    <td>23 Oct 2023, 16:20</td>
+                                    <td><span class="status-badge pending">Pending</span></td>
+                                    <td>Unassigned</td>
+                                    <td>
+                                        <div class="action-buttons">
+                                            <button class="btn-icon small"><i class="fas fa-eye"></i></button>
+                                            <button class="btn-icon small"><i class="fas fa-edit"></i></button>
+                                            <button class="btn-icon small"><i class="fas fa-trash"></i></button>
+                                        </div>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td>FIR-2023-00121</td>
+                                    <td>Michael Thompson</td>
+                                    <td>Traffic Accident</td>
+                                    <td>Highway Exit 5B</td>
+                                    <td>23 Oct 2023, 09:30</td>
+                                    <td><span class="status-badge urgent">Urgent</span></td>
+                                    <td>Officer Wilson</td>
+                                    <td>
+                                        <div class="action-buttons">
+                                            <button class="btn-icon small"><i class="fas fa-eye"></i></button>
+                                            <button class="btn-icon small"><i class="fas fa-edit"></i></button>
+                                            <button class="btn-icon small"><i class="fas fa-trash"></i></button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="table-footer">
+                        <div class="table-info">
+                            Showing 1 to 5 of 156 entries
+                        </div>
+                        <div class="pagination">
+                            <button class="pagination-btn" disabled>
+                                <i class="fas fa-chevron-left"></i>
+                            </button>
+                            <button class="pagination-btn active">1</button>
+                            <button class="pagination-btn">2</button>
+                            <button class="pagination-btn">3</button>
+                            <button class="pagination-btn">
+                                <i class="fas fa-chevron-right"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="FirManagement.js"></script>
+</body>
+</html>

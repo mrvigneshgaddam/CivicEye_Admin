@@ -1,0 +1,16 @@
+# Set the default behavior for all files
+* text=auto
+
+# Explicitly declare text files you want to always normalize
+*.js text
+*.css text
+*.html text
+*.json text
+*.md text
+
+# Declare files that should never be normalized (binary files)
+*.png binary
+*.jpg binary
+*.gif binary
+*.ico binary
+*.pdf binary
