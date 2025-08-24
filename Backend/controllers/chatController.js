@@ -1,6 +1,7 @@
 const Conversation = require('../models/Conversation');
 const Message = require('../models/Message');
 const User = require('../models/User');
+const { encryptMessage, decryptMessage } = require('../utils/cryptoUtils');
 
 const chatController = {
   getConversations: async (req, res) => {
@@ -17,7 +18,7 @@ const chatController = {
           name: conv.name,
           participants: conv.participants,
           lastMessage: conv.lastMessage,
-          unreadCount: conv.participants.find(p => p._id.toString() === req.userId)?.unreadCount || 0,
+          unreadCount: conv.participantsData?.find(p => p.userId.toString() === req.userId.toString())?.unreadCount || 0,
           updatedAt: conv.updatedAt
         }))
       });
@@ -36,7 +37,7 @@ const chatController = {
       }
 
       // Include current user in participants
-      const allParticipants = [...new Set([req.userId, ...participantIds])];
+      const allParticipants = [...new Set([req.userId.toString(), ...participantIds])];
       
       if (allParticipants.length < 2) {
         return res.status(400).json({ success: false, error: 'At least 2 participants required' });
@@ -45,6 +46,10 @@ const chatController = {
       const conversation = new Conversation({
         name: name || `Chat with ${allParticipants.length} participants`,
         participants: allParticipants,
+        participantsData: allParticipants.map(userId => ({
+          userId,
+          unreadCount: userId === req.userId.toString() ? 0 : 1
+        })),
         createdBy: req.userId
       });
 
@@ -94,6 +99,12 @@ const chatController = {
           readBy: { $ne: req.userId }
         },
         { $addToSet: { readBy: req.userId } }
+      );
+
+      // Update unread count
+      await Conversation.updateOne(
+        { _id: conversationId, 'participantsData.userId': req.userId },
+        { $set: { 'participantsData.$.unreadCount': 0 } }
       );
 
       res.json({
@@ -149,18 +160,14 @@ const chatController = {
       };
       conversation.updatedAt = new Date();
       
-      // Reset unread count for sender, increment for others
-      conversation.participants.forEach(participant => {
-        if (participant._id.toString() === req.userId) {
-          participant.unreadCount = 0;
-        } else {
+      // Update unread counts for other participants
+      conversation.participantsData.forEach(participant => {
+        if (participant.userId.toString() !== req.userId.toString()) {
           participant.unreadCount = (participant.unreadCount || 0) + 1;
         }
       });
 
       await conversation.save();
-
-      // TODO: Implement WebSocket/real-time messaging here
 
       res.status(201).json({
         success: true,
