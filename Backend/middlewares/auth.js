@@ -1,8 +1,6 @@
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
-const { admin } = require('../config/db');
 
-// ---------- Existing JWT-based auth middleware ----------
 const auth = async (req, res, next) => {
   try {
     const token = req.header('Authorization')?.replace('Bearer ', '');
@@ -10,19 +8,24 @@ const auth = async (req, res, next) => {
     if (!token) {
       return res.status(401).json({ 
         success: false,
-        message: 'Access denied. No token provided.',
-        error: 'Access denied. No token provided.'
+        message: 'Access denied. No token provided.'
       });
     }
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    const user = await User.findById(decoded.userId);
+    const user = await User.findById(decoded.userId).select('-password');
 
     if (!user) {
       return res.status(401).json({ 
         success: false,
-        message: 'Token is not valid',
-        error: 'Token is not valid'
+        message: 'Token is not valid. User not found.'
+      });
+    }
+
+    if (!user.isActive) {
+      return res.status(401).json({ 
+        success: false,
+        message: 'Account is deactivated. Please contact administrator.'
       });
     }
 
@@ -31,46 +34,45 @@ const auth = async (req, res, next) => {
     next();
   } catch (error) {
     console.error('Auth middleware error:', error);
-    res.status(401).json({ 
+    
+    if (error.name === 'JsonWebTokenError') {
+      return res.status(401).json({ 
+        success: false,
+        message: 'Invalid token.'
+      });
+    }
+    
+    if (error.name === 'TokenExpiredError') {
+      return res.status(401).json({ 
+        success: false,
+        message: 'Token expired. Please login again.'
+      });
+    }
+
+    res.status(500).json({ 
       success: false,
-      message: 'Token is not valid',
-      error: 'Token is not valid'
+      message: 'Server error in authentication.'
     });
   }
 };
 
-// ---------- Firebase Admin authentication ----------
-const authenticateToken = async (req, res, next) => {
-  try {
-    const authHeader = req.headers['authorization'];
-    const token = authHeader && authHeader.split(' ')[1]; // Bearer TOKEN
-
-    if (!token) {
-      return res.status(401).json({ error: 'Access token required' });
-    }
-
-    const decodedToken = await admin.auth().verifyIdToken(token);
-    req.user = decodedToken;
-    next();
-  } catch (error) {
-    console.error('Authentication error:', error);
-    res.status(403).json({ error: 'Invalid or expired token' });
-  }
-};
-
-// ---------- Firebase Admin role check ----------
+// Admin middleware
 const requireAdmin = async (req, res, next) => {
   try {
-    const userDoc = await admin.firestore().collection('users').doc(req.user.uid).get();
-    if (!userDoc.exists || !userDoc.data().isAdmin) {
-      return res.status(403).json({ error: 'Admin access required' });
+    if (!req.user.isAdmin) {
+      return res.status(403).json({
+        success: false,
+        message: 'Admin access required.'
+      });
     }
     next();
   } catch (error) {
-    console.error('Admin check error:', error);
-    res.status(500).json({ error: 'Server error' });
+    console.error('Admin middleware error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error in admin verification.'
+    });
   }
 };
 
-// ---------- Exports ----------
-module.exports = { auth, authenticateToken, requireAdmin };
+module.exports = { auth, requireAdmin };

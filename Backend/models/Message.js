@@ -1,92 +1,80 @@
-// models/Message.js
-
-const { db } = require('../config/db'); // Firebase
 const mongoose = require('mongoose');
 
-/******************************
- * Firebase Message Class
- ******************************/
-class MessageFirebase {
-  constructor(data) {
-    this.id = data.id;
-    this.conversationId = data.conversationId;
-    this.senderId = data.senderId;
-    this.ciphertext = data.ciphertext;
-    this.iv = data.iv;
-    this.status = data.status || 'sent'; // sent, delivered, read
-    this.createdAt = data.createdAt || new Date();
-  }
-
-  static async findByConversation(conversationId, limit = 50) {
-    try {
-      const snapshot = await db.collection('conversations')
-        .doc(conversationId)
-        .collection('messages')
-        .orderBy('createdAt', 'desc')
-        .limit(limit)
-        .get();
-
-      return snapshot.docs.map(doc => new MessageFirebase({ id: doc.id, ...doc.data() }));
-    } catch (error) {
-      throw error;
-    }
-  }
-
-  async save() {
-    try {
-      const messageData = { ...this };
-      delete messageData.id;
-
-      let docRef;
-      if (this.id) {
-        docRef = db.collection('conversations')
-          .doc(this.conversationId)
-          .collection('messages')
-          .doc(this.id);
-        await docRef.update(messageData);
-      } else {
-        docRef = await db.collection('conversations')
-          .doc(this.conversationId)
-          .collection('messages')
-          .add(messageData);
-        this.id = docRef.id;
-      }
-      return this;
-    } catch (error) {
-      throw error;
-    }
-  }
-
-  static async updateStatus(messageId, conversationId, status) {
-    try {
-      await db.collection('conversations')
-        .doc(conversationId)
-        .collection('messages')
-        .doc(messageId)
-        .update({ status });
-    } catch (error) {
-      throw error;
-    }
-  }
-}
-
-/******************************
- * MongoDB Message Schema
- * (Optional: Only keep if needed for legacy)
- ******************************/
 const messageSchema = new mongoose.Schema({
-  sender: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
-  recipient: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
-  encryptedContent: { type: String, required: true },
-  iv: { type: String, required: true }, // Initialization vector for AES
-  mac: { type: String, required: true }, // Message Authentication Code
-  timestamp: { type: Date, default: Date.now }
+  conversation: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Conversation',
+    required: true
+  },
+  sender: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: true
+  },
+  content: {
+    type: String,
+    trim: true
+  },
+  encryptedContent: {
+    type: String // For end-to-end encrypted messages
+  },
+  iv: {
+    type: String // Initialization vector for encryption
+  },
+  messageType: {
+    type: String,
+    enum: ['text', 'image', 'file', 'encrypted'],
+    default: 'text'
+  },
+  status: {
+    type: String,
+    enum: ['sent', 'delivered', 'read'],
+    default: 'sent'
+  },
+  readBy: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
+  }],
+  attachments: [{
+    filename: String,
+    url: String,
+    size: Number,
+    mimetype: String
+  }]
+}, {
+  timestamps: true
 });
 
-// Indexes for faster querying
-messageSchema.index({ sender: 1, recipient: 1 });
-messageSchema.index({ recipient: 1, sender: 1 });
+// Indexes for better performance
+messageSchema.index({ conversation: 1, createdAt: 1 });
+messageSchema.index({ sender: 1 });
+messageSchema.index({ createdAt: -1 });
 
-const MessageMongo = mongoose.model('Message', messageSchema);
+// Virtual for message delivery status
+messageSchema.virtual('isDelivered').get(function() {
+  return this.status === 'delivered' || this.status === 'read';
+});
 
-module.exports = { MessageFirebase, MessageMongo };
+// Virtual for message read status
+messageSchema.virtual('isRead').get(function() {
+  return this.status === 'read';
+});
+
+// Method to mark as delivered
+messageSchema.methods.markAsDelivered = function() {
+  this.status = 'delivered';
+  return this.save();
+};
+
+// Method to mark as read by specific user
+messageSchema.methods.markAsRead = function(userId) {
+  if (!this.readBy.includes(userId)) {
+    this.readBy.push(userId);
+  }
+  if (this.readBy.length === this.conversation.participants.length - 1) {
+    this.status = 'read';
+  }
+  return this.save();
+};
+
+module.exports = mongoose.model('Message', messageSchema);

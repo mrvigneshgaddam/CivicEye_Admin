@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>CivikEye - Admin Dashboard</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="dashboard.css">
+    <link rel="stylesheet" href="/FrontEnd/Dashboard/dashboard.css">
 </head>
 <body>
     <div class="container">
@@ -19,12 +19,12 @@
             </div>
             <ul class="sidebar-menu">
                 <li><a href="#" class="active"><i class="fas fa-tachometer-alt"></i><span>Dashboard</span></a></li>
-                <li><a href="#"><i class="fas fa-comments"></i><span>Chat App</span></a></li>
-                <li><a href="#"><i class="fas fa-file-alt"></i><span>FIR Management</span></a></li>
-                <li><a href="#"><i class="fas fa-users"></i><span>Officer Management</span></a></li>
-                <li><a href="#"><i class="fas fa-exclamation-triangle"></i><span>Emergency Management</span></a></li>
-                <li><a href="#"><i class="fas fa-user-circle"></i><span>Profile</span></a></li>
-                <li><a href="#"><i class="fas fa-cog"></i><span>Settings</span></a></li>
+                <li><a href="/FrontEnd/ChatApp/chatapp.html"><i class="fas fa-comments"></i><span>Chat App</span></a></li>
+                <li><a href="/FrontEnd/FirManagement/FirManagement.html"><i class="fas fa-file-alt"></i><span>FIR Management</span></a></li>
+                <li><a href="/FrontEnd/OfficerManagement/OfficerManagement.html"><i class="fas fa-users"></i><span>Officer Management</span></a></li>
+                <li><a href="/FrontEnd/EmergencyManagement/Emergency.html"><i class="fas fa-exclamation-triangle"></i><span>Emergency Management</span></a></li>
+                <li><a href="/FrontEnd/Profile/profile.html"><i class="fas fa-user-circle"></i><span>Profile</span></a></li>
+                <li><a href="/FrontEnd/Setting/setting.html"><i class="fas fa-cog"></i><span>Settings</span></a></li>
             </ul>
         </aside>
 
@@ -49,7 +49,7 @@
                         <div class="dropdown-content">
                             <a href="#"><i class="fas fa-user"></i> Profile</a>
                             <a href="#"><i class="fas fa-cog"></i> Settings</a>
-                            <a href="#"><i class="fas fa-sign-out-alt"></i> Logout</a>
+                            <a href="/index.html" class="logout-btn"><i class="fas fa-sign-out-alt"></i> Logout</a>
                         </div>
                     </div>
                 </div>
@@ -233,6 +233,6 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="dashboard.js"></script>
+    <script src="/FrontEnd/Dashboard/dashboard.js"></script>
 </body>
 </html>

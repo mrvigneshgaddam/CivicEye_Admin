@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CivikEye - Officer Management</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="OfficerManagement.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <h3><i class="fas fa-shield-alt"></i> CivikEye</h3>
+                <button class="sidebar-collapse-btn" id="sidebarCollapse">
+                    <i class="fas fa-bars"></i>
+                </button>
+            </div>
+            <ul class="sidebar-menu">
+                <li><a href="/FrontEnd/Dashboard/dashboard.html"><i class="fas fa-tachometer-alt"></i><span>Dashboard</span></a></li>
+                <li><a href="/FrontEnd/ChatApp/chatapp.html"><i class="fas fa-comments"></i><span>Chat App</span></a></li>
+                <li><a href="/FrontEnd/FirManagement/FirManagement.html"><i class="fas fa-file-alt"></i><span>FIR Management</span></a></li>
+                <li><a href="#" class="active"><i class="fas fa-users"></i><span>Officer Management</span></a></li>
+                <li><a href="/FrontEnd/EmergencyManagement/Emergency.html"><i class="fas fa-exclamation-triangle"></i><span>Emergency Management</span></a></li>
+                <li><a href="/FrontEnd/Profile/profile.html"><i class="fas fa-user-circle"></i><span>Profile</span></a></li>
+                <li><a href="/FrontEnd/Setting/setting.html"><i class="fas fa-cog"></i><span>Settings</span></a></li>
+            </ul>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main">
+            <!-- Header -->
+            <header class="header">
+                <div class="header-left">
+                    <h2>Officer Management</h2>
+                </div>
+                <div class="header-right">
+                    <div class="search-box">
+                        <i class="fas fa-search"></i>
+                        <input type="text" placeholder="Search officers...">
+                    </div>
+                    <button class="notification-btn">
+                        <i class="fas fa-bell"></i>
+                        <span class="notification-badge">2</span>
+                    </button>
+                    <div class="profile-dropdown">
+                        <img src="https://randomuser.me/api/portraits/men/32.jpg" alt="Profile" class="profile-img">
+                        <div class="dropdown-content">
+                            <a href="#"><i class="fas fa-user"></i> Profile</a>
+                            <a href="#"><i class="fas fa-cog"></i> Settings</a>
+                            <a href="#"><i class="fas fa-sign-out-alt"></i> Logout</a>
+                        </div>
+                    </div>
+                </div>
+            </header>
+
+            <!-- Content -->
+            <div class="content">
+                <div class="page-title">
+                    <h1>Officer Management</h1>
+                    <div class="breadcrumb">
+                        <a href="/FrontEnd/Dashboard/dashboard.html">Home</a>
+                        <i class="fas fa-chevron-right"></i>
+                        <span>Officer Management</span>
+                    </div>
+                </div>
+
+                <!-- Stats Cards -->
+                <div class="stats-cards">
+                    <div class="stats-card">
+                        <div class="stats-card-icon" style="background-color: rgba(76, 201, 240, 0.1);">
+                            <i class="fas fa-users" style="color: #4cc9f0;"></i>
+                        </div>
+                        <h3>Total Officers</h3>
+                        <h2>56</h2>
+                        <div class="stats-card-change positive">
+                            <i class="fas fa-arrow-up"></i>
+                            <span>5.7%</span>
+                        </div>
+                    </div>
+                    <div class="stats-card">
+                        <div class="stats-card-icon" style="background-color: rgba(248, 149, 34, 0.1);">
+                            <i class="fas fa-user-check" style="color: #f8961e;"></i>
+                        </div>
+                        <h3>Active Officers</h3>
+                        <h2>42</h2>
+                        <div class="stats-card-change positive">
+                            <i class="fas fa-arrow-up"></i>
+                            <span>3.2%</span>
+                        </div>
+                    </div>
+                    <div class="stats-card">
+                        <div class="stats-card-icon" style="background-color: rgba(67, 97, 238, 0.1);">
+                            <i class="fas fa-user-clock" style="color: #4361ee;"></i>
+                        </div>
+                        <h3>On Leave</h3>
+                        <h2>7</h2>
+                        <div class="stats-card-change negative">
+                            <i class="fas fa-arrow-up"></i>
+                            <span>1.8%</span>
+                        </div>
+                    </div>
+                    <div class="stats-card">
+                        <div class="stats-card-icon" style="background-color: rgba(247, 37, 133, 0.1);">
+                            <i class="fas fa-star" style="color: #f72585;"></i>
+                        </div>
+                        <h3>Top Performers</h3>
+                        <h2>12</h2>
+                        <div class="stats-card-change positive">
+                            <i class="fas fa-arrow-up"></i>
+                            <span>4.5%</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Officer Actions -->
+                <div class="actions-row">
+                    <button class="btn btn-primary">
+                        <i class="fas fa-plus"></i>
+                        <span>Add Officer</span>
+                    </button>
+                    <button class="btn btn-secondary">
+                        <i class="fas fa-filter"></i>
+                        <span>Filter</span>
+                    </button>
+                    <button class="btn btn-secondary">
+                        <i class="fas fa-download"></i>
+                        <span>Export</span>
+                    </button>
+                </div>
+
+                <!-- Officer List Table -->
+                <div class="table-card">
+                    <div class="table-header">
+                        <h3>Officer List</h3>
+                        <div class="table-actions">
+                            <div class="search-box small">
+                                <i class="fas fa-search"></i>
+                                <input type="text" placeholder="Search officers...">
+                            </div>
+                            <button class="btn-icon">
+                                <i class="fas fa-sync-alt"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="table-container">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Badge ID</th>
+                                    <th>Officer</th>
+                                    <th>Rank</th>
+                                    <th>Department</th>
+                                    <th>Contact</th>
+                                    <th>Status</th>
+                                    <th>Assigned Cases</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>BDG-4578</td>
+                                    <td>
+                                        <div class="user-info">
+                                            <img src="https://randomuser.me/api/portraits/men/41.jpg" alt="Officer">
+                                            <div>
+                                                <div class="user-name">James Wilson</div>
+                                                <div class="user-email">j.wilson@civikeye.org</div>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td>Sergeant</td>
+                                    <td>Patrol Division</td>
+                                    <td>+1 (555) 123-4567</td>
+                                    <td><span class="status-badge active">Active</span></td>
+                                    <td>12</td>
+                                    <td>
+                                        <div class="action-buttons">
+                                            <button class="btn-icon small"><i class="fas fa-eye"></i></button>
+                                            <button class="btn-icon small"><i class="fas fa-edit"></i></button>
+                                            <button class="btn-icon small"><i class="fas fa-trash"></i></button>
+                                        </div>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td>BDG-3621</td>
+                                    <td>
+                                        <div class="user-info">
+                                            <img src="https://randomuser.me/api/portraits/women/32.jpg" alt="Officer">
+                                            <div>
+                                                <div class="user-name">Sarah Johnson</div>
+                                                <div class="user-email">s.johnson@civikeye.org</div>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td>Lieutenant</td>
+                                    <td>Investigations</td>
+                                    <td>+1 (555) 234-5678</td>
+                                    <td><span class="status-badge active">Active</span></td>
+                                    <td>8</td>
+                                    <td>
+                                        <div class="action-buttons">
+                                            <button class="btn-icon small"><i class="fas fa-eye"></i></button>
+                                            <button class="btn-icon small"><i class="fas fa-edit"></i></button>
+                                            <button class="btn-icon small"><i class="fas fa-trash"></i></button>
+                                        </div>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td>BDG-2895</td>
+                                    <td>
+                                        <div class="user-info">
+                                            <img src="https://randomuser.me/api/portraits/men/22.jpg" alt="Officer">
+                                            <div>
+                                                <div class="user-name">Robert Brown</div>
+                                                <div class="user-email">r.brown@civikeye.org</div>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td>Officer</td>
+                                    <td>Traffic Division</td>
+                                    <td>+1 (555) 345-6789</td>
+                                    <td><span class="status-badge on-leave">On Leave</span></td>
+                                    <td>5</td>
+                                    <td>
+                                        <div class="action-buttons">
+                                            <button class="btn-icon small"><i class="fas fa-eye"></i></button>
+                                            <button class="btn-icon small"><i class="fas fa-edit"></i></button>
+                                            <button class="btn-icon small"><i class="fas fa-trash"></i></button>
+                                        </div>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td>BDG-5123</td>
+                                    <td>
+                                        <div class="user-info">
+                                            <img src="https://randomuser.me/api/portraits/women/45.jpg" alt="Officer">
+                                            <div>
+                                                <div class="user-name">Emily Davis</div>
+                                                <div class="user-email">e.davis@civikeye.org</div>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td>Captain</td>
+                                    <td>Administration</td>
+                                    <td>+1 (555) 456-7890</td>
+                                    <td><span class="status-badge active">Active</span></td>
+                                    <td>3</td>
+                                    <td>
+                                        <div class="action-buttons">
+                                            <button class="btn-icon small"><i class="fas fa-eye"></i></button>
+                                            <button class="btn-icon small"><i class="fas fa-edit"></i></button>
+                                            <button class="btn-icon small"><i class="fas fa-trash"></i></button>
+                                        </div>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td>BDG-1742</td>
+                                    <td>
+                                        <div class="user-info">
+                                            <img src="https://randomuser.me/api/portraits/men/67.jpg" alt="Officer">
+                                            <div>
+                                                <div class="user-name">Michael Taylor</div>
+                                                <div class="user-email">m.taylor@civikeye.org</div>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td>Detective</td>
+                                    <td>Crime Unit</td>
+                                    <td>+1 (555) 567-8901</td>
+                                    <td><span class="status-badge inactive">Inactive</span></td>
+                                    <td>0</td>
+                                    <td>
+                                        <div class="action-buttons">
+                                            <button class="btn-icon small"><i class="fas fa-eye"></i></button>
+                                            <button class="btn-icon small"><i class="fas fa-edit"></i></button>
+                                            <button class="btn-icon small"><i class="fas fa-trash"></i></button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="table-footer">
+                        <div class="table-info">
+                            Showing 1 to 5 of 56 entries
+                        </div>
+                        <div class="pagination">
+                            <button class="pagination-btn" disabled>
+                                <i class="fas fa-chevron-left"></i>
+                            </button>
+                            <button class="pagination-btn active">1</button>
+                            <button class="pagination-btn">2</button>
+                            <button class="pagination-btn">3</button>
+                            <button class="pagination-btn">
+                                <i class="fas fa-chevron-right"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="OfficerManagement.js"></script>
+</body>
+</html>

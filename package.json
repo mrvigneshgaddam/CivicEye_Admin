@@ -8,16 +8,16 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/mrvigneshgaddam/CivicEye_Admin.git"
+    "url": "git+https://github.com/TapasPrajapati/CivicEye_Admin.git"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "type": "commonjs",
   "bugs": {
-    "url": "https://github.com/mrvigneshgaddam/CivicEye_Admin/issues"
+    "url": "https://github.com/TapasPrajapati/CivicEye_Admin/issues"
   },
-  "homepage": "https://github.com/mrvigneshgaddam/CivicEye_Admin#readme",
+  "homepage": "https://github.com/TapasPrajapati/CivicEye_Admin#readme",
   "dependencies": {
     "argon2": "^0.44.0",
     "bcryptjs": "^3.0.2",
@@ -37,7 +37,7 @@
     "http-proxy-middleware": "^3.0.5",
     "https": "^1.0.0",
     "jsonwebtoken": "^9.0.2",
-    "mongoose": "^8.17.2",
+    "mongoose": "^8.18.0",
     "node-forge": "^1.3.1",
     "path": "^0.12.7",
     "socket.io": "^4.8.1",
