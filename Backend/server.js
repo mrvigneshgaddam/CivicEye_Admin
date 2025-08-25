@@ -11,12 +11,15 @@ const mongoSanitize = require('express-mongo-sanitize');
 
 // ---------- Import routes ----------
 const authRoutes = require('./routes/authRoutes');
-const chatRoutes = require('./routes/chatRoutes');
+const chatRoutes = require('./routes/chatRoutes');  
 const dashboardRoutes = require('./routes/dashboardRoutes');
 const emergencyRoutes = require('./routes/emergencyRoutes');
 const firRoutes = require('./routes/firRoutes');
 const officerRoutes = require('./routes/officerRoutes');
 const profileRoutes = require('./routes/profileRoutes');
+
+// ---------- Import database configuration ----------
+const { connectDB, initializeFirebase } = require('./config/db');
 
 const app = express();
 const server = http.createServer(app);
@@ -124,35 +127,15 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 // ---------- Database Connection ----------
 const mongoUri = process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/civiceye';
 
-const connectDB = async () => {
-  try {
-    await mongoose.connect(mongoUri, {
-      useNewUrlParser: true,
-      useUnifiedTopology: true,
-      serverSelectionTimeoutMS: 5000,
-      socketTimeoutMS: 45000,
-    });
-    console.log('✅ MongoDB connected successfully');
-  } catch (err) {
-    console.error('❌ MongoDB connection failed:', err.message);
-    process.exit(1);
-  }
-};
+// Initialize Firebase
+initializeFirebase();
 
+// Connect to MongoDB
 connectDB();
-
-// MongoDB connection events
-mongoose.connection.on('error', (err) => {
-  console.error('❌ MongoDB connection error:', err);
-});
-
-mongoose.connection.on('disconnected', () => {
-  console.log('⚠️ MongoDB disconnected');
-});
 
 // ---------- Routes ----------
 app.use('/api/auth', authRoutes);
-app.use('/api/chat', chatRoutes);
+app.use('/api/chat', chatRoutes);  // This line will now work
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/emergency', emergencyRoutes);
 app.use('/api/fir', firRoutes);

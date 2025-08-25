@@ -1,66 +1,74 @@
-const { db } = require('../config/db');
+const mongoose = require('mongoose');
 
-class Conversation {
-  constructor(data) {
-    this.id = data.id;
-    this.participants = data.participants || [];
-    this.title = data.title;
-    this.lastMessage = data.lastMessage;
-    this.lastUpdated = data.lastUpdated || new Date();
-    this.keys = data.keys || {}; // Encrypted keys for participants
+const participantSchema = new mongoose.Schema({
+  user: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: true
+  },
+  unreadCount: {
+    type: Number,
+    default: 0
+  },
+  joinedAt: {
+    type: Date,
+    default: Date.now
   }
+});
 
-  static async findById(id) {
-    try {
-      const doc = await db.collection('conversations').doc(id).get();
-      return doc.exists ? new Conversation({ id, ...doc.data() }) : null;
-    } catch (error) {
-      throw error;
-    }
+const conversationSchema = new mongoose.Schema({
+  name: {
+    type: String,
+    required: true,
+    trim: true
+  },
+  participants: [participantSchema],
+  createdBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: true
+  },
+  lastMessage: {
+    content: String,
+    sender: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User'
+    },
+    timestamp: Date
+  },
+  isGroup: {
+    type: Boolean,
+    default: false
+  },
+  encryptionKey: {
+    type: String // For end-to-end encryption
   }
+}, {
+  timestamps: true
+});
 
-  static async findByUser(uid) {
-    try {
-      const snapshot = await db.collection('conversations')
-        .where('participants', 'array-contains', uid)
-        .orderBy('lastUpdated', 'desc')
-        .get();
+// Add index for better performance
+conversationSchema.index({ participants: 1 });
+conversationSchema.index({ updatedAt: -1 });
 
-      return snapshot.docs.map(doc => new Conversation({ id: doc.id, ...doc.data() }));
-    } catch (error) {
-      throw error;
-    }
-  }
+// Virtual for getting participant count
+conversationSchema.virtual('participantCount').get(function() {
+  return this.participants.length;
+});
 
-  async save() {
-    try {
-      const convData = { ...this };
-      delete convData.id;
-
-      let docRef;
-      if (this.id) {
-        docRef = db.collection('conversations').doc(this.id);
-        await docRef.update(convData);
-      } else {
-        docRef = await db.collection('conversations').add(convData);
-        this.id = docRef.id;
-      }
-      return this;
-    } catch (error) {
-      throw error;
-    }
-  }
-
-  async addParticipant(uid, keyData) {
-    if (!this.participants.includes(uid)) {
-      this.participants.push(uid);
-    }
-    if (keyData) {
-      this.keys[uid] = keyData;
-    }
-    this.lastUpdated = new Date();
+// Method to add participant
+conversationSchema.methods.addParticipant = function(userId) {
+  if (!this.participants.some(p => p.user.toString() === userId.toString())) {
+    this.participants.push({ user: userId });
     return this.save();
   }
-}
+  return Promise.resolve(this);
+};
 
-module.exports = Conversation;
+// Method to remove participant
+conversationSchema.methods.removeParticipant = function(userId) {
+  this.participants = this.participants.filter(p => p.user.toString() !== userId.toString());
+  return this.save();
+};
+
+module.exports = mongoose.model('Conversation', conversationSchema);

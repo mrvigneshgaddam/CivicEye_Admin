@@ -1,10 +1,11 @@
+// routes/chatRoutes.js
 const express = require('express');
 const router = express.Router();
 const chatController = require('../controllers/chatController');
-const { authenticateToken } = require('../middlewares/auth');
+const { auth } = require('../middlewares/auth'); // Use 'auth' instead of 'authenticateToken'
 
 // All routes require authentication
-router.use(authenticateToken);
+router.use(auth); // Use JWT-based auth instead of Firebase auth
 
 // Conversation routes
 router.get('/conversations', chatController.getConversations);

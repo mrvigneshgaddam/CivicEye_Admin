@@ -2,6 +2,14 @@ document.addEventListener('DOMContentLoaded', function() {
     const loginForm = document.getElementById('loginForm');
     const togglePassword = document.querySelector('.toggle-password');
     const passwordInput = document.getElementById('password');
+    const debugPanel = document.getElementById('debugPanel');
+    const debugStatus = document.getElementById('debugStatus');
+    const debugResponse = document.getElementById('debugResponse');
+    
+    // Check if we're in development mode
+    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+        document.body.classList.add('development');
+    }
     
     if (!loginForm || !togglePassword || !passwordInput) {
         console.error('Required login form elements not found');
@@ -29,7 +37,7 @@ document.addEventListener('DOMContentLoaded', function() {
     loginForm.addEventListener('submit', async function(e) {
         e.preventDefault();
 
-        const emailInput = document.getElementById('email');  // ✅ matches HTML
+        const emailInput = document.getElementById('email');
         const passwordInput = document.getElementById('password');
 
         if (!emailInput || !passwordInput) {
@@ -50,23 +58,49 @@ document.addEventListener('DOMContentLoaded', function() {
         const originalBtnHTML = loginBtn.innerHTML;
         loginBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
         loginBtn.disabled = true;
+        
+        // Update debug panel
+        if (debugPanel && debugStatus) {
+            debugStatus.textContent = 'Status: Making request...';
+            debugResponse.textContent = 'Response: Waiting...';
+        }
 
         try {
             // API CALL
             const response = await fetch('http://localhost:5000/api/auth/login', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email, password }) // ✅ backend expects email
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json'
+                },
+                body: JSON.stringify({ email, password })
             });
-
-            if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.message || 'Login failed');
+            
+            // Update debug info
+            if (debugStatus) {
+                debugStatus.textContent = `Status: ${response.status} ${response.statusText}`;
             }
 
-            const data = await response.json();
-            localStorage.setItem('authToken', data.token);
-            localStorage.setItem('user', JSON.stringify(data.user));
+            const responseData = await response.json().catch(() => ({}));
+            
+            if (debugResponse) {
+                debugResponse.textContent = `Response: ${JSON.stringify(responseData, null, 2)}`;
+            }
+
+            if (!response.ok) {
+                throw new Error(responseData.message || `Login failed with status ${response.status}`);
+            }
+
+            // Check if response has the expected data
+            if (!responseData.token) {
+                throw new Error('No authentication token received from server');
+            }
+
+            localStorage.setItem('authToken', responseData.token);
+            
+            if (responseData.user) {
+                localStorage.setItem('user', JSON.stringify(responseData.user));
+            }
 
             // Success animation
             loginBtn.innerHTML = '<i class="fas fa-check"></i>';
@@ -74,8 +108,21 @@ document.addEventListener('DOMContentLoaded', function() {
             setTimeout(redirectToDashboard, 800);
 
         } catch (error) {
-            console.warn('API error:', error.message);
-            showError(loginForm, error.message);
+            console.error('API error:', error.message);
+            
+            // More specific error messages
+            let errorMessage = error.message;
+            if (error.message.includes('Failed to fetch')) {
+                errorMessage = 'Cannot connect to server. Please check if the server is running on localhost:5000';
+            } else if (error.message.includes('status 500')) {
+                errorMessage = 'Server error. Please check your server logs for more details.';
+            } else if (error.message.includes('status 401')) {
+                errorMessage = 'Invalid email or password. Please try again.';
+            } else if (error.message.includes('status 404')) {
+                errorMessage = 'Login endpoint not found. Please check your server routes.';
+            }
+            
+            showError(loginForm, errorMessage);
             loginBtn.innerHTML = originalBtnHTML;
             loginBtn.style.backgroundColor = '';
             loginBtn.disabled = false;
@@ -83,8 +130,17 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     function redirectToDashboard() {
+        // Optional: show a temporary loading screen to avoid CSS mismatch flicker
+        document.body.innerHTML = `
+            <div class="loading-screen">
+                <p>Loading Dashboard...</p>
+            </div>
+        `;
+
+        // Redirect immediately
         window.location.href = 'FrontEnd/Dashboard/dashboard.html';
     }
+
     
     function showError(form, message) {
         const existingError = form.querySelector('.error-message');

@@ -1,63 +1,166 @@
 const express = require('express');
 const router = express.Router();
 const { auth } = require('../middlewares/auth');
+const dashboardController = require('../controllers/dashboardController');
+const User = require('../models/User');
+const Message = require('../models/Message');
+const Notification = require('../models/Notification');
 
-// GET /api/dashboard/stats
-router.get('/stats', auth, async (req, res) => {
+// GET /api/dashboard/stats - Get comprehensive dashboard statistics
+router.get('/stats', auth, dashboardController.getDashboardStats);
+
+// GET /api/dashboard/activity - Get user activity data
+router.get('/activity', auth, dashboardController.getUserActivity);
+
+// GET /api/dashboard/charts - Get charts data
+router.get('/charts', auth, dashboardController.getChartsData);
+
+// GET /api/dashboard/users - Get user statistics
+router.get('/users', auth, async (req, res) => {
   try {
-    // Mock dashboard stats - replace with actual data
-    const stats = {
-      totalUsers: 150,
-      activeUsers: 45,
-      totalMessages: 1280,
-      conversations: 89,
-      newUsersThisWeek: 12,
-      systemStatus: 'operational'
-    };
+    const users = await User.aggregate([
+      {
+        $group: {
+          _id: '$department',
+          count: { $sum: 1 },
+          active: {
+            $sum: {
+              $cond: [{ $eq: ['$isActive', true] }, 1, 0]
+            }
+          }
+        }
+      }
+    ]);
 
     res.json({
       success: true,
-      data: stats
+      data: users
     });
   } catch (error) {
-    console.error('Dashboard stats error:', error);
+    console.error('Users stats error:', error);
     res.status(500).json({
       success: false,
-      message: 'Failed to fetch dashboard stats'
+      message: 'Failed to fetch user statistics'
     });
   }
 });
 
-// GET /api/dashboard/activity
-router.get('/activity', auth, async (req, res) => {
+// GET /api/dashboard/messages - Get message statistics
+router.get('/messages', auth, async (req, res) => {
   try {
-    // Mock recent activity
-    const activity = [
+    const { days = 30 } = req.query;
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - parseInt(days));
+
+    const messages = await Message.aggregate([
       {
-        id: 1,
-        type: 'user_login',
-        message: 'User logged in',
-        timestamp: new Date(Date.now() - 1000 * 60 * 5), // 5 minutes ago
-        user: 'user123'
+        $match: {
+          createdAt: { $gte: startDate }
+        }
       },
       {
-        id: 2,
-        type: 'message_sent',
-        message: 'New message sent',
-        timestamp: new Date(Date.now() - 1000 * 60 * 15), // 15 minutes ago
-        user: 'user456'
+        $group: {
+          _id: {
+            date: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt' } },
+            type: '$messageType'
+          },
+          count: { $sum: 1 }
+        }
+      },
+      {
+        $sort: { '_id.date': 1 }
       }
-    ];
+    ]);
 
     res.json({
       success: true,
-      data: activity
+      data: messages
     });
   } catch (error) {
-    console.error('Dashboard activity error:', error);
+    console.error('Messages stats error:', error);
     res.status(500).json({
       success: false,
-      message: 'Failed to fetch activity'
+      message: 'Failed to fetch message statistics'
+    });
+  }
+});
+
+// GET /api/notifications - Get user notifications
+router.get('/notifications', auth, async (req, res) => {
+  try {
+    const { limit = 20, unreadOnly = false } = req.query;
+    
+    const query = { userId: req.user._id };
+    if (unreadOnly === 'true') {
+      query.read = false;
+    }
+
+    const notifications = await Notification.find(query)
+      .sort({ createdAt: -1 })
+      .limit(parseInt(limit))
+      .populate('relatedTo')
+      .lean();
+
+    res.json({
+      success: true,
+      data: notifications
+    });
+  } catch (error) {
+    console.error('Notifications error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch notifications'
+    });
+  }
+});
+
+// PUT /api/notifications/:id/read - Mark notification as read
+router.put('/notifications/:id/read', auth, async (req, res) => {
+  try {
+    const notification = await Notification.findOneAndUpdate(
+      { _id: req.params.id, userId: req.user._id },
+      { read: true, readAt: new Date() },
+      { new: true }
+    );
+
+    if (!notification) {
+      return res.status(404).json({
+        success: false,
+        message: 'Notification not found'
+      });
+    }
+
+    res.json({
+      success: true,
+      message: 'Notification marked as read',
+      data: notification
+    });
+  } catch (error) {
+    console.error('Mark notification read error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to mark notification as read'
+    });
+  }
+});
+
+// PUT /api/notifications/read-all - Mark all notifications as read
+router.put('/notifications/read-all', auth, async (req, res) => {
+  try {
+    await Notification.updateMany(
+      { userId: req.user._id, read: false },
+      { read: true, readAt: new Date() }
+    );
+
+    res.json({
+      success: true,
+      message: 'All notifications marked as read'
+    });
+  } catch (error) {
+    console.error('Mark all notifications read error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to mark all notifications as read'
     });
   }
 });

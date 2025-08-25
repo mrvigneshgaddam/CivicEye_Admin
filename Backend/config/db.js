@@ -1,22 +1,16 @@
-// /config/db.js - Fixed version
+// config/db.js
 const mongoose = require('mongoose');
 const admin = require('firebase-admin');
-const path = require('path');
-const fs = require('fs');
 
 // MongoDB Connection
 const connectDB = async () => {
   try {
     const mongoUri = process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/civiceye';
     
-    const options = {
-      useNewUrlParser: true,
-      useUnifiedTopology: true,
+    await mongoose.connect(mongoUri, {
       serverSelectionTimeoutMS: 5000,
       socketTimeoutMS: 45000,
-    };
-
-    await mongoose.connect(mongoUri, options);
+    });
     console.log('✅ MongoDB connected successfully');
     
     // MongoDB connection events
@@ -36,31 +30,33 @@ const connectDB = async () => {
 
 // Firebase Admin Initialization
 let firebaseInitialized = false;
+let firebaseAdmin = null;
+let firestoreDB = null;
 
 const initializeFirebase = () => {
   try {
-    // Check if Firebase config exists and project ID is provided
-    const serviceAccountPath = path.join(__dirname, '../certs/serviceAccountKey.json');
-    const firebaseProjectId = process.env.FIREBASE_PROJECT_ID;
-    
-    if (fs.existsSync(serviceAccountPath) && firebaseProjectId) {
-      const serviceAccount = require(serviceAccountPath);
+    // Check if Firebase config exists
+    if (process.env.FIREBASE_PROJECT_ID && 
+        process.env.FIREBASE_PRIVATE_KEY && 
+        process.env.FIREBASE_CLIENT_EMAIL) {
       
-      admin.initializeApp({
-        credential: admin.credential.cert(serviceAccount),
-        databaseURL: `https://${firebaseProjectId}-default-rtdb.firebaseio.com` // Fixed URL format
+      // Replace escaped newlines in private key
+      const privateKey = process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n');
+      
+      firebaseAdmin = admin.initializeApp({
+        credential: admin.credential.cert({
+          projectId: process.env.FIREBASE_PROJECT_ID,
+          privateKey: privateKey,
+          clientEmail: process.env.FIREBASE_CLIENT_EMAIL
+        }),
+        databaseURL: process.env.FIREBASE_DATABASE_URL || `https://${process.env.FIREBASE_PROJECT_ID}.firebaseio.com`
       });
       
+      firestoreDB = firebaseAdmin.firestore();
       firebaseInitialized = true;
       console.log('✅ Firebase Admin initialized successfully');
     } else {
-      if (!fs.existsSync(serviceAccountPath)) {
-        console.log('⚠️ Firebase Service Account not found in certs/ folder.');
-      }
-      if (!firebaseProjectId) {
-        console.log('⚠️ FIREBASE_PROJECT_ID environment variable not set.');
-      }
-      console.log('⚠️ Firebase features disabled.');
+      console.log('⚠️ Firebase credentials not found. Firebase features will be disabled.');
     }
   } catch (error) {
     console.error('❌ Firebase initialization failed:', error.message);
@@ -73,9 +69,8 @@ const getFirebase = () => {
     throw new Error('Firebase not initialized. Check service account configuration.');
   }
   return {
-    admin,
-    db: admin.firestore(),
-    rtdb: admin.database()
+    admin: firebaseAdmin,
+    db: firestoreDB
   };
 };
 
@@ -83,5 +78,6 @@ module.exports = {
   connectDB, 
   initializeFirebase, 
   getFirebase, 
-  isFirebaseInitialized: () => firebaseInitialized 
+  isFirebaseInitialized: () => firebaseInitialized,
+  admin: firebaseAdmin
 };
