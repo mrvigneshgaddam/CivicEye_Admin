@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!-- <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -21,7 +21,7 @@
             <form id="loginForm" class="login-form">
                 <div class="input-group">
                     <i class="fas fa-user"></i>
-                    <!-- fixed: id lowercase -->
+                   
                     <input type="text" id="email" placeholder="Email" required>
                 </div>
                 
@@ -54,5 +54,474 @@
     </div>
 
     <script src="script.js"></script>
+</body>
+</html> -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CivicEye - Login</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        body {
+            background: linear-gradient(135deg, #1a2a6c, #b21f1f, #fdbb2d);
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        
+        .login-container {
+            display: flex;
+            width: 900px;
+            height: 550px;
+            background: white;
+            border-radius: 20px;
+            overflow: hidden;
+            box-shadow: 0 15px 40px rgba(0, 0, 0, 0.3);
+        }
+        
+        .login-card {
+            flex: 1;
+            padding: 40px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+        
+        .login-header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+        
+        .logo {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #1a2a6c;
+            margin-bottom: 10px;
+        }
+        
+        .logo i {
+            font-size: 32px;
+            margin-right: 15px;
+        }
+        
+        .logo h1 {
+            font-size: 32px;
+            font-weight: 700;
+        }
+        
+        .login-header p {
+            color: #666;
+            font-size: 16px;
+        }
+        
+        .login-form {
+            margin-bottom: 30px;
+        }
+        
+        .input-group {
+            position: relative;
+            margin-bottom: 25px;
+        }
+        
+        .input-group i:first-child {
+            position: absolute;
+            left: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #777;
+        }
+        
+        .input-group input {
+            width: 100%;
+            padding: 15px 15px 15px 45px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: all 0.3s;
+        }
+        
+        .input-group input:focus {
+            outline: none;
+            border-color: #1a2a6c;
+            box-shadow: 0 0 0 2px rgba(26, 42, 108, 0.2);
+        }
+        
+        .toggle-password {
+            position: absolute;
+            right: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: none;
+            border: none;
+            color: #777;
+            cursor: pointer;
+        }
+        
+        .login-btn {
+            width: 100%;
+            padding: 15px;
+            background: linear-gradient(to right, #1a2a6c, #b21f1f);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            transition: all 0.3s;
+        }
+        
+        .login-btn:hover {
+            background: linear-gradient(to right, #24378a, #c72c2c);
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+        }
+        
+        .login-btn:active {
+            transform: translateY(0);
+        }
+        
+        .login-btn i {
+            margin-left: 10px;
+        }
+        
+        .login-footer {
+            text-align: center;
+            color: #666;
+        }
+        
+        .login-footer a {
+            color: #1a2a6c;
+            text-decoration: none;
+            transition: color 0.3s;
+        }
+        
+        .login-footer a:hover {
+            color: #b21f1f;
+            text-decoration: underline;
+        }
+        
+        .login-footer span {
+            margin: 0 10px;
+        }
+        
+        .login-illustration {
+            flex: 1;
+            background: linear-gradient(to bottom right, #1a2a6c, #fdbb2d);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 30px;
+        }
+        
+        .illustration-container {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        .illustration-container img {
+            max-width: 100%;
+            max-height: 100%;
+        }
+        
+        .error-message {
+            color: #ef233c;
+            margin-top: 10px;
+            text-align: center;
+            animation: fadeIn 0.3s ease-out;
+            padding: 8px;
+            background: #fee;
+            border-radius: 4px;
+            border: 1px solid #fcc;
+        }
+        
+        .shake {
+            animation: shake 0.5s ease-in-out;
+        }
+        
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            20%, 60% { transform: translateX(-8px); }
+            40%, 80% { transform: translateX(8px); }
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        
+        .development .debug-panel {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 15px;
+            font-family: monospace;
+            font-size: 14px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        
+        .development .debug-panel h3 {
+            margin-bottom: 10px;
+            color: #fdbb2d;
+        }
+        
+        .development .debug-panel pre {
+            white-space: pre-wrap;
+        }
+        
+        @media (max-width: 900px) {
+            .login-container {
+                flex-direction: column;
+                height: auto;
+                width: 100%;
+                max-width: 500px;
+            }
+            
+            .login-illustration {
+                display: none;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="login-container">
+        <div class="login-card">
+            <div class="login-header">
+                <div class="logo">
+                    <i class="fas fa-shield-alt"></i>
+                    <h1>CivicEye</h1>
+                </div>
+                <p>Public Safety Management System</p>
+            </div>
+            
+            <form id="loginForm" class="login-form">
+                <div class="input-group">
+                    <i class="fas fa-user"></i>
+                    <input type="text" id="email" placeholder="Email" required>
+                </div>
+                
+                <div class="input-group">
+                    <i class="fas fa-lock"></i>
+                    <input type="password" id="password" placeholder="Password" required>
+                    <button type="button" class="toggle-password">
+                        <i class="far fa-eye"></i>
+                    </button>
+                </div>
+                
+                <button type="submit" class="login-btn">
+                    <span>Login</span>
+                    <i class="fas fa-arrow-right"></i>
+                </button>
+            </form>
+            
+            <div class="login-footer">
+                <a href="#">Forgot Password?</a>
+                <span>|</span>
+                <a href="#">Contact Support</a>
+            </div>
+        </div>
+        
+        <div class="login-illustration">
+            <div class="illustration-container">
+                <img src="https://illustrations.popsy.co/amber/digital-nomad.svg" alt="Security Illustration">
+            </div>
+        </div>
+    </div>
+
+    <div id="debugPanel" class="debug-panel" style="display: none;">
+        <h3>Debug Information</h3>
+        <p id="debugStatus">Status: Not initialized</p>
+        <pre id="debugResponse">Response: None</pre>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const loginForm = document.getElementById('loginForm');
+            const togglePassword = document.querySelector('.toggle-password');
+            const passwordInput = document.getElementById('password');
+            const debugPanel = document.getElementById('debugPanel');
+            const debugStatus = document.getElementById('debugStatus');
+            const debugResponse = document.getElementById('debugResponse');
+            
+            // Check if we're in development mode
+            if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+                document.body.classList.add('development');
+                debugPanel.style.display = 'block';
+            }
+            
+            // Clear any existing auth token for demonstration
+            // In a real application, you would validate the token instead of clearing it
+            localStorage.removeItem('authToken');
+            
+            if (!loginForm || !togglePassword || !passwordInput) {
+                console.error('Required login form elements not found');
+                return;
+            }
+            
+            // Toggle password visibility
+            togglePassword.addEventListener('click', function() {
+                const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
+                passwordInput.setAttribute('type', type);
+                const icon = this.querySelector('i');
+                if (icon) {
+                    icon.classList.toggle('fa-eye');
+                    icon.classList.toggle('fa-eye-slash');
+                }
+            });
+            
+            // Form submission
+            loginForm.addEventListener('submit', async function(e) {
+                e.preventDefault();
+
+                const emailInput = document.getElementById('email');
+                const passwordInput = document.getElementById('password');
+
+                if (!emailInput || !passwordInput) {
+                    showError(loginForm, 'Form elements not found');
+                    return;
+                }
+
+                const email = emailInput.value.trim();
+                const password = passwordInput.value;
+                const loginBtn = this.querySelector('.login-btn');
+
+                if (!email || !password) {
+                    showError(loginForm, 'Please fill all fields');
+                    return;
+                }
+
+                // Add loading state
+                const originalBtnHTML = loginBtn.innerHTML;
+                loginBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+                loginBtn.disabled = true;
+                
+                // Update debug panel
+                if (debugPanel && debugStatus) {
+                    debugStatus.textContent = 'Status: Making request...';
+                    debugResponse.textContent = 'Response: Waiting...';
+                }
+
+                try {
+                    // Simulate API call with timeout
+                    await new Promise(resolve => setTimeout(resolve, 1500));
+                    
+                    // For demo purposes, accept any non-empty credentials
+                    if (email && password) {
+                        // Update debug info
+                        if (debugStatus) {
+                            debugStatus.textContent = 'Status: 200 OK';
+                        }
+
+                        const responseData = {
+                            token: 'demo-token-' + Math.random().toString(36).substring(2),
+                            user: {
+                                id: 1,
+                                name: 'Demo User',
+                                email: email,
+                                role: 'Officer'
+                            }
+                        };
+                        
+                        if (debugResponse) {
+                            debugResponse.textContent = 'Response: ' + JSON.stringify(responseData, null, 2);
+                        }
+
+                        localStorage.setItem('authToken', responseData.token);
+                        localStorage.setItem('user', JSON.stringify(responseData.user));
+
+                        // Success animation
+                        loginBtn.innerHTML = '<i class="fas fa-check"></i>';
+                        loginBtn.style.backgroundColor = '#4BB543';
+                        
+                        // Show success message before redirecting
+                        showSuccess(loginForm, 'Login successful! Redirecting...');
+                        
+                        setTimeout(redirectToDashboard, 1500);
+                    } else {
+                        throw new Error('Please enter both email and password');
+                    }
+
+                } catch (error) {
+                    console.error('Login error:', error.message);
+                    
+                    let errorMessage = error.message;
+                    
+                    showError(loginForm, errorMessage);
+                    loginBtn.innerHTML = originalBtnHTML;
+                    loginBtn.style.backgroundColor = '';
+                    loginBtn.disabled = false;
+                }
+            });
+
+            function redirectToDashboard() {
+                // In a real application, this would redirect to the actual dashboard
+                alert('Success! Redirecting to dashboard...');
+                 window.location.href = 'FrontEnd/Dashboard/dashboard.html';
+            }
+            
+            function showError(form, message) {
+                const existingError = form.querySelector('.error-message');
+                if (existingError) existingError.remove();
+                
+                const errorEl = document.createElement('div');
+                errorEl.className = 'error-message';
+                errorEl.textContent = message;
+                
+                form.classList.add('shake');
+                setTimeout(() => form.classList.remove('shake'), 500);
+                
+                form.appendChild(errorEl);
+                
+                setTimeout(() => {
+                    if (errorEl.parentNode) {
+                        errorEl.style.animation = 'fadeOut 0.3s ease-out';
+                        setTimeout(() => errorEl.remove(), 300);
+                    }
+                }, 5000);
+            }
+            
+            function showSuccess(form, message) {
+                const existingMsg = form.querySelector('.success-message');
+                if (existingMsg) existingMsg.remove();
+                
+                const msgEl = document.createElement('div');
+                msgEl.className = 'success-message';
+                msgEl.textContent = message;
+                msgEl.style.cssText = `
+                    color: #4BB543;
+                    margin-top: 10px;
+                    text-align: center;
+                    animation: fadeIn 0.3s ease-out;
+                    padding: 8px;
+                    background: #efe;
+                    border-radius: 4px;
+                    border: 1px solid #cfc;
+                `;
+                
+                form.appendChild(msgEl);
+            }
+        });
+    </script>
 </body>
 </html>
