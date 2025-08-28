@@ -1,18 +1,34 @@
+// Backend/routes/firRoutes.js
 const express = require('express');
 const router = express.Router();
-const Report = require('../models/Report'); // Import the Report model
 
-// Get all FIRs with pagination and filtering
-router.get('/', async (req, res) => {
+/* Try to use whichever model you actually have */
+let ReportModel = null;
+try {
+  ReportModel = require('../models/Report');       // if exists
+} catch (e) {
   try {
-    const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 5;
+    ReportModel = require('../models/firModel');   // fallback if your model is named differently
+  } catch (e2) {
+    console.warn('[FIR ROUTES] No Report model found (models/Report.js or models/firModel.js). Using in-memory fallback.');
+  }
+}
+
+/* Quick ping to prove the router is mounted */
+router.get('/ping', (req, res) => res.json({ ok: true, where: '/api/fir/ping' }));
+
+/* GET /api/fir  — list with pagination & optional search/status */
+router.get('/', async (req, res) => {
+  // If no model is available, return an empty list so the route still works
+  if (!ReportModel) return res.json({ success: true, data: [], pagination: { currentPage: 1, totalPages: 1, totalItems: 0, itemsPerPage: 0 } });
+
+  try {
+    const page   = parseInt(req.query.page)  || 1;
+    const limit  = parseInt(req.query.limit) || 5;
     const search = req.query.search || '';
     const status = req.query.status || '';
-    
-    // Build query
-    let query = {};
-    
+
+    const query = {};
     if (search) {
       query.$or = [
         { firId: { $regex: search, $options: 'i' } },
@@ -21,23 +37,19 @@ router.get('/', async (req, res) => {
         { location: { $regex: search, $options: 'i' } }
       ];
     }
-    
-    if (status) {
-      query.status = status;
-    }
-    
-    // Get data with pagination
-    const reports = await Report.find(query)
-      .sort({ reportedAt: -1 })
+    if (status) query.status = status;
+
+    const docs = await ReportModel.find(query)
+      .sort({ reportedAt: -1, createdAt: -1 })
       .limit(limit)
-      .skip((page - 1) * limit);
-    
-    // Get total count for pagination
-    const totalItems = await Report.countDocuments(query);
-    
-    res.json({
+      .skip((page - 1) * limit)
+      .lean();
+
+    const totalItems = await ReportModel.countDocuments(query);
+
+    return res.json({
       success: true,
-      data: reports,
+      data: docs,
       pagination: {
         currentPage: page,
         totalPages: Math.ceil(totalItems / limit),
@@ -45,86 +57,50 @@ router.get('/', async (req, res) => {
         itemsPerPage: limit
       }
     });
-  } catch (error) {
-    console.error('Error fetching FIR data:', error);
-    res.status(500).json({
-      success: false,
-      message: error.message
-    });
+  } catch (err) {
+    console.error('[FIR ROUTES] GET / error:', err);
+    return res.status(500).json({ success: false, message: err.message });
   }
 });
 
-// Get FIR statistics
+/* GET /api/fir/stats */
 router.get('/stats', async (req, res) => {
+  if (!ReportModel) return res.json({ success: true, data: { total: 0, pending: 0, resolved: 0, urgent: 0 } });
   try {
-    const total = await Report.countDocuments();
-    const pending = await Report.countDocuments({ status: 'Pending' });
-    const resolved = await Report.countDocuments({ status: 'Resolved' });
-    const urgent = await Report.countDocuments({ status: 'Urgent' });
-    
-    res.json({
-      success: true,
-      data: {
-        total,
-        pending,
-        resolved,
-        urgent
-      }
-    });
-  } catch (error) {
-    console.error('Error fetching FIR stats:', error);
-    res.status(500).json({
-      success: false,
-      message: error.message
-    });
+    const total    = await ReportModel.countDocuments();
+    const pending  = await ReportModel.countDocuments({ status: 'Pending' });
+    const resolved = await ReportModel.countDocuments({ status: 'Resolved' });
+    const urgent   = await ReportModel.countDocuments({ status: 'Urgent' });
+    return res.json({ success: true, data: { total, pending, resolved, urgent } });
+  } catch (err) {
+    console.error('[FIR ROUTES] /stats error:', err);
+    return res.status(500).json({ success: false, message: err.message });
   }
 });
 
-// Get single FIR by ID
+/* GET /api/fir/:id */
 router.get('/:id', async (req, res) => {
+  if (!ReportModel) return res.status(404).json({ success: false, message: 'Model not available' });
   try {
-    const report = await Report.findById(req.params.id);
-    if (!report) {
-      return res.status(404).json({
-        success: false,
-        message: 'FIR not found'
-      });
-    }
-    
-    res.json({
-      success: true,
-      data: report
-    });
-  } catch (error) {
-    console.error('Error fetching FIR:', error);
-    res.status(500).json({
-      success: false,
-      message: error.message
-    });
+    const report = await ReportModel.findById(req.params.id);
+    if (!report) return res.status(404).json({ success: false, message: 'FIR not found' });
+    return res.json({ success: true, data: report });
+  } catch (err) {
+    console.error('[FIR ROUTES] /:id error:', err);
+    return res.status(500).json({ success: false, message: err.message });
   }
 });
 
-// Delete FIR by ID
+/* DELETE /api/fir/:id */
 router.delete('/:id', async (req, res) => {
+  if (!ReportModel) return res.status(404).json({ success: false, message: 'Model not available' });
   try {
-    const report = await Report.findByIdAndDelete(req.params.id);
-    if (!report) {
-      return res.status(404).json({
-        success: false,
-        message: 'FIR not found'
-      });
-    }
-    
-    res.json({
-      success: true,
-      message: 'FIR deleted successfully'
-    });
-  } catch (error) {
-    console.error('Error deleting FIR:', error);
-    res.status(500).json({
-      success: false,
-      message: error.message
-    });
+    const removed = await ReportModel.findByIdAndDelete(req.params.id);
+    if (!removed) return res.status(404).json({ success: false, message: 'FIR not found' });
+    return res.json({ success: true, message: 'FIR deleted successfully' });
+  } catch (err) {
+    console.error('[FIR ROUTES] DELETE /:id error:', err);
+    return res.status(500).json({ success: false, message: err.message });
   }
 });
 
