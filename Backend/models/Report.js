@@ -1,195 +1,107 @@
-// // const mongoose = require('mongoose');
-
-// // const ReportSchema = new mongoose.Schema({
-// //   type: { 
-// //     type: String, 
-// //     required: true, 
-// //     trim: true,
-// //     enum: ['Fire', 'Medical', 'Traffic', 'Security', 'Other']
-// //   },
-// //   description: { 
-// //     type: String, 
-// //     required: true, 
-// //     trim: true,
-// //     minlength: 10
-// //   },
-// //   location: { 
-// //     type: String, 
-// //     required: true, 
-// //     trim: true 
-// //   },
-// //   reportedAt: { 
-// //     type: Date, 
-// //     default: Date.now 
-// //   },
-// //   status: {
-// //     type: String,
-// //     enum: ['Pending', 'In Progress', 'Resolved'],
-// //     default: 'Pending'
-// //   }
-// // }, {
-// //   timestamps: true
-// // });
-
-// // module.exports = mongoose.model('Report', ReportSchema);
-// const mongoose = require('mongoose');
-
-// const ReportSchema = new mongoose.Schema({
-//   firId: {
-//     type: String,
-//     required: true,
-//     unique: true
-//   },
-//   complainant: {
-//     name: {
-//       type: String,
-//       required: true,
-//       trim: true
-//     },
-//     contact: {
-//       type: String,
-//       required: true,
-//       trim: true
-//     },
-//     address: {
-//       type: String,
-//       required: true,
-//       trim: true
-//     }
-//   },
-//   incidentType: {
-//     type: String,
-//     required: true,
-//     trim: true,
-//     enum: ['Theft', 'Assault', 'Burglary', 'Vandalism', 'Traffic Accident', 'Other']
-//   },
-//   description: {
-//     type: String,
-//     required: true,
-//     trim: true,
-//     minlength: 10
-//   },
-//   location: {
-//     type: String,
-//     required: true,
-//     trim: true
-//   },
-//   incidentDateTime: {
-//     type: Date,
-//     required: true
-//   },
-//   reportedAt: {
-//     type: Date,
-//     default: Date.now
-//   },
-//   status: {
-//     type: String,
-//     enum: ['Pending', 'In Progress', 'Resolved', 'Urgent'],
-//     default: 'Pending'
-//   },
-//   priority: {
-//     type: String,
-//     enum: ['Low', 'Medium', 'High'],
-//     default: 'Medium'
-//   },
-//   assignedOfficer: {
-//     type: String,
-//     default: 'Unassigned'
-//   },
-//   evidence: [{
-//     type: String // URLs to uploaded evidence files
-//   }],
-//   updates: [{
-//     message: String,
-//     updatedBy: String,
-//     timestamp: {
-//       type: Date,
-//       default: Date.now
-//     }
-//   }]
-// }, {
-//   timestamps: true
-// });
-
-// // Generate FIR ID before saving
-// ReportSchema.pre('save', async function(next) {
-//   if (this.isNew) {
-//     const count = await mongoose.model('Report').countDocuments();
-//     this.firId = `FIR-${new Date().getFullYear()}-${String(count + 1).padStart(5, '0')}`;
-//   }
-//   next();
-// });
-
-// module.exports = mongoose.model('Report', ReportSchema);
-// models/Report.js
 const mongoose = require('mongoose');
 
-const ReportSchema = new mongoose.Schema({
-  firId: {
-    type: String,
-    required: true,
-    unique: true
-  },
-  complainant: {
-    name: {
-      type: String,
-      required: true,
-      trim: true
-    },
-    contact: {
-      type: String,
-      required: true,
-      trim: true
-    },
-    address: {
-      type: String,
-      required: true,
-      trim: true
-    }
-  },
-  incidentType: {
-    type: String,
-    required: true,
-    trim: true
-  },
-  description: {
-    type: String,
-    required: true,
-    trim: true
-  },
-  location: {
-    type: String,
-    required: true,
-    trim: true
-  },
-  incidentDateTime: {
-    type: Date,
-    required: true
-  },
-  reportedAt: {
-    type: Date,
-    default: Date.now
-  },
-  status: {
-    type: String,
-    enum: ['Pending', 'In Progress', 'Resolved', 'Urgent'],
-    default: 'Pending'
-  },
-  assignedOfficer: {
-    type: String,
-    default: 'Unassigned'
-  }
-}, {
-  timestamps: true
-});
 
-// Generate FIR ID before saving
-ReportSchema.pre('save', async function(next) {
-  if (this.isNew) {
-    const count = await mongoose.model('Report').countDocuments();
-    this.firId = `FIR-${new Date().getFullYear()}-${String(count + 1).padStart(5, '0')}`;
+
+const ReportSchema = new mongoose.Schema(
+
+  {
+
+    /* ---------- Legacy flat schema (matches test.reports in Atlas) ---------- */
+
+    name: { type: String, trim: true },
+
+    email: { type: String, trim: true },
+
+    phone: { type: String, trim: true },
+
+    crimeType: { type: String, trim: true },    // e.g., "cyber"
+
+    date: { type: Date },                        // incident date (your Atlas doc uses "date")
+
+    location: { type: String, trim: true },      // e.g., "Lat: xx, Long: yy"
+
+    state: { type: String, trim: true },         // e.g., "GJ"
+
+    description: { type: String, trim: true },
+
+    evidence: { type: [mongoose.Schema.Types.Mixed], default: [] }, // array or mixed
+
+
+
+    
+
+    complainant: {
+
+      name: { type: String, trim: true },
+
+      email: { type: String, trim: true },
+
+      phone: { type: String, trim: true },
+
+      contact: { type: String, trim: true }, // optional alias if you used "contact" earlier
+
+      address: { type: String, trim: true }
+
+    },
+
+    incidentType: { type: String, trim: true },
+
+    incidentDateTime: { type: Date },
+
+    reportedAt: { type: Date, default: Date.now },
+
+    status: {
+
+      type: String,
+
+      Enum: ['Pending', 'In Progress', 'Resolved', 'Urgent'],
+
+      default: 'Pending'
+
+    },
+
+    assignedOfficer: { type: String, default: 'Unassigned', trim: true }
+
+  },
+
+  { timestamps: true }
+
+);
+
+
+
+/* ---------- Helpers ---------- */
+
+
+
+// Generate firId only when missing (works with existing docs that never had one)
+
+ReportSchema.pre('save', async function (next) {
+
+  if (!this.firId) {
+
+    const count = await mongoose.model('Report').countDocuments({});
+
+    this.firId =` FIR-${new Date().getFullYear()}-${String(count + 1).padStart(5, '0')}`;
+
   }
+
   next();
+
 });
 
-module.exports = mongoose.model('Report', ReportSchema);
+
+
+// Virtual for UI convenience (use firId, else _id)
+
+ReportSchema.virtual('reportId').get(function () {
+
+  return this.firId || (this._id ? this._id.toString() : undefined);
+
+});
+
+
+
+/* ---------- IMPORTANT: pin to your real collection ---------- */
+
+module.exports = mongoose.model('Report', ReportSchema, 'reports');

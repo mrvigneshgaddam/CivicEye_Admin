@@ -1,167 +1,84 @@
+// Backend/routes/dashboardRoutes.js
 const express = require('express');
 const router = express.Router();
-const { auth } = require('../middlewares/auth');
-const dashboardController = require('../controllers/dashboardController');
-const User = require('../models/User');
-const Message = require('../models/Message');
-const Notification = require('../models/Notification');
 
-// GET /api/dashboard/stats - Get comprehensive dashboard statistics
-router.get('/stats', auth, dashboardController.getDashboardStats);
+// Try to load models if they exist; if not, we’ll still return safe zeros
+let Report = null;
+let Police = null;
+try { Report = require('../models/Report'); } catch {}
+try { Police = require('../models/Police'); } catch {}
 
-// GET /api/dashboard/activity - Get user activity data
-router.get('/activity', auth, dashboardController.getUserActivity);
+// Health/ping to confirm router is mounted
+router.get('/ping', (req, res) => res.json({ ok: true, where: '/api/dashboard/ping' }));
 
-// GET /api/dashboard/charts - Get charts data
-router.get('/charts', auth, dashboardController.getChartsData);
-
-// GET /api/dashboard/users - Get user statistics
-router.get('/users', auth, async (req, res) => {
+// Simple summary for the dashboard top cards (safe even if models missing)
+router.get('/', async (req, res, next) => {
   try {
-    const users = await User.aggregate([
-      {
-        $group: {
-          _id: '$department',
-          count: { $sum: 1 },
-          active: {
-            $sum: {
-              $cond: [{ $eq: ['$isActive', true] }, 1, 0]
-            }
-          }
-        }
-      }
-    ]);
+    const nowIso = new Date().toISOString();
 
-    res.json({
-      success: true,
-      data: users
-    });
-  } catch (error) {
-    console.error('Users stats error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to fetch user statistics'
-    });
-  }
-});
+    // Default zeros if models not available
+    let totalReports = 0;
+    let totalOfficers = 0;
 
-// GET /api/dashboard/messages - Get message statistics
-router.get('/messages', auth, async (req, res) => {
-  try {
-    const { days = 30 } = req.query;
-    const startDate = new Date();
-    startDate.setDate(startDate.getDate() - parseInt(days));
-
-    const messages = await Message.aggregate([
-      {
-        $match: {
-          createdAt: { $gte: startDate }
-        }
-      },
-      {
-        $group: {
-          _id: {
-            date: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt' } },
-            type: '$messageType'
-          },
-          count: { $sum: 1 }
-        }
-      },
-      {
-        $sort: { '_id.date': 1 }
-      }
-    ]);
-
-    res.json({
-      success: true,
-      data: messages
-    });
-  } catch (error) {
-    console.error('Messages stats error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to fetch message statistics'
-    });
-  }
-});
-
-// GET /api/notifications - Get user notifications
-router.get('/notifications', auth, async (req, res) => {
-  try {
-    const { limit = 20, unreadOnly = false } = req.query;
-    
-    const query = { userId: req.user._id };
-    if (unreadOnly === 'true') {
-      query.read = false;
+    if (Report && Report.countDocuments) {
+      totalReports = await Report.countDocuments({});
+    }
+    if (Police && Police.countDocuments) {
+      totalOfficers = await Police.countDocuments({});
     }
 
-    const notifications = await Notification.find(query)
-      .sort({ createdAt: -1 })
-      .limit(parseInt(limit))
-      .populate('relatedTo')
-      .lean();
-
-    res.json({
+    return res.json({
       success: true,
-      data: notifications
+      data: {
+        serverTime: nowIso,
+        totals: {
+          reports: totalReports,
+          officers: totalOfficers
+        }
+      }
     });
-  } catch (error) {
-    console.error('Notifications error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to fetch notifications'
-    });
+  } catch (err) {
+    next(err);
   }
 });
 
-// PUT /api/notifications/:id/read - Mark notification as read
-router.put('/notifications/:id/read', auth, async (req, res) => {
+// More detailed stats endpoint (safe fallbacks)
+router.get('/stats', async (req, res, next) => {
   try {
-    const notification = await Notification.findOneAndUpdate(
-      { _id: req.params.id, userId: req.user._id },
-      { read: true, readAt: new Date() },
-      { new: true }
-    );
+    const stats = {
+      reports: {
+        total: 0,
+        pending: 0,
+        inProgress: 0,
+        resolved: 0,
+        urgent: 0,
+      },
+      officers: {
+        total: 0,
+        active: 0,
+        onLeave: 0,
+        inactive: 0,
+      },
+    };
 
-    if (!notification) {
-      return res.status(404).json({
-        success: false,
-        message: 'Notification not found'
-      });
+    if (Report && Report.countDocuments) {
+      stats.reports.total      = await Report.countDocuments({});
+      stats.reports.pending    = await Report.countDocuments({ status: 'Pending' });
+      stats.reports.inProgress = await Report.countDocuments({ status: 'In Progress' });
+      stats.reports.resolved   = await Report.countDocuments({ status: 'Resolved' });
+      stats.reports.urgent     = await Report.countDocuments({ status: 'Urgent' });
     }
 
-    res.json({
-      success: true,
-      message: 'Notification marked as read',
-      data: notification
-    });
-  } catch (error) {
-    console.error('Mark notification read error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to mark notification as read'
-    });
-  }
-});
+    if (Police && Police.countDocuments) {
+      stats.officers.total    = await Police.countDocuments({});
+      stats.officers.active   = await Police.countDocuments({ status: 'Active' });
+      stats.officers.onLeave  = await Police.countDocuments({ status: 'On Leave' });
+      stats.officers.inactive = await Police.countDocuments({ status: 'Inactive' });
+    }
 
-// PUT /api/notifications/read-all - Mark all notifications as read
-router.put('/notifications/read-all', auth, async (req, res) => {
-  try {
-    await Notification.updateMany(
-      { userId: req.user._id, read: false },
-      { read: true, readAt: new Date() }
-    );
-
-    res.json({
-      success: true,
-      message: 'All notifications marked as read'
-    });
-  } catch (error) {
-    console.error('Mark all notifications read error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Failed to mark all notifications as read'
-    });
+    return res.json({ success: true, data: stats });
+  } catch (err) {
+    next(err);
   }
 });
 
