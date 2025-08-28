@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CORS Error Diagnostic Tool</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        body {
+            background: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
+            color: #fff;
+            line-height: 1.6;
+            padding: 20px;
+            min-height: 100vh;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding: 20px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+        }
+        
+        h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            color: #ff6b6b;
+        }
+        
+        .subtitle {
+            font-size: 1.2rem;
+            color: #f8f9fa;
+            margin-bottom: 20px;
+        }
+        
+        .card {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            padding: 25px;
+            margin-bottom: 25px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+        }
+        
+        h2 {
+            color: #4ecdc4;
+            margin-bottom: 15px;
+            font-size: 1.8rem;
+        }
+        
+        h3 {
+            color: #ffd166;
+            margin-bottom: 10px;
+            font-size: 1.4rem;
+        }
+        
+        .error-info {
+            background: rgba(255, 255, 255, 0.05);
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+        }
+        
+        pre {
+            background: #1a1a1a;
+            padding: 15px;
+            border-radius: 5px;
+            overflow-x: auto;
+            margin: 15px 0;
+            color: #f8f9fa;
+            font-family: 'Consolas', monospace;
+        }
+        
+        code {
+            background: #1a1a1a;
+            padding: 2px 5px;
+            border-radius: 3px;
+            font-family: 'Consolas', monospace;
+        }
+        
+        .solution {
+            background: rgba(76, 175, 80, 0.2);
+            padding: 15px;
+            border-left: 4px solid #4caf50;
+            border-radius: 4px;
+            margin: 15px 0;
+        }
+        
+        .test-area {
+            background: rgba(41, 182, 246, 0.2);
+            padding: 20px;
+            border-radius: 8px;
+            margin-top: 20px;
+        }
+        
+        button {
+            background: #4ecdc4;
+            color: #000;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+            margin: 10px 0;
+            transition: background 0.3s;
+        }
+        
+        button:hover {
+            background: #2a9d8f;
+        }
+        
+        .result {
+            margin-top: 15px;
+            padding: 15px;
+            border-radius: 5px;
+            background: rgba(255, 255, 255, 0.1);
+        }
+        
+        .success {
+            color: #4caf50;
+        }
+        
+        .error {
+            color: #ff6b6b;
+        }
+        
+        .flex-container {
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+        
+        .flex-item {
+            flex: 1;
+            min-width: 300px;
+        }
+        
+        .server-status {
+            display: flex;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        
+        .status-indicator {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 10px;
+        }
+        
+        .status-online {
+            background: #4caf50;
+        }
+        
+        .status-offline {
+            background: #ff6b6b;
+        }
+        
+        .request-log {
+            margin-top: 15px;
+            max-height: 200px;
+            overflow-y: auto;
+            background: #1a1a1a;
+            padding: 10px;
+            border-radius: 5px;
+        }
+        
+        .log-entry {
+            margin-bottom: 5px;
+            padding: 5px;
+            border-bottom: 1px solid #333;
+        }
+        
+        .request-info {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-top: 15px;
+        }
+        
+        .info-item {
+            background: rgba(255, 255, 255, 0.05);
+            padding: 10px;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>CORS Error Diagnostic Tool</h1>
+            <p class="subtitle">Diagnose and fix CORS issues between your frontend and backend</p>
+        </header>
+        
+        <div class="flex-container">
+            <div class="flex-item">
+                <div class="card">
+                    <h2>Understanding the Error</h2>
+                    <div class="error-info">
+                        <h3>What is CORS?</h3>
+                        <p>Cross-Origin Resource Sharing (CORS) is a security mechanism that restricts HTTP requests initiated from scripts running in the browser.</p>
+                        
+                        <h3>Your Specific Error</h3>
+                        <p>Your frontend at <code>http://127.0.0.1:5501</code> is trying to access the backend API at <code>http://localhost:5000</code>, but the backend isn't configured to allow requests from the frontend's origin.</p>
+                    </div>
+                </div>
+                
+                <div class="card">
+                    <h2>Server Code Analysis</h2>
+                    <div class="solution">
+                        <h3>Your CORS Configuration</h3>
+                        <p>Your server code includes CORS configuration, but there might be an issue with how it's set up.</p>
+                        
+                        <h3>Potential Issues</h3>
+                        <ul>
+                            <li>Order of middleware - CORS should be before routes</li>
+                            <li>Multiple CORS configurations causing conflicts</li>
+                            <li>Firewall or antivirus blocking requests</li>
+                            <li>Server not running on expected port</li>
+                        </ul>
+                        
+                        <h3>Quick Fix: Simplify CORS</h3>
+                        <pre>// Replace your current CORS setup with this simpler version
+app.use(cors({
+  origin: ['http://127.0.0.1:5501', 'http://localhost:5501'],
+  credentials: true
+}));</pre>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="flex-item">
+                <div class="card">
+                    <h2>Server Connection Test</h2>
+                    <div class="test-area">
+                        <h3>Test Backend Server Status</h3>
+                        <div class="server-status">
+                            <div id="backendStatus" class="status-indicator status-offline"></div>
+                            <span>Backend Server: http://localhost:5000</span>
+                        </div>
+                        
+                        <div class="request-info">
+                            <div class="info-item">
+                                <strong>Frontend Origin:</strong> http://127.0.0.1:5501
+                            </div>
+                            <div class="info-item">
+                                <strong>Backend Origin:</strong> http://localhost:5000
+                            </div>
+                        </div>
+                        
+                        <button id="testBackendBtn">Test Backend Connection</button>
+                        <button id="testHealthBtn">Test /api/health Endpoint</button>
+                        
+                        <div id="backendResult" class="result"></div>
+                        
+                        <h3>Test API Endpoints</h3>
+                        <button id="testStatsBtn">Test /api/fir/stats Endpoint</button>
+                        <button id="testFIRsBtn">Test /api/fir Endpoint</button>
+                        
+                        <div id="apiResult" class="result"></div>
+                        
+                        <h3>Request Log</h3>
+                        <div id="requestLog" class="request-log"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="card">
+            <h2>Step-by-Step Troubleshooting</h2>
+            <div class="solution">
+                <h3>1. Check if Server is Running</h3>
+                <p>Verify your Express server is running on port 5000 without errors.</p>
+                
+                <h3>2. Check CORS Configuration Order</h3>
+                <p>Ensure CORS middleware is added before your routes:</p>
+                <pre>// Correct order:
+app.use(cors({...})); // CORS first
+app.use(express.json());
+// Then your routes
+app.use('/api/fir', firRoutes);</pre>
+                
+                <h3>3. Test with Simplified CORS</h3>
+                <p>Temporarily replace your CORS config with a simpler version:</p>
+                <pre>app.use(cors({
+  origin: 'http://127.0.0.1:5501',
+  credentials: true
+}));</pre>
+                
+                <h3>4. Check for Multiple CORS Configurations</h3>
+                <p>Ensure you don't have multiple CORS middleware calls that might conflict.</p>
+                
+                <h3>5. Verify Server Binding</h3>
+                <p>Make sure your server is binding to all interfaces (0.0.0.0) and not just localhost.</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.getElementById('testBackendBtn').addEventListener('click', testBackendConnection);
+        document.getElementById('testHealthBtn').addEventListener('click', () => testApiEndpoint('/api/health'));
+        document.getElementById('testStatsBtn').addEventListener('click', () => testApiEndpoint('/api/fir/stats'));
+        document.getElementById('testFIRsBtn').addEventListener('click', () => testApiEndpoint('/api/fir'));
+        
+        function logRequest(message, type = 'info') {
+            const logElement = document.getElementById('requestLog');
+            const logEntry = document.createElement('div');
+            logEntry.className = `log-entry ${type}`;
+            logEntry.textContent = `${new Date().toLocaleTimeString()}: ${message}`;
+            logElement.appendChild(logEntry);
+            logElement.scrollTop = logElement.scrollHeight;
+        }
+        
+        async function testBackendConnection() {
+            const resultDiv = document.getElementById('backendResult');
+            const statusIndicator = document.getElementById('backendStatus');
+            
+            resultDiv.innerHTML = 'Testing backend connection...';
+            resultDiv.className = 'result';
+            
+            logRequest('Testing connection to http://localhost:5000');
+            
+            try {
+                // First try a simple fetch to see if server responds
+                const response = await fetch('http://localhost:5000', {
+                    method: 'GET',
+                    headers: {
+                        'Accept': 'application/json',
+                    },
+                });
+                
+                if (response.ok) {
+                    resultDiv.innerHTML = '<span class="success">✓ Backend server is running and accessible!</span>';
+                    statusIndicator.className = 'status-indicator status-online';
+                    logRequest('Backend server is accessible', 'success');
+                } else {
+                    resultDiv.innerHTML = `<span class="error">✗ Backend returned status: ${response.status} ${response.statusText}</span>`;
+                    statusIndicator.className = 'status-indicator status-offline';
+                    logRequest(`Backend returned error status: ${response.status}`, 'error');
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<span class="error">✗ Cannot connect to backend: ${error.message}</span>`;
+                statusIndicator.className = 'status-indicator status-offline';
+                logRequest(`Connection failed: ${error.message}`, 'error');
+                
+                // Additional diagnostic info
+                resultDiv.innerHTML += `<br><br>This could be due to:
+                <ul>
+                    <li>Server not running on port 5000</li>
+                    <li>Firewall blocking the connection</li>
+                    <li>Server binding to localhost only</li>
+                    <li>CORS misconfiguration</li>
+                </ul>`;
+            }
+        }
+        
+        async function testApiEndpoint(endpoint) {
+            const resultDiv = document.getElementById('apiResult');
+            
+            resultDiv.innerHTML = `Testing ${endpoint} endpoint...`;
+            resultDiv.className = 'result';
+            
+            logRequest(`Testing endpoint: ${endpoint}`);
+            
+            try {
+                const response = await fetch(`http://localhost:5000${endpoint}`, {
+                    method: 'GET',
+                    headers: {
+                        'Accept': 'application/json',
+                    },
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    resultDiv.innerHTML = `<span class="success">✓ ${endpoint} is working!</span><br><br>Response: <pre>${JSON.stringify(data, null, 2)}</pre>`;
+                    logRequest(`${endpoint} returned success status`, 'success');
+                } else {
+                    resultDiv.innerHTML = `<span class="error">✗ ${endpoint} returned status: ${response.status} ${response.statusText}</span>`;
+                    logRequest(`${endpoint} returned error: ${response.status}`, 'error');
+                    
+                    // Check if it's a CORS error
+                    if (response.status === 0) {
+                        resultDiv.innerHTML += `<br><br>This appears to be a CORS error. Check your server's CORS configuration.`;
+                    }
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<span class="error">✗ Error accessing ${endpoint}: ${error.message}</span>`;
+                logRequest(`Error accessing ${endpoint}: ${error.message}`, 'error');
+                
+                if (error.message.includes('Failed to fetch')) {
+                    resultDiv.innerHTML += `<br><br>This is likely a CORS issue or the server is not running. Follow the instructions above to enable CORS in your Express server.`;
+                }
+            }
+        }
+        
+        // Test backend connection on page load
+        window.addEventListener('load', testBackendConnection);
+    </script>
+</body>
+</html>
