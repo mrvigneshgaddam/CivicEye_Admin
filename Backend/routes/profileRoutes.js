@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { auth } = require('../middlewares/auth');
+const  auth  = require('../middlewares/auth');
 
 // GET /api/profile
 router.get('/', auth, (req, res) => {
@@ -11,4 +11,4 @@ router.get('/', auth, (req, res) => {
   });
 });
 
-module.exports = router;
+module.exports = auth;

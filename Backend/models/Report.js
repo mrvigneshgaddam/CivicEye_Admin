@@ -28,7 +28,9 @@ const ReportSchema = new mongoose.Schema(
 
 
 
-    
+    /* ---------- FIR-style schema (for admin app) ---------- */
+
+    firId: { type: String, index: true,  sparse: true }, // sparse lets many docs have no firId
 
     complainant: {
 
@@ -82,7 +84,7 @@ ReportSchema.pre('save', async function (next) {
 
     const count = await mongoose.model('Report').countDocuments({});
 
-    this.firId =` FIR-${new Date().getFullYear()}-${String(count + 1).padStart(5, '0')}`;
+    this.firId = `FIR-${new Date().getFullYear()}-${String(count + 1).padStart(5, '0')}`;
 
   }
 
@@ -94,11 +96,12 @@ ReportSchema.pre('save', async function (next) {
 
 // Virtual for UI convenience (use firId, else _id)
 
-ReportSchema.virtual('reportId').get(function () {
-
-  return this.firId || (this._id ? this._id.toString() : undefined);
-
+ReportSchema.virtual('displayId').get(function () {
+  return this.firId || this.reportId || this._id.toString();
 });
+
+ReportSchema.set('toJSON', { virtuals: true });
+ReportSchema.set('toObject', { virtuals: true });
 
 
 
