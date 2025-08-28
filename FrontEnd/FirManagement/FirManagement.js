@@ -79,22 +79,23 @@ async function fetchReports() {
 
     // Normalize shapes (FIR vs earlier "report" schema)
     allReports = list.map(r => {
-      const c = r.complainant || {};
-      return {
-        reportId   : r.reportId || r.firId || r._id || r.id || '—',
-        name       : r.name || c.name || '—',
-        email      : r.email || c.email || '—',
-        phone      : r.phone || c.phone || '—',
-        crimeType  : r.crimeType || r.incidentType || '—',
-        date       : r.date || r.incidentDate || r.reportedAt || r.createdAt || null,
-        createdAt  : r.createdAt || r.reportedAt || r.date || null,
-        location   : r.location || r.address || '—',
-        state      : r.state || r.region || (typeof r.location === 'string' ? r.location.split(',').slice(-1)[0]?.trim() : '—'),
-        description: r.description || r.details || r.summary || '—',
-        evidence   : r.evidence || r.attachments || '—',
-        raw        : r
-      };
-    });
+  const c = r.complainant || {};
+  return {
+    reportId   : r.reportId || r.firId || r.displayId || r._id,   // ✅ include it
+    name       : r.name || c.name || '—',
+    email      : r.email || c.email || '—',
+    phone      : r.phone || c.phone || '—',
+    crimeType  : r.crimeType || r.incidentType || '—',
+    date       : r.date || r.incidentDate || r.reportedAt || r.createdAt || null,
+    createdAt  : r.createdAt || r.reportedAt || r.date || null,
+    location   : r.location || r.address || '—',
+    state      : r.state || r.region || '—',
+    description: r.description || r.details || r.summary || '—',
+    evidence   : r.evidence || r.attachments || '—',
+    raw        : r
+  };
+});
+
 
     filtered = [...allReports];
     currentPage = 1;
