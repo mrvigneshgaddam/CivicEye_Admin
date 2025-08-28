@@ -34,7 +34,6 @@
     "fs": "^0.0.1-security",
     "helmet": "^8.1.0",
     "hpp": "^0.2.3",
-    "http-proxy-middleware": "^3.0.5",
     "https": "^1.0.0",
     "jsonwebtoken": "^9.0.2",
     "mongodb": "^6.19.0",
@@ -46,6 +45,7 @@
     "xss-clean": "^0.1.4"
   },
   "devDependencies": {
+    "http-proxy-middleware": "^3.0.5",
     "nodemon": "^3.1.10"
   }
 }
