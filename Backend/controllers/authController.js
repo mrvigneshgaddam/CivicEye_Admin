@@ -1,58 +1,63 @@
-// Backend/controllers/authController.js
 const jwt = require('jsonwebtoken');
-const bcrypt = require('bcryptjs');
 const Police = require('../models/Police');
 
-const signToken = (user) =>
-  jwt.sign(
-    { sub: user._id, email: user.email, name: user.name, role: 'police' },
-    process.env.JWT_SECRET || 'dev-secret',
-    { expiresIn: '8h' }
+function sign(user) {
+  return jwt.sign(
+    { id: user._id, email: user.email, name: user.name, badgeId: user.badgeId },
+    process.env.JWT_SECRET || 'dev_secret',
+    { expiresIn: '7d' }
   );
+}
 
-exports.login = async (req, res, next) => {
-  try {
-    const { email = '', password = '' } = req.body || {};
-    if (!email || !password) {
-      return res.status(400).json({ success: false, message: 'Email and password are required' });
-    }
-
-    const user = await Police.findOne({ email: email.toLowerCase().trim() }).lean();
-    if (!user) {
-      return res.status(401).json({ success: false, message: 'Invalid email or password' });
-    }
-
-    // If stored password looks like bcrypt, compare with bcrypt; else fall back to strict plain comparison
-    const looksHashed = typeof user.password === 'string' && /^\$2[aby]\$/.test(user.password);
-    let ok = false;
-    if (looksHashed) {
-      ok = await bcrypt.compare(password, user.password);
-    } else {
-      ok = password === user.password; // only for legacy plaintext data
-    }
-
-    if (!ok) {
-      return res.status(401).json({ success: false, message: 'Invalid email or password' });
-    }
-
-    const token = signToken(user);
-    return res.json({
-      success: true,
-      token,
-      user: {
-        id: user._id,
-        name: user.name,
-        email: user.email,
-        badgeId: user.badgeId,
-        rank: user.rank,
-        department: user.department,
-        status: user.status,
-      },
-    });
-  } catch (err) {
-    return next(err);
+// POST /api/auth/login
+exports.login = async (req, res) => {
+  const { email, password } = req.body || {};
+  if (!email || !password) {
+    return res.status(400).json({ success: false, message: 'Email and password are required' });
   }
+
+  // include password field explicitly (select: false on schema)
+  const user = await Police.findOne({ email: email.toLowerCase().trim() }).select('+password');
+  if (!user) {
+    return res.status(401).json({ success: false, message: 'Invalid credentials' });
+  }
+
+  const ok = await user.comparePassword(password);
+  if (!ok) {
+    return res.status(401).json({ success: false, message: 'Invalid credentials' });
+  }
+
+  const token = sign(user);
+  const safeUser = {
+    id: user._id,
+    name: user.name,
+    email: user.email,
+    badgeId: user.badgeId,
+    rank: user.rank,
+    department: user.department,
+    status: user.status,
+  };
+
+  return res.json({ success: true, token, user: safeUser });
 };
 
-// (Optional) helper to hash a password on create/update going forward
-exports.hashPassword = async (plain) => bcrypt.hash(plain, 10);
+// (optional) POST /api/auth/register  — for seeding from UI; remove in prod
+exports.register = async (req, res) => {
+  const { name, email, password, phone, badgeId, rank, department } = req.body || {};
+  if (!name || !email || !password) {
+    return res.status(400).json({ success: false, message: 'name, email, password required' });
+  }
+  const exists = await Police.findOne({ email: email.toLowerCase().trim() });
+  if (exists) return res.status(409).json({ success: false, message: 'Email already exists' });
+
+  const u = await Police.create({ name, email, password, phone, badgeId, rank, department });
+  return res.status(201).json({ success: true, id: u._id });
+};
+
+// GET /api/auth/me
+exports.me = async (req, res) => {
+  const user = await Police.findById(req.user.id).lean();
+  if (!user) return res.status(404).json({ success: false, message: 'Not found' });
+  delete user.password;
+  res.json({ success: true, user });
+};
