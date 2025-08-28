@@ -1,386 +1,297 @@
-document.addEventListener('DOMContentLoaded', function() {
-    const sidebar = document.querySelector('.sidebar');
-    const main = document.querySelector('.main');
-    const sidebarCollapseBtn = document.getElementById('sidebarCollapse');
-    
-    if (sidebarCollapseBtn) {
-        sidebarCollapseBtn.addEventListener('click', function() {
-            sidebar.classList.toggle('active');
-            main.classList.toggle('active');
-        });
-    }
-    
-    // Responsive sidebar toggle
-    const mediaQuery = window.matchMedia('(max-width: 576px)');
-    
-    function handleMobileChange(e) {
-        if (e.matches) {
-            sidebar.classList.add('active');
-            main.classList.add('active');
-        } else {
-            sidebar.classList.remove('active');
-            main.classList.remove('active');
-        }
-    }
-    
-    mediaQuery.addListener(handleMobileChange);
-    handleMobileChange(mediaQuery);
-    
-    // Fetch and display FIR data
-    fetchFIRData();
-    fetchFIRStats();
-    
-    // Search functionality
-    const searchInputs = document.querySelectorAll('.search-box input');
-    searchInputs.forEach(input => {
-        input.addEventListener('keyup', debounce(function() {
-            fetchFIRData(1, this.value);
-        }, 300));
-    });
-    
-    // New FIR button functionality
-    const newFirBtn = document.querySelector('.btn-primary');
-    if (newFirBtn) {
-        newFirBtn.addEventListener('click', function() {
-            window.location.href = '/FrontEnd/FIRManagement/CreateFIR.html';
-        });
-    }
-    
-    // Filter button functionality
-    const filterBtn = document.querySelector('.btn-secondary:nth-child(2)');
-    if (filterBtn) {
-        filterBtn.addEventListener('click', function() {
-            const status = prompt('Filter by status (Pending, In Progress, Resolved, Urgent) or leave empty for all:');
-            if (status !== null) {
-                fetchFIRData(1, '', status);
-            }
-        });
-    }
-});
+/* ==================== CONFIG ==================== */
+const API_URL = 'http://localhost:5000/api/fir';  // base path to your backend
+const PAGE_SIZE = 10;
+const USE_TOKEN = false; // set true if you need Authorization Bearer from localStorage.token
 
-// Function to fetch FIR data
-async function fetchFIRData(page = 1, search = '', status = '') {
+/* ==================== STATE ==================== */
+let allReports = [];
+let filtered = [];
+let currentPage = 1;
+
+/* ==================== UTILS ==================== */
+const $  = s => document.querySelector(s);
+const $$ = s => document.querySelectorAll(s);
+
+function debounce(fn, delay = 300) {
+  let t;
+  return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), delay); };
+}
+
+function formatDateTime(iso) {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  if (isNaN(d)) return '—';
+  return d.toLocaleString('en-GB', {
+    day: '2-digit', month: 'short', year: 'numeric',
+    hour: '2-digit', minute: '2-digit'
+  });
+}
+
+function safe(v, f = '—') { return (v === null || v === undefined || v === '') ? f : String(v); }
+
+function toCsv(rows) {
+  if (!rows?.length) return '';
+  const headers = Object.keys(rows[0]);
+  const esc = v => `"${String(v ?? '').replace(/"/g, '""')}"`;
+  return [
+    headers.map(esc).join(','),
+    ...rows.map(r => headers.map(h => esc(r[h])).join(','))
+  ].join('\n');
+}
+
+function showError(msg) {
+  const area = $('#feedbackArea');
+  if (!area) return;
+  area.innerHTML = `
+    <div class="feedback">
+      <div class="error-message">
+        <i class="fas fa-exclamation-circle"></i>
+        <span>${msg}</span>
+      </div>
+    </div>`;
+}
+
+/* ==================== FETCH ==================== */
+async function fetchReports() {
+  const tbody = $('#reportsTbody');
+  tbody.innerHTML = `
+    <tr><td colspan="5" class="loading-cell">
+      <div style="border:3px solid #f3f3f3;border-top:3px solid var(--primary);border-radius:50%;width:30px;height:30px;animation:spin 1s linear infinite;margin:0 auto"></div>
+      <div style="margin-top:8px;color:#777">Loading reports...</div>
+    </td></tr>`;
+
   try {
-    showLoadingState();
-    
-    let url = `http://localhost:5000/api/fir?page=${page}&limit=5`;
-    if (search) url += `&search=${encodeURIComponent(search)}`;
-    if (status) url += `&status=${encodeURIComponent(status)}`;
-    
-    console.log('Fetching from:', url);
-    
-    const response = await fetch(url, {
-      headers: {
-        'Authorization': `Bearer ${localStorage.getItem('authToken') || ''}`
-      }
+    const headers = { 'Content-Type': 'application/json' };
+    if (USE_TOKEN) {
+      const token = localStorage.getItem('token');
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+    }
+
+    // ask for many to paginate on the client; you can switch to server-side later
+    const url = `${API_URL}?limit=1000`;
+    const res = await fetch(url, { headers, credentials: 'include' });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const payload = await res.json();
+
+    // API returns: { success: true, data: [...] , pagination: {...} }
+    const list = Array.isArray(payload?.data) ? payload.data
+               : (Array.isArray(payload) ? payload : []);
+
+    // Normalize shapes (FIR vs earlier "report" schema)
+    allReports = list.map(r => {
+      const c = r.complainant || {};
+      return {
+        reportId   : r.reportId || r.firId || r._id || r.id || '—',
+        name       : r.name || c.name || '—',
+        email      : r.email || c.email || '—',
+        phone      : r.phone || c.phone || '—',
+        crimeType  : r.crimeType || r.incidentType || '—',
+        date       : r.date || r.incidentDate || r.reportedAt || r.createdAt || null,
+        createdAt  : r.createdAt || r.reportedAt || r.date || null,
+        location   : r.location || r.address || '—',
+        state      : r.state || r.region || (typeof r.location === 'string' ? r.location.split(',').slice(-1)[0]?.trim() : '—'),
+        description: r.description || r.details || r.summary || '—',
+        evidence   : r.evidence || r.attachments || '—',
+        raw        : r
+      };
     });
-    
-    console.log('Response status:', response.status);
-    
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('Server error response:', errorText);
-      throw new Error(`Server returned ${response.status}: ${response.statusText}`);
-    }
-    
-    const data = await response.json();
-    console.log('API response:', data);
-    
-    // Handle different response formats
-    if (data.success && data.data) {
-      // Standard format: {success: true, data: [...], pagination: {...}}
-      populateFIRTable(data.data);
-      if (data.pagination) {
-        updatePagination(data.pagination);
-      }
-    } else if (Array.isArray(data)) {
-      // Direct array format: [...]
-      populateFIRTable(data);
-      // You might need to implement custom pagination logic here
-      const tableInfo = document.querySelector('.table-info');
-      tableInfo.textContent = `Showing ${data.length} entries`;
-    } else {
-      throw new Error(data.message || 'Unexpected API response format');
-    }
-  } catch (error) {
-    console.error('Error:', error);
-    showError('Failed to load FIR data. Please try again.');
-  } finally {
-    hideLoadingState();
+
+    filtered = [...allReports];
+    currentPage = 1;
+    renderStats();
+    renderTable();
+  } catch (err) {
+    $('#reportsTbody').innerHTML = '';
+    showError(`Failed to load reports: ${err.message}. Check ${API_URL} in DevTools → Network.`);
   }
 }
 
-// Rest of your functions remain the same...
-// Function to fetch FIR statistics
-async function fetchFIRStats() {
-  try {
-    const token = localStorage.getItem('authToken');
-    const response = await fetch('http://localhost:5000/api/fir/stats', {
-      headers: {
-        'Authorization': `Bearer ${token}`
-      }
-    });
-    
-    if (!response.ok) {
-      throw new Error('Failed to fetch FIR statistics');
-    }
-    
-    const data = await response.json();
-    
-    if (data.success && data.data) {
-      updateStatsCards(data.data);
-    } else {
-      console.warn('Unexpected stats response format:', data);
-    }
-  } catch (error) {
-    console.error('Error fetching stats:', error);
+/* ==================== RENDER ==================== */
+function renderStats() {
+  const elTotal = $('#statTotal');
+  const el24h = $('#stat24h');
+  const elCyber = $('#statCyber');
+  const elStates = $('#statStates');
+  if (elTotal)  elTotal.textContent  = allReports.length;
+  if (el24h) {
+    const now = Date.now();
+    const last24 = allReports.filter(r => {
+      const d = r.createdAt || r.date; const t = d ? new Date(d).getTime() : NaN;
+      return !isNaN(t) && (now - t) <= 24 * 60 * 60 * 1000;
+    }).length;
+    el24h.textContent = last24;
   }
+  if (elCyber)  elCyber.textContent  = allReports.filter(r => String(r.crimeType).toLowerCase().includes('cyber')).length;
+  if (elStates) elStates.textContent = new Set(allReports.map(r => safe(r.state, ''))).size || 0;
 }
 
-// Function to populate the FIR table
-function populateFIRTable(reports) {
-  const tbody = document.querySelector('.data-table tbody');
+function renderTable() {
+  const tbody = $('#reportsTbody'); 
   tbody.innerHTML = '';
-  
-  if (!reports || !Array.isArray(reports)) {
-    tbody.innerHTML = `
-      <tr>
-        <td colspan="8" class="no-data">No FIR data available</td>
-      </tr>
-    `;
+  const start = (currentPage - 1) * PAGE_SIZE;
+  const rows  = filtered.slice(start, start + PAGE_SIZE);
+
+  if (!rows.length) {
+    tbody.innerHTML = `<tr><td colspan="5" class="loading-cell">No reports found</td></tr>`;
+    const ti = $('#tableInfo');
+    if (ti) ti.textContent = `Showing 0 to 0 of ${filtered.length} entries`;
+    renderPagination(); 
     return;
   }
-  
-  reports.forEach(report => {
-    const row = document.createElement('tr');
-    
-    // Map API fields to frontend expected fields
-    const firId = report.firId || report._id || 'N/A';
-    const complainantName = report.name || report.complainant?.name || 'Unknown';
-    const incidentType = report.crimeType || report.incidentType || 'Unknown';
-    const location = report.location || report.incidentLocation || 'Unknown';
-    const status = report.status || 'Pending';
-    const assignedOfficer = report.assignedOfficer || report.assignedTo || 'Unassigned';
-    const incidentDateTime = report.incidentDateTime || report.date || new Date();
-    
-    // Format date safely
-    let incidentDate = 'Unknown';
-    try {
-      incidentDate = new Date(incidentDateTime).toLocaleDateString('en-GB', {
-        day: '2-digit',
-        month: 'short',
-        year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit'
-      });
-    } catch (e) {
-      console.error('Error formatting date:', e);
-    }
-    
-    // Get status class for styling
-    let statusClass = status.toLowerCase().replace(' ', '-');
-    if (statusClass === 'in-progress') statusClass = 'in-progress';
-    
-    row.innerHTML = `
-      <td>${firId}</td>
-      <td>${complainantName}</td>
-      <td>${incidentType}</td>
-      <td>${location}</td>
-      <td>${incidentDate}</td>
-      <td><span class="status-badge ${statusClass}">${status}</span></td>
-      <td>${assignedOfficer}</td>
+
+  for (const r of rows) {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${safe(r.reportId)}</td>
+      <td>${safe(r.phone)}</td>
+      <td>${safe(r.crimeType)}</td>
+      <td>${safe(r.state)}</td>
       <td>
         <div class="action-buttons">
-          <button class="btn-icon small" data-action="view" data-id="${report._id}"><i class="fas fa-eye"></i></button>
-          <button class="btn-icon small" data-action="edit" data-id="${report._id}"><i class="fas fa-edit"></i></button>
-          <button class="btn-icon small" data-action="delete" data-id="${report._id}"><i class="fas fa-trash"></i></button>
+          <button class="btn-icon small view-btn" data-id="${String(r.reportId).replace(/"/g,'&quot;')}">
+            <i class="fas fa-eye"></i>
+          </button>
         </div>
-      </td>
-    `;
-    
-    tbody.appendChild(row);
+      </td>`;
+    tbody.appendChild(tr);
+  }
+
+  const end = Math.min(start + PAGE_SIZE, filtered.length);
+  const ti = $('#tableInfo');
+  if (ti) ti.textContent = `Showing ${start + 1} to ${end} of ${filtered.length} entries`;
+
+  $$('.view-btn').forEach(b => b.addEventListener('click', () => {
+    const id = b.getAttribute('data-id');
+    const item = allReports.find(x => String(x.reportId) === String(id));
+    if (item) openModal(item);
+  }));
+
+  renderPagination();
+}
+
+function renderPagination() {
+  const total = Math.ceil(filtered.length / PAGE_SIZE) || 1;
+  const pag = $('#pagination'); 
+  pag.innerHTML = '';
+
+  const add = (html, page, dis = false, act = false) => {
+    const btn = document.createElement('button');
+    btn.className = 'pagination-btn' + (act ? ' active' : '');
+    btn.disabled = dis; 
+    btn.innerHTML = html;
+    btn.addEventListener('click', () => { if (!dis) { currentPage = page; renderTable(); } });
+    pag.appendChild(btn);
+  };
+
+  add('<i class="fas fa-chevron-left"></i>', Math.max(1, currentPage - 1), currentPage === 1);
+
+  const win = 5; 
+  let s = Math.max(1, currentPage - Math.floor(win / 2)); 
+  let e = Math.min(total, s + win - 1);
+  if (e - s + 1 < win) s = Math.max(1, e - win + 1);
+  for (let p = s; p <= e; p++) add(String(p), p, false, p === currentPage);
+
+  add('<i class="fas fa-chevron-right"></i>', Math.min(total, currentPage + 1), currentPage === total);
+}
+
+/* ==================== SEARCH ==================== */
+function applyFilter(term) {
+  const t = term.trim().toLowerCase();
+  filtered = !t ? [...allReports] : allReports.filter(r => {
+    const blob = [r.reportId, r.phone, r.crimeType, r.state, r.name, r.email, r.location, r.description]
+      .map(v => String(v ?? '').toLowerCase()).join(' ');
+    return blob.includes(t);
   });
-  
-  // Add event listeners to action buttons
-  attachActionListeners();
+  currentPage = 1;
+  renderTable();
 }
 
-// Function to update statistics cards
-function updateStatsCards(stats) {
-    document.querySelectorAll('.stats-card h2')[0].textContent = stats.total;
-    document.querySelectorAll('.stats-card h2')[1].textContent = stats.pending;
-    document.querySelectorAll('.stats-card h2')[2].textContent = stats.resolved;
-    document.querySelectorAll('.stats-card h2')[3].textContent = stats.urgent;
+/* ==================== MODAL ==================== */
+function detail(label, val) {
+  return `
+    <div class="detail">
+      <div class="label">${label}:</div>
+      <div>${safe(val)}</div>
+    </div>`;
 }
 
-// Function to update pagination
-function updatePagination(pagination) {
-    const paginationContainer = document.querySelector('.pagination');
-    const tableInfo = document.querySelector('.table-info');
-    
-    // Update table info
-    const start = (pagination.currentPage - 1) * pagination.itemsPerPage + 1;
-    const end = Math.min(start + pagination.itemsPerPage - 1, pagination.totalItems);
-    tableInfo.textContent = `Showing ${start} to ${end} of ${pagination.totalItems} entries`;
-    
-    // Update pagination buttons
-    paginationContainer.innerHTML = `
-        <button class="pagination-btn" ${pagination.currentPage === 1 ? 'disabled' : ''} data-page="${pagination.currentPage - 1}">
-            <i class="fas fa-chevron-left"></i>
-        </button>
-    `;
-    
-    // Add page number buttons
-    for (let i = 1; i <= pagination.totalPages; i++) {
-        if (i === 1 || i === pagination.totalPages || 
-            (i >= pagination.currentPage - 1 && i <= pagination.currentPage + 1)) {
-            paginationContainer.innerHTML += `
-                <button class="pagination-btn ${i === pagination.currentPage ? 'active' : ''}" data-page="${i}">
-                    ${i}
-                </button>
-            `;
-        } else if (i === pagination.currentPage - 2 || i === pagination.currentPage + 2) {
-            paginationContainer.innerHTML += `<span class="pagination-ellipsis">...</span>`;
-        }
-    }
-    
-    // Next button
-    paginationContainer.innerHTML += `
-        <button class="pagination-btn" ${pagination.currentPage === pagination.totalPages ? 'disabled' : ''} data-page="${pagination.currentPage + 1}">
-            <i class="fas fa-chevron-right"></i>
-        </button>
-    `;
-    
-    // Add event listeners to pagination buttons
-    attachPaginationListeners();
+function openModal(item) {
+  $('#modalBody').innerHTML = `
+    ${detail('Report ID', item.reportId)}
+    ${detail('Created At', formatDateTime(item.createdAt))}
+    ${detail('Date', formatDateTime(item.date))}
+    ${detail('Name', item.name)}
+    ${detail('Email', item.email)}
+    ${detail('Phone', item.phone)}
+    ${detail('Crime Type', item.crimeType)}
+    ${detail('State', item.state)}
+    ${detail('Location', item.location)}
+    ${detail('Description', item.description)}
+    ${detail('Evidence', item.evidence)}
+  `;
+  const modal = $('#reportModal'); 
+  modal.style.display = 'flex'; 
+  modal.setAttribute('aria-hidden', 'false');
 }
 
-// Function to attach pagination listeners
-function attachPaginationListeners() {
-    const paginationButtons = document.querySelectorAll('.pagination-btn');
-    paginationButtons.forEach(button => {
-        button.addEventListener('click', function() {
-            if (!this.disabled) {
-                const page = parseInt(this.getAttribute('data-page'));
-                const searchValue = document.querySelector('.search-box.small input').value;
-                const statusFilter = ''; // You can implement status filtering
-                
-                fetchFIRData(page, searchValue, statusFilter);
-            }
-        });
-    });
+function closeModal() {
+  const m = $('#reportModal'); 
+  m.style.display = 'none'; 
+  m.setAttribute('aria-hidden', 'true');
 }
 
-// Function to attach action listeners
-function attachActionListeners() {
-    const actionButtons = document.querySelectorAll('.action-buttons button');
-    actionButtons.forEach(button => {
-        button.addEventListener('click', function() {
-            const action = this.getAttribute('data-action');
-            const reportId = this.getAttribute('data-id');
-            
-            if (action === 'view') {
-                viewFIR(reportId);
-            } else if (action === 'edit') {
-                editFIR(reportId);
-            } else if (action === 'delete') {
-                deleteFIR(reportId);
-            }
-        });
-    });
+/* ==================== EXPORT ==================== */
+function exportCsv() {
+  if (!filtered.length) return showError('Nothing to export.');
+  const rows = filtered.map(r => ({
+    reportId: r.reportId, createdAt: r.createdAt || '', date: r.date || '',
+    name: r.name, email: r.email, phone: r.phone, crimeType: r.crimeType,
+    state: r.state, location: r.location, description: r.description, evidence: r.evidence
+  }));
+  const blob = new Blob([toCsv(rows)], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob); 
+  const a = document.createElement('a');
+  a.href = url; 
+  a.download = `fir_reports_${Date.now()}.csv`; 
+  document.body.appendChild(a); 
+  a.click();
+  document.body.removeChild(a); 
+  URL.revokeObjectURL(url);
 }
 
-// Utility function for debouncing
-function debounce(func, wait) {
-    let timeout;
-    return function() {
-        const context = this;
-        const args = arguments;
-        clearTimeout(timeout);
-        timeout = setTimeout(() => func.apply(context, args), wait);
-    };
+/* ==================== SIDEBAR ==================== */
+function setupSidebar() {
+  const sidebar = document.querySelector('.sidebar');
+  const main    = document.querySelector('.main');
+  const btn     = document.getElementById('sidebarCollapse');
+  if (btn) btn.addEventListener('click', () => { 
+    sidebar.classList.toggle('active'); 
+    main.classList.toggle('active'); 
+  });
+  const mq = window.matchMedia('(max-width: 576px)');
+  const handle = e => { 
+    if (e.matches) { sidebar.classList.add('active'); main.classList.add('active'); } 
+    else { sidebar.classList.remove('active'); main.classList.remove('active'); } 
+  };
+  mq.addEventListener('change', handle); 
+  handle(mq);
 }
 
-// Loading state functions
-function showLoadingState() {
-    // Add loading spinner to table
-    const tbody = document.querySelector('.data-table tbody');
-    tbody.innerHTML = `
-        <tr>
-            <td colspan="8" class="loading-cell">
-                <div class="loading-spinner"></div>
-                <span>Loading FIR data...</span>
-            </td>
-        </tr>
-    `;
-}
+/* ==================== INIT ==================== */
+document.addEventListener('DOMContentLoaded', () => {
+  setupSidebar();
+  fetchReports();
 
-function hideLoadingState() {
-    // Remove loading spinner
-    const loadingCell = document.querySelector('.loading-cell');
-    if (loadingCell) {
-        loadingCell.remove();
-    }
-}
+  const g = $('#globalSearch'); if (g) g.addEventListener('keyup', debounce(e => applyFilter(e.target.value), 300));
+  const t = $('#tableFilter');  if (t) t.addEventListener('keyup', debounce(e => applyFilter(e.target.value), 300));
+  const c = $('#clearSearchBtn'); if (c) c.addEventListener('click', () => { if (g) g.value=''; if (t) t.value=''; applyFilter(''); });
+  const r1 = $('#refreshBtn'); if (r1) r1.addEventListener('click', fetchReports);
+  const r2 = $('#btnSoftRefresh'); if (r2) r2.addEventListener('click', fetchReports);
+  const ex = $('#exportCsvBtn'); if (ex) ex.addEventListener('click', exportCsv);
+  const x  = $('#closeModal'); if (x) x.addEventListener('click', closeModal);
+  window.addEventListener('click', e => { if (e.target.id === 'reportModal') closeModal(); });
 
-// Error display function
-function showError(message) {
-    const tableContainer = document.querySelector('.table-container');
-    const errorDiv = document.createElement('div');
-    errorDiv.className = 'error-message';
-    errorDiv.innerHTML = `
-        <i class="fas fa-exclamation-circle"></i>
-        <span>${message}</span>
-    `;
-    tableContainer.appendChild(errorDiv);
-    
-    // Remove error after 5 seconds
-    setTimeout(() => {
-        errorDiv.remove();
-    }, 5000);
-}
-
-// Placeholder functions for actions
-function viewFIR(reportId) {
-    console.log(`View FIR: ${reportId}`);
-    // Implement view functionality - open modal or navigate to detail page
-    window.location.href = `/FrontEnd/FIRManagement/ViewFIR.html?id=${reportId}`;
-}
-
-function editFIR(reportId) {
-    console.log(`Edit FIR: ${reportId}`);
-    // Implement edit functionality
-    window.location.href = `/FrontEnd/FIRManagement/EditFIR.html?id=${reportId}`;
-}
-
-function deleteFIR(reportId) {
-    console.log(`Delete FIR: ${reportId}`);
-    // Implement delete functionality with confirmation
-    if (confirm('Are you sure you want to delete this FIR? This action cannot be undone.')) {
-        // Make API call to delete the FIR
-        deleteFIRFromAPI(reportId);
-    }
-}
-
-async function deleteFIRFromAPI(reportId) {
-    try {
-        const token = localStorage.getItem('authToken');
-        const response = await fetch(`http://localhost:5000/api/fir/${reportId}`, {
-            method: 'DELETE',
-            headers: {
-                'Authorization': `Bearer ${token}`
-            }
-        });
-        
-        if (response.ok) {
-            // Refresh the data
-            fetchFIRData();
-            fetchFIRStats();
-        } else {
-            throw new Error('Failed to delete FIR');
-        }
-    } catch (error) {
-        console.error('Error deleting FIR:', error);
-        showError('Failed to delete FIR. Please try again.');
-    }
-}
+  const style = document.createElement('style');
+  style.textContent = '@keyframes spin{0%{transform:rotate(0)}100%{transform:rotate(360deg)}}';
+  document.head.appendChild(style);
+});
