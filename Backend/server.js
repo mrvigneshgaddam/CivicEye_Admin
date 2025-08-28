@@ -32,7 +32,37 @@ const allowedOrigins = process.env.NODE_ENV === 'production'
      'http://127.0.0.1:5000', 'http://localhost:5500', 'http://127.0.0.1:5500',
      'http://localhost:5501', 'http://127.0.0.1:5501'];
 
+
+// ---------- CORS Configuration ----------
+// ---------- CORS Configuration ----------
+
+
+// Add development URLs
+
+
+
+const allowlist = (process.env.CLIENT_URLS || process.env.CLIENT_URL || '')
+  .split(',')
+  .map(s => s.trim())
+  .filter(Boolean);
+
+// Add development URLs
+if (process.env.NODE_ENV === 'development') {
+  allowlist.push(
+    'http://localhost:3000',
+    'http://127.0.0.1:3000',
+    'http://localhost:5005', 
+    'http://127.0.0.1:5005',
+    'http://localhost:8000',
+    'http://127.0.0.1:8000',
+    'http://localhost:5500',
+    'http://127.0.0.1:5500',
+      "http://127.0.0.1:5501"
+  );
+}
+
 // CORS middleware
+
 app.use(cors({
   origin: function (origin, callback) {
     // Allow requests with no origin (like mobile apps, Postman, etc.)
