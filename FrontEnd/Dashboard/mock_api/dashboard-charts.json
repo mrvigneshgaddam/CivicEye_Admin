@@ -1,0 +1,12 @@
+{
+  "data": {
+    "overview": {
+      "labels": ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
+      "data": [12, 8, 14, 25, 2, 30, 17]
+    },
+    "types": {
+      "labels": ["Theft", "Assault", "Accident", "Fraud", "Other"],
+      "data": [15, 35, 20, 55, 10]
+    }
+  }
+}

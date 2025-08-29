@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Token Debugger - CivicEye</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        body {
+            background: linear-gradient(135deg, #1a2a6c, #b21f1f, #fdbb2d);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        
+        .container {
+            background: white;
+            width: 100%;
+            max-width: 800px;
+            border-radius: 15px;
+            overflow: hidden;
+            box-shadow: 0 15px 40px rgba(0, 0, 0, 0.3);
+        }
+        
+        .header {
+            background: #1a2a6c;
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 15px;
+            margin-bottom: 10px;
+        }
+        
+        .content {
+            padding: 30px;
+        }
+        
+        .card {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-left: 4px solid #1a2a6c;
+        }
+        
+        .card h3 {
+            color: #1a2a6c;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .status {
+            padding: 10px 15px;
+            border-radius: 5px;
+            margin-bottom: 15px;
+            font-weight: bold;
+        }
+        
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        
+        .status.info {
+            background: #cce5ff;
+            color: #004085;
+            border: 1px solid #b8daff;
+        }
+        
+        pre {
+            background: #2b2b2b;
+            color: #f8f8f2;
+            padding: 15px;
+            border-radius: 5px;
+            overflow-x: auto;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            font-family: 'Courier New', monospace;
+        }
+        
+        .actions {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 30px;
+        }
+        
+        button {
+            padding: 12px 20px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+        
+        .btn-primary {
+            background: #1a2a6c;
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: #24378a;
+            transform: translateY(-2px);
+        }
+        
+        .btn-success {
+            background: #4BB543;
+            color: white;
+        }
+        
+        .btn-success:hover {
+            background: #5ac552;
+            transform: translateY(-2px);
+        }
+        
+        .btn-danger {
+            background: #b21f1f;
+            color: white;
+        }
+        
+        .btn-danger:hover {
+            background: #c72c2c;
+            transform: translateY(-2px);
+        }
+        
+        .btn-info {
+            background: #17a2b8;
+            color: white;
+        }
+        
+        .btn-info:hover {
+            background: #138496;
+            transform: translateY(-2px);
+        }
+        
+        .log-entry {
+            padding: 10px;
+            border-bottom: 1px solid #eee;
+            font-family: monospace;
+        }
+        
+        .log-time {
+            color: #6c757d;
+            margin-right: 10px;
+        }
+        
+        .log-error {
+            color: #dc3545;
+        }
+        
+        .log-success {
+            color: #28a745;
+        }
+        
+        .log-info {
+            color: #17a2b8;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1><i class="fas fa-bug"></i> Token Debugger</h1>
+            <p>CivicEye Authentication Debugging Tool</p>
+        </div>
+        
+        <div class="content">
+            <div class="card">
+                <h3><i class="fas fa-info-circle"></i> Current Status</h3>
+                <div id="statusMessage" class="status info">Checking token storage...</div>
+                
+                <div class="info-grid">
+                    <p><strong>Token Present:</strong> <span id="tokenPresent">Checking...</span></p>
+                    <p><strong>User Data Present:</strong> <span id="userDataPresent">Checking...</span></p>
+                    <p><strong>Auth Guard Active:</strong> <span id="authGuardStatus">Checking...</span></p>
+                </div>
+            </div>
+            
+            <div class="card">
+                <h3><i class="fas fa-key"></i> Token Data</h3>
+                <pre id="tokenData">No token data found in localStorage</pre>
+            </div>
+            
+            <div class="card">
+                <h3><i class="fas fa-user"></i> User Data</h3>
+                <pre id="userData">No user data found in localStorage</pre>
+            </div>
+            
+            <div class="card">
+                <h3><i class="fas fa-clipboard-list"></i> Debug Log</h3>
+                <div id="debugLog">
+                    <div class="log-entry"><span class="log-time">[00:00:00]</span> <span class="log-info">Initializing debugger...</span></div>
+                </div>
+            </div>
+            
+            <div class="actions">
+                <button class="btn-primary" onclick="checkToken()">
+                    <i class="fas fa-sync-alt"></i> Check Again
+                </button>
+                <button class="btn-success" onclick="simulateLogin()">
+                    <i class="fas fa-sign-in-alt"></i> Simulate Login
+                </button>
+                <button class="btn-danger" onclick="clearToken()">
+                    <i class="fas fa-trash-alt"></i> Clear Token
+                </button>
+                <button class="btn-info" onclick="testAuthGuard()">
+                    <i class="fas fa-shield-alt"></i> Test Auth Guard
+                </button>
+                <button class="btn-primary" onclick="goToLogin()">
+                    <i class="fas fa-arrow-right"></i> Go to Login
+                </button>
+                <button class="btn-info" onclick="testEventListener()">
+                    <i class="fas fa-code"></i> Test Event Listener
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Log function with timestamp
+        function addLog(message, type = 'info') {
+            const logElement = document.getElementById('debugLog');
+            const now = new Date();
+            const timeString = `[${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}:${now.getSeconds().toString().padStart(2, '0')}]`;
+            
+            const logEntry = document.createElement('div');
+            logEntry.className = 'log-entry';
+            logEntry.innerHTML = `<span class="log-time">${timeString}</span> <span class="log-${type}">${message}</span>`;
+            
+            logElement.appendChild(logEntry);
+            logElement.scrollTop = logElement.scrollHeight;
+        }
+        
+        // Check token on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            addLog('Page loaded, checking token status', 'info');
+            checkToken();
+            testEventListener();
+        });
+        
+        function checkToken() {
+            addLog('Checking token storage', 'info');
+            const token = localStorage.getItem('token');
+            const user = localStorage.getItem('user');
+            
+            // Update status
+            const statusElement = document.getElementById('statusMessage');
+            
+            if (token) {
+                document.getElementById('tokenPresent').textContent = 'Yes';
+                statusElement.textContent = 'Token found in localStorage!';
+                statusElement.className = 'status success';
+                addLog('Token found in localStorage', 'success');
+            } else {
+                document.getElementById('tokenPresent').textContent = 'No';
+                statusElement.textContent = 'No token found in localStorage.';
+                statusElement.className = 'status error';
+                addLog('No token found in localStorage', 'error');
+            }
+            
+            if (user) {
+                document.getElementById('userDataPresent').textContent = 'Yes';
+                try {
+                    const userData = JSON.parse(user);
+                    document.getElementById('userData').textContent = JSON.stringify(userData, null, 2);
+                    addLog('User data found and parsed successfully', 'success');
+                } catch (e) {
+                    document.getElementById('userData').textContent = user;
+                    addLog('User data found but could not be parsed as JSON', 'error');
+                }
+            } else {
+                document.getElementById('userDataPresent').textContent = 'No';
+                document.getElementById('userData').textContent = 'No user data found';
+                addLog('No user data found in localStorage', 'error');
+            }
+            
+            // Display token data (masked for security)
+            if (token) {
+                const maskedToken = token.substring(0, 20) + '...' + token.substring(token.length - 10);
+                document.getElementById('tokenData').textContent = maskedToken;
+                addLog('Token displayed (masked for security)', 'info');
+            } else {
+                document.getElementById('tokenData').textContent = 'No token data found';
+            }
+            
+            // Check if auth guard script is present
+            if (typeof AuthGuard !== 'undefined') {
+                document.getElementById('authGuardStatus').textContent = 'Active';
+                addLog('Auth guard script is loaded and active', 'success');
+            } else {
+                document.getElementById('authGuardStatus').textContent = 'Not found';
+                addLog('Auth guard script not found or not loaded', 'error');
+            }
+        }
+        
+        function simulateLogin() {
+            addLog('Simulating login process', 'info');
+            // Simulate a successful login by storing dummy data
+            const dummyToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c';
+            const dummyUser = {
+                id: 1,
+                name: 'John Doe',
+                email: 'john.doe@example.com',
+                badgeId: '12345',
+                rank: 'Sergeant',
+                department: 'Police Department',
+                status: 'Active'
+            };
+            
+            localStorage.setItem('token', dummyToken);
+            localStorage.setItem('user', JSON.stringify(dummyUser));
+            
+            addLog('Simulated login completed - token and user data stored', 'success');
+            alert('Simulated login successful! Token and user data stored.');
+            checkToken();
+        }
+        
+        function clearToken() {
+            addLog('Clearing token data', 'info');
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+            
+            addLog('Token and user data cleared from localStorage', 'success');
+            alert('Token and user data cleared from localStorage.');
+            checkToken();
+        }
+        
+        function goToLogin() {
+            addLog('Redirecting to login page', 'info');
+            window.location.href = '/index.html';
+        }
+        
+        function testAuthGuard() {
+            addLog('Testing auth guard functionality', 'info');
+            const token = localStorage.getItem('token');
+            
+            if (!token) {
+                addLog('Auth guard test: No token found - would redirect to login', 'error');
+                alert('No token found. Auth guard would redirect to login page.');
+            } else {
+                addLog('Auth guard test: Token found - would allow access', 'success');
+                alert('Token found. Auth guard would allow access to protected page.');
+            }
+        }
+        
+        function testEventListener() {
+            addLog('Testing event listener setup', 'info');
+            const loginForm = document.getElementById('loginForm');
+            
+            if (loginForm) {
+                addLog('Login form element found in DOM', 'success');
+                
+                // Try to add an event listener
+                try {
+                    loginForm.addEventListener('submit', function(e) {
+                        e.preventDefault();
+                        addLog('Login form submit event captured successfully', 'success');
+                    });
+                    addLog('Event listener added successfully to login form', 'success');
+                } catch (error) {
+                    addLog('Error adding event listener: ' + error.message, 'error');
+                }
+            } else {
+                addLog('Login form element NOT found in DOM', 'error');
+                addLog('This is likely why you are getting the "Cannot read properties of null" error', 'error');
+                addLog('Make sure your script runs after the DOM is fully loaded', 'info');
+            }
+        }
+    </script>
+</body>
+</html>
