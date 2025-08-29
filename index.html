@@ -1,11 +1,11 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-page="login">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>CivicEye - Login</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <script src="/FrontEnd/shared/auth-guard.js"></script>
+    
     <style>
         * {
             margin: 0;
@@ -297,7 +297,7 @@
         <p id="debugStatus">Status: Not initialized</p>
         <pre id="debugResponse">Response: None</pre>
     </div>
-
+    <script src="/FrontEnd/shared/auth-gaurd.js"></script>
     <script>
 document.addEventListener('DOMContentLoaded', function () {
   const loginForm = document.getElementById('loginForm');
@@ -313,16 +313,12 @@ document.addEventListener('DOMContentLoaded', function () {
     debugPanel.style.display = 'block';
   }
 
-  // clear any stale tokens
-//   localStorage.removeItem('token');
-//   localStorage.removeItem('user');
-
   // password eye toggle
   togglePassword.addEventListener('click', function () {
-    const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
-    passwordInput.setAttribute('type', type);
-    const icon = this.querySelector('i');
-    if (icon) { icon.classList.toggle('fa-eye'); icon.classList.toggle('fa-eye-slash'); }
+    const type = passwordInput.type === 'password' ? 'text' : 'password';
+    passwordInput.type = type;
+    this.querySelector('i').classList.toggle('fa-eye');
+    this.querySelector('i').classList.toggle('fa-eye-slash');
   });
 
   loginForm.addEventListener('submit', onLogin);
@@ -330,12 +326,9 @@ document.addEventListener('DOMContentLoaded', function () {
   async function onLogin(e) {
     e.preventDefault();
 
-    const emailEl = document.getElementById('email');
-    const passEl  = document.getElementById('password');
+    const email = document.getElementById('email').value.trim();
+    const password = document.getElementById('password').value;
     const loginBtn = loginForm.querySelector('.login-btn');
-
-    const email = (emailEl.value || '').trim();
-    const password = passEl.value || '';
 
     if (!email || !password) return showError('Please fill all fields');
 
@@ -355,15 +348,14 @@ document.addEventListener('DOMContentLoaded', function () {
 
       const data = await res.json().catch(() => ({}));
 
-      if (!res.ok || !data.success) {
-        updateDebug(Error `${res.status}, JSON.stringify(data, null, 2)`);
+      if (!res.ok || !data.success || !data.token) {
+        updateDebug(`Error ${res.status}`, JSON.stringify(data, null, 2));
         throw new Error(data.message || 'Invalid email or password');
       }
 
       // success
       updateDebug('200 OK', JSON.stringify(data, null, 2));
 
-      // persist token + user (names consistent with rest of app)
       localStorage.setItem('token', data.token);
       localStorage.setItem('user', JSON.stringify(data.user || {}));
 
@@ -371,7 +363,6 @@ document.addEventListener('DOMContentLoaded', function () {
       loginBtn.style.backgroundColor = '#4BB543';
       showSuccess('Login successful! Redirecting…');
 
-      // redirect to dashboard (adjust path if your file lives elsewhere)
       setTimeout(() => {
         window.location.href = '/FrontEnd/Dashboard/dashboard.html';
       }, 900);
@@ -385,8 +376,8 @@ document.addEventListener('DOMContentLoaded', function () {
   }
 
   function updateDebug(status, resp) {
-    if (debugStatus) debugStatus.textContent = 'Status: ' + status;
-    if (debugResponse) debugResponse.textContent = 'Response: ' + (resp || '');
+    debugStatus.textContent = 'Status: ' + status;
+    debugResponse.textContent = 'Response: ' + (resp || '');
   }
 
   function showError(message) {
@@ -413,6 +404,7 @@ document.addEventListener('DOMContentLoaded', function () {
   }
 });
 </script>
+
 </body>
 
 </html>

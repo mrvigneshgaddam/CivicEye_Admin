@@ -1,32 +1,32 @@
-// /FrontEnd/shared/auth-guard.js
-(function () {
-  const path = location.pathname.replace(/\/+$/, '');
-  const isLogin =
-    path === '' ||
-    path === '/' ||
-    /\/index\.html$/i.test(path);
+document.getElementById('loginForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
 
-  const token = localStorage.getItem('token');
+  const email = document.getElementById('email').value;
+  const password = document.getElementById('password').value;
 
-  // If you’re on LOGIN and already have a token → go to dashboard
-  if (isLogin && token) {
-    location.replace('/FrontEnd/Dashboard/dashboard.html');
-    return;
-  }
+  try {
+    const res = await fetch('http://localhost:5000/api/auth/login', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ email, password }),
+    });
 
-  // If you’re on a PROTECTED page and no token → back to login
-  const protectedPaths = [
-    '/FrontEnd/Dashboard/dashboard.html',
-    '/FrontEnd/FirManagement/FirManagement.html',
-    '/FrontEnd/OfficerManagement/OfficerManagement.html',
-    '/FrontEnd/EmergencyManagement/Emergency.html',
-    '/FrontEnd/Profile/profile.html',
-    '/FrontEnd/Setting/setting.html',
-  ];
+    const data = await res.json();
 
-  if (!isLogin && protectedPaths.some(p => p.toLowerCase() === path.toLowerCase())) {
-    if (!token) {
-      location.replace('/index.html');
+    // ✅ Validate response before storing
+    if (!res.ok || !data.success || !data.token) {
+      throw new Error(data.message || 'Invalid email or password');
     }
+
+    // ✅ Store token & user info
+    localStorage.setItem('token', data.token);
+    localStorage.setItem('user', JSON.stringify(data.user || {}));
+
+    // ✅ Redirect to dashboard
+    window.location.href = '/FrontEnd/Dashboard/dashboard.html';
+  } catch (err) {
+    alert(err.message);
   }
-})();
+});
