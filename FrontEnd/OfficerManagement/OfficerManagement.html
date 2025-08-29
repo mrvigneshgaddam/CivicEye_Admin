@@ -12,19 +12,19 @@
         <!-- Sidebar -->
         <aside class="sidebar">
             <div class="sidebar-header">
-                <h3><i class="fas fa-shield-alt"></i> CivikEye</h3>
+                <h3><i class="fas fa-shield-alt"></i> <span>CivikEye</span></h3>
                 <button class="sidebar-collapse-btn" id="sidebarCollapse">
                     <i class="fas fa-bars"></i>
                 </button>
             </div>
             <ul class="sidebar-menu">
-                <li><a href="/FrontEnd/Dashboard/dashboard.html"><i class="fas fa-tachometer-alt"></i><span>Dashboard</span></a></li>
-                <li><a href="/FrontEnd/ChatApp/chatapp.html"><i class="fas fa-comments"></i><span>Chat App</span></a></li>
-                <li><a href="/FrontEnd/FirManagement/FirManagement.html"><i class="fas fa-file-alt"></i><span>FIR Management</span></a></li>
+                <li><a href="#"><i class="fas fa-tachometer-alt"></i><span>Dashboard</span></a></li>
+                <li><a href="#"><i class="fas fa-comments"></i><span>Chat App</span></a></li>
+                <li><a href="#"><i class="fas fa-file-alt"></i><span>FIR Management</span></a></li>
                 <li><a href="#" class="active"><i class="fas fa-users"></i><span>Officer Management</span></a></li>
-                <li><a href="/FrontEnd/EmergencyManagement/Emergency.html"><i class="fas fa-exclamation-triangle"></i><span>Emergency Management</span></a></li>
-                <li><a href="/FrontEnd/Profile/profile.html"><i class="fas fa-user-circle"></i><span>Profile</span></a></li>
-                <li><a href="/FrontEnd/Setting/setting.html"><i class="fas fa-cog"></i><span>Settings</span></a></li>
+                <li><a href="#"><i class="fas fa-exclamation-triangle"></i><span>Emergency Management</span></a></li>
+                <li><a href="#"><i class="fas fa-user-circle"></i><span>Profile</span></a></li>
+                <li><a href="#"><i class="fas fa-cog"></i><span>Settings</span></a></li>
             </ul>
         </aside>
 
@@ -38,7 +38,7 @@
                 <div class="header-right">
                     <div class="search-box">
                         <i class="fas fa-search"></i>
-                        <input type="text" placeholder="Search officers...">
+                        <input type="text" id="searchInput" placeholder="Search officers...">
                     </div>
                     <button class="notification-btn">
                         <i class="fas fa-bell"></i>
@@ -60,7 +60,7 @@
                 <div class="page-title">
                     <h1>Officer Management</h1>
                     <div class="breadcrumb">
-                        <a href="/FrontEnd/Dashboard/dashboard.html">Home</a>
+                        <a href="#">Home</a>
                         <i class="fas fa-chevron-right"></i>
                         <span>Officer Management</span>
                     </div>
@@ -73,10 +73,10 @@
                             <i class="fas fa-users" style="color: #4cc9f0;"></i>
                         </div>
                         <h3>Total Officers</h3>
-                        <h2>56</h2>
+                        <h2 id="totalOfficers">0</h2>
                         <div class="stats-card-change positive">
                             <i class="fas fa-arrow-up"></i>
-                            <span>5.7%</span>
+                            <span>0%</span>
                         </div>
                     </div>
                     <div class="stats-card">
@@ -84,10 +84,10 @@
                             <i class="fas fa-user-check" style="color: #f8961e;"></i>
                         </div>
                         <h3>Active Officers</h3>
-                        <h2>42</h2>
+                        <h2 id="activeOfficers">0</h2>
                         <div class="stats-card-change positive">
                             <i class="fas fa-arrow-up"></i>
-                            <span>3.2%</span>
+                            <span>0%</span>
                         </div>
                     </div>
                     <div class="stats-card">
@@ -95,10 +95,10 @@
                             <i class="fas fa-user-clock" style="color: #4361ee;"></i>
                         </div>
                         <h3>On Leave</h3>
-                        <h2>7</h2>
+                        <h2 id="onLeaveOfficers">0</h2>
                         <div class="stats-card-change negative">
                             <i class="fas fa-arrow-up"></i>
-                            <span>1.8%</span>
+                            <span>0%</span>
                         </div>
                     </div>
                     <div class="stats-card">
@@ -106,25 +106,25 @@
                             <i class="fas fa-star" style="color: #f72585;"></i>
                         </div>
                         <h3>Top Performers</h3>
-                        <h2>12</h2>
+                        <h2 id="topPerformers">0</h2>
                         <div class="stats-card-change positive">
                             <i class="fas fa-arrow-up"></i>
-                            <span>4.5%</span>
+                            <span>0%</span>
                         </div>
                     </div>
                 </div>
 
                 <!-- Officer Actions -->
                 <div class="actions-row">
-                    <button class="btn btn-primary">
+                    <button class="btn btn-primary" id="addOfficerBtn">
                         <i class="fas fa-plus"></i>
                         <span>Add Officer</span>
                     </button>
-                    <button class="btn btn-secondary">
+                    <button class="btn btn-secondary" id="filterBtn">
                         <i class="fas fa-filter"></i>
                         <span>Filter</span>
                     </button>
-                    <button class="btn btn-secondary">
+                    <button class="btn btn-secondary" id="exportBtn">
                         <i class="fas fa-download"></i>
                         <span>Export</span>
                     </button>
@@ -137,9 +137,9 @@
                         <div class="table-actions">
                             <div class="search-box small">
                                 <i class="fas fa-search"></i>
-                                <input type="text" placeholder="Search officers...">
+                                <input type="text" id="tableSearchInput" placeholder="Search officers...">
                             </div>
-                            <button class="btn-icon">
+                            <button class="btn-icon" id="refreshBtn">
                                 <i class="fas fa-sync-alt"></i>
                             </button>
                         </div>
@@ -155,26 +155,27 @@
                                     <th>Contact</th>
                                     <th>Status</th>
                                     <th>Assigned Cases</th>
+                                    <th>Police Station</th>
                                     <th>Actions</th>
                                 </tr>
                             </thead>
-                            <tbody>
-                                
+                            <tbody id="officersTableBody">
+                                <!-- Data will be populated here -->
                             </tbody>
                         </table>
                     </div>
                     <div class="table-footer">
-                        <div class="table-info">
-                            Showing 1 to 5 of 56 entries
+                        <div class="table-info" id="tableInfo">
+                            Showing 0 to 0 of 0 entries
                         </div>
                         <div class="pagination">
-                            <button class="pagination-btn" disabled>
+                            <button class="pagination-btn" id="prevPageBtn" disabled>
                                 <i class="fas fa-chevron-left"></i>
                             </button>
                             <button class="pagination-btn active">1</button>
                             <button class="pagination-btn">2</button>
                             <button class="pagination-btn">3</button>
-                            <button class="pagination-btn">
+                            <button class="pagination-btn" id="nextPageBtn">
                                 <i class="fas fa-chevron-right"></i>
                             </button>
                         </div>
@@ -183,7 +184,758 @@
             </div>
         </main>
     </div>
-    <script src="/FrontEnd/shared/auth-gaurd.js"></script>
-    <script src="OfficerManagement.js"></script>
+
+    <!-- Add/Edit Officer Modal -->
+    <div id="officerModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="modalTitle">Add Officer</h3>
+                <span class="close">&times;</span>
+            </div>
+            <div class="modal-body">
+                <form id="officerForm">
+                    <input type="hidden" id="officerId">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="name">Full Name *</label>
+                            <input type="text" id="name" name="name" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="email">Email Address *</label>
+                            <input type="email" id="email" name="email" required>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="badgeId">Badge ID *</label>
+                            <input type="text" id="badgeId" name="badgeId" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="rank">Rank *</label>
+                            <select id="rank" name="rank" required>
+                                <option value="">Select Rank</option>
+                                <option value="Inspector">Inspector</option>
+                                <option value="Sub-Inspector">Sub-Inspector</option>
+                                <option value="Assistant Sub-Inspector">Assistant Sub-Inspector</option>
+                                <option value="Head Constable">Head Constable</option>
+                                <option value="Constable">Constable</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="department">Department *</label>
+                            <select id="department" name="department" required>
+                                <option value="">Select Department</option>
+                                <option value="Traffic Division">Traffic Division</option>
+                                <option value="Crime Branch">Crime Branch</option>
+                                <option value="Narcotics">Narcotics</option>
+                                <option value="Cyber Crime">Cyber Crime</option>
+                                <option value="Special Branch">Special Branch</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="status">Status *</label>
+                            <select id="status" name="status" required>
+                                <option value="Active">Active</option>
+                                <option value="On Leave">On Leave</option>
+                                <option value="Inactive">Inactive</option>
+                                <option value="Suspended">Suspended</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="phone">Phone Number *</label>
+                            <input type="tel" id="phone" name="phone" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="policeStation">Police Station *</label>
+                            <input type="text" id="policeStation" name="policeStation" required>
+                        </div>
+                    </div>
+                    <div class="form-row" id="passwordField">
+                        <div class="form-group">
+                            <label for="password">Password *</label>
+                            <input type="password" id="password" name="password" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="confirmPassword">Confirm Password *</label>
+                            <input type="password" id="confirmPassword" name="confirmPassword" required>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="assignedCases">Assigned Cases</label>
+                            <input type="number" id="assignedCases" name="assignedCases" min="0" value="0">
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" id="cancelBtn">Cancel</button>
+                <button type="button" class="btn btn-primary" id="saveOfficerBtn">Save Officer</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- View Officer Modal -->
+    <div id="viewOfficerModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Officer Details</h3>
+                <span class="close" data-modal="viewOfficerModal">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div class="officer-details">
+                    <div class="detail-header">
+                        <img id="viewOfficerImage" src="" alt="Officer Image" class="officer-image">
+                        <div class="detail-title">
+                            <h2 id="viewOfficerName"></h2>
+                            <p id="viewOfficerRank"></p>
+                        </div>
+                    </div>
+                    <div class="detail-info">
+                        <div class="info-row">
+                            <div class="info-item">
+                                <label>Badge ID:</label>
+                                <span id="viewBadgeId"></span>
+                            </div>
+                            <div class="info-item">
+                                <label>Department:</label>
+                                <span id="viewDepartment"></span>
+                            </div>
+                        </div>
+                        <div class="info-row">
+                            <div class="info-item">
+                                <label>Email:</label>
+                                <span id="viewEmail"></span>
+                            </div>
+                            <div class="info-item">
+                                <label>Phone:</label>
+                                <span id="viewPhone"></span>
+                            </div>
+                        </div>
+                        <div class="info-row">
+                            <div class="info-item">
+                                <label>Police Station:</label>
+                                <span id="viewPoliceStation"></span>
+                            </div>
+                            <div class="info-item">
+                                <label>Status:</label>
+                                <span id="viewStatus" class="status-badge"></span>
+                            </div>
+                        </div>
+                        <div class="info-row">
+                            <div class="info-item">
+                                <label>Assigned Cases:</label>
+                                <span id="viewAssignedCases"></span>
+                            </div>
+                            <div class="info-item">
+                                <label>Joined:</label>
+                                <span id="viewCreatedAt"></span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-primary" data-modal="viewOfficerModal">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Confirmation Modal -->
+    <div id="confirmModal" class="modal">
+        <div class="modal-content small">
+            <div class="modal-header">
+                <h3>Confirm Action</h3>
+                <span class="close" data-modal="confirmModal">&times;</span>
+            </div>
+            <div class="modal-body">
+                <p id="confirmMessage">Are you sure you want to delete this officer?</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-modal="confirmModal">Cancel</button>
+                <button type="button" class="btn btn-danger" id="confirmActionBtn">Delete</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+      // ===== API Configuration =====
+const API_BASE = 'http://localhost:5000';
+const API_URL = `${API_BASE}/api/officers`;
+
+// ===== DOM Helper Functions =====
+const $ = selector => document.querySelector(selector);
+const $$ = selector => document.querySelectorAll(selector);
+
+// Helper function to safely get values with fallback
+const safe = (value, fallback = '—') => {
+    return (value === undefined || value === null || value === '') ? fallback : String(value);
+};
+
+// Format date for display
+const formatDate = (dateString) => {
+    if (!dateString) return '—';
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric'
+    });
+};
+
+// Debounce function for search inputs
+function debounce(func, wait) {
+    let timeout;
+    return function executedFunction(...args) {
+        const later = () => {
+            clearTimeout(timeout);
+            func(...args);
+        };
+        clearTimeout(timeout);
+        timeout = setTimeout(later, wait);
+    };
+}
+
+// ===== Initialize the Application =====
+document.addEventListener('DOMContentLoaded', function() {
+    initializeSidebar();
+    loadOfficers();
+    setupEventListeners();
+    setupModals();
+});
+
+// ===== Sidebar Functionality =====
+function initializeSidebar() {
+    const sidebar = $('.sidebar');
+    const main = $('.main');
+    const sidebarCollapseBtn = $('#sidebarCollapse');
+    
+    if (sidebarCollapseBtn) {
+        sidebarCollapseBtn.addEventListener('click', () => {
+            sidebar.classList.toggle('active');
+            main.classList.toggle('active');
+        });
+    }
+
+    // Handle responsive behavior
+    const mediaQuery = window.matchMedia('(max-width: 768px)');
+    
+    function handleMobileView(e) {
+        if (e.matches) {
+            sidebar.classList.add('active');
+            main.classList.add('active');
+        } else {
+            sidebar.classList.remove('active');
+            main.classList.remove('active');
+        }
+    }
+    
+    mediaQuery.addEventListener('change', handleMobileView);
+    handleMobileView(mediaQuery);
+}
+
+// ===== Modal Setup =====
+function setupModals() {
+    // Get all modals
+    const modals = $$('.modal');
+    
+    // Setup close buttons
+    $$('.close, [data-modal]').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const modalId = this.getAttribute('data-modal') || 
+                           this.closest('.modal').id;
+            closeModal(modalId);
+        });
+    });
+    
+    // Close modal when clicking outside
+    modals.forEach(modal => {
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                closeModal(modal.id);
+            }
+        });
+    });
+    
+    // Cancel button
+    $('#cancelBtn').addEventListener('click', () => {
+        closeModal('officerModal');
+    });
+    
+    // Close view modal button
+    $('[data-modal="viewOfficerModal"]').addEventListener('click', () => {
+        closeModal('viewOfficerModal');
+    });
+    
+    // Save officer button
+    $('#saveOfficerBtn').addEventListener('click', saveOfficer);
+}
+
+function openModal(modalId) {
+    const modal = $(`#${modalId}`);
+    if (modal) {
+        modal.style.display = 'block';
+        document.body.style.overflow = 'hidden';
+    }
+}
+
+function closeModal(modalId) {
+    const modal = $(`#${modalId}`);
+    if (modal) {
+        modal.style.display = 'none';
+        document.body.style.overflow = 'auto';
+        
+        // Reset form if it's the officer modal
+        if (modalId === 'officerModal') {
+            $('#officerForm').reset();
+            $('#passwordField').style.display = 'flex';
+            // Clear any validation errors
+            $$('.form-group input, .form-group select').forEach(input => {
+                input.classList.remove('error');
+            });
+            $$('.error-text').forEach(el => el.remove());
+        }
+    }
+}
+
+// ===== Event Listeners Setup =====
+function setupEventListeners() {
+    // Search functionality
+    const searchInputs = ['#searchInput', '#tableSearchInput'];
+    
+    searchInputs.forEach(selector => {
+        const input = $(selector);
+        if (input) {
+            input.addEventListener('input', debounce(() => {
+                loadOfficers(input.value.trim());
+            }, 300));
+        }
+    });
+
+    // Refresh button
+    const refreshBtn = $('#refreshBtn');
+    if (refreshBtn) {
+        refreshBtn.addEventListener('click', () => {
+            loadOfficers();
+            // Clear search inputs
+            $('#searchInput').value = '';
+            $('#tableSearchInput').value = '';
+        });
+    }
+
+    // Add officer button
+    const addOfficerBtn = $('#addOfficerBtn');
+    if (addOfficerBtn) {
+        addOfficerBtn.addEventListener('click', () => {
+            $('#modalTitle').textContent = 'Add Officer';
+            $('#passwordField').style.display = 'flex';
+            $('#officerId').value = '';
+            openModal('officerModal');
+        });
+    }
+    
+    // Filter button
+    $('#filterBtn').addEventListener('click', () => {
+        alert('Filter functionality would open here');
+    });
+    
+    // Export button
+    $('#exportBtn').addEventListener('click', () => {
+        alert('Export functionality would open here');
+    });
+    
+    // Confirm action button
+    $('#confirmActionBtn').addEventListener('click', performDeleteAction);
+}
+
+// ===== Data Loading Functions =====
+async function loadOfficers(searchTerm = '') {
+    const tableBody = $('#officersTableBody');
+    if (!tableBody) return;
+    
+    // Show loading state
+    tableBody.innerHTML = `
+        <tr>
+            <td colspan="9" class="loading-cell">
+                <div class="loading-spinner"></div>
+                <span>Loading officers...</span>
+            </td>
+        </tr>`;
+    
+    try {
+        // Fetch from your API
+        const response = await fetch(`${API_URL}?search=${encodeURIComponent(searchTerm)}`);
+        
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        displayOfficers(data, searchTerm);
+        
+    } catch (error) {
+        console.error('Error loading officers:', error);
+        tableBody.innerHTML = `
+            <tr>
+                <td colspan="9">
+                    <div class="error-message">
+                        <i class="fas fa-exclamation-circle"></i>
+                        <span>Failed to load officers. Please try again later.</span>
+                    </div>
+                </td>
+            </tr>`;
+    }
+}
+
+// ===== Display Functions =====
+function displayOfficers(officers, searchTerm = '') {
+    const tableBody = $('#officersTableBody');
+    const tableInfo = $('#tableInfo');
+    
+    if (!tableBody) return;
+    
+    // Filter officers if search term provided
+    let filteredOfficers = officers;
+    if (searchTerm) {
+        const term = searchTerm.toLowerCase();
+        filteredOfficers = officers.filter(officer => 
+            officer.name.toLowerCase().includes(term) ||
+            (officer.badgeId && officer.badgeId.toLowerCase().includes(term)) ||
+            officer.email.toLowerCase().includes(term) ||
+            (officer.department && officer.department.toLowerCase().includes(term))
+        );
+    }
+    
+    // Update table information
+    if (tableInfo) {
+        tableInfo.textContent = `Showing 1 to ${filteredOfficers.length} of ${filteredOfficers.length} entries`;
+    }
+    
+    // Update stats cards
+    updateStatsCards(filteredOfficers);
+    
+    // Clear table
+    tableBody.innerHTML = '';
+    
+    if (filteredOfficers.length === 0) {
+        tableBody.innerHTML = `
+            <tr>
+                <td colspan="9" class="no-data">
+                    No officers found
+                </td>
+            </tr>`;
+        return;
+    }
+    
+    // Populate table with officers
+    filteredOfficers.forEach(officer => {
+        const row = document.createElement('tr');
+        
+        row.innerHTML = `
+            <td>${safe(officer.badgeId)}</td>
+            <td>
+                <div class="user-info">
+                    <img src="https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(officer.name)}" alt="${safe(officer.name)}">
+                    <div>
+                        <div class="user-name">${safe(officer.name)}</div>
+                        <div class="user-email">${safe(officer.email)}</div>
+                    </div>
+                </div>
+            </td>
+            <td>${safe(officer.rank)}</td>
+            <td>${safe(officer.department)}</td>
+            <td>${safe(officer.phone)}</td>
+            <td>
+                <span class="status-badge ${officer.status ? officer.status.toLowerCase().replace(/\s+/g, '-') : 'active'}">
+                    ${safe(officer.status)}
+                </span>
+            </td>
+            <td>${safe(officer.assignedCases)}</td>
+            <td>${safe(officer.policeStation)}</td>
+            <td>
+                <div class="action-buttons">
+                    <button class="btn-icon small" data-action="view" data-id="${officer._id}">
+                        <i class="fas fa-eye"></i>
+                    </button>
+                    <button class="btn-icon small" data-action="edit" data-id="${officer._id}">
+                        <i class="fas fa-edit"></i>
+                    </button>
+                    <button class="btn-icon small" data-action="delete" data-id="${officer._id}">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+            </td>
+        `;
+        
+        tableBody.appendChild(row);
+    });
+    
+    // Add event listeners to action buttons
+    addActionListeners();
+}
+
+function updateStatsCards(officers) {
+    const total = officers.length;
+    const active = officers.filter(o => o.status === 'Active').length;
+    const onLeave = officers.filter(o => o.status === 'On Leave').length;
+    const topPerformers = officers.filter(o => o.assignedCases >= 5).length;
+    
+    $('#totalOfficers').textContent = total;
+    $('#activeOfficers').textContent = active;
+    $('#onLeaveOfficers').textContent = onLeave;
+    $('#topPerformers').textContent = topPerformers;
+}
+
+function addActionListeners() {
+    const actionButtons = $$('.action-buttons .btn-icon');
+    
+    actionButtons.forEach(button => {
+        button.addEventListener('click', function() {
+            const action = this.getAttribute('data-action');
+            const id = this.getAttribute('data-id');
+            
+            switch(action) {
+                case 'view':
+                    viewOfficer(id);
+                    break;
+                case 'edit':
+                    editOfficer(id);
+                    break;
+                case 'delete':
+                    deleteOfficer(id);
+                    break;
+            }
+        });
+    });
+}
+
+// ===== Action Functions =====
+async function viewOfficer(id) {
+    try {
+        const response = await fetch(`${API_URL}/${id}`);
+        
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const officer = await response.json();
+        
+        // Populate view modal
+        $('#viewOfficerImage').src = `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(officer.name)}`;
+        $('#viewOfficerName').textContent = safe(officer.name);
+        $('#viewOfficerRank').textContent = safe(officer.rank);
+        $('#viewBadgeId').textContent = safe(officer.badgeId);
+        $('#viewDepartment').textContent = safe(officer.department);
+        $('#viewEmail').textContent = safe(officer.email);
+        $('#viewPhone').textContent = safe(officer.phone);
+        $('#viewPoliceStation').textContent = safe(officer.policeStation);
+        $('#viewAssignedCases').textContent = safe(officer.assignedCases);
+        $('#viewCreatedAt').textContent = formatDate(officer.createdAt);
+        
+        // Set status badge
+        const statusElement = $('#viewStatus');
+        statusElement.textContent = safe(officer.status);
+        statusElement.className = `status-badge ${officer.status ? officer.status.toLowerCase().replace(/\s+/g, '-') : 'active'}`;
+        
+        openModal('viewOfficerModal');
+    } catch (error) {
+        console.error('Error fetching officer details:', error);
+        alert('Failed to load officer details. Please try again.');
+    }
+}
+
+async function editOfficer(id) {
+    try {
+        const response = await fetch(`${API_URL}/${id}`);
+        
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const officer = await response.json();
+        
+        // Populate form
+        $('#modalTitle').textContent = 'Edit Officer';
+        $('#officerId').value = officer._id;
+        $('#name').value = officer.name;
+        $('#email').value = officer.email;
+        $('#badgeId').value = officer.badgeId;
+        $('#rank').value = officer.rank;
+        $('#department').value = officer.department;
+        $('#status').value = officer.status;
+        $('#phone').value = officer.phone;
+        $('#policeStation').value = officer.policeStation;
+        $('#assignedCases').value = officer.assignedCases;
+        
+        // Hide password fields for editing
+        $('#passwordField').style.display = 'none';
+        
+        openModal('officerModal');
+    } catch (error) {
+        console.error('Error fetching officer for edit:', error);
+        alert('Failed to load officer data. Please try again.');
+    }
+}
+
+function deleteOfficer(id) {
+    // Set the ID for the confirmation modal
+    $('#confirmActionBtn').setAttribute('data-id', id);
+    $('#confirmMessage').textContent = 'Are you sure you want to delete this officer? This action cannot be undone.';
+    openModal('confirmModal');
+}
+
+async function performDeleteAction() {
+    const id = $('#confirmActionBtn').getAttribute('data-id');
+    
+    try {
+        const response = await fetch(`${API_URL}/${id}`, {
+            method: 'DELETE'
+        });
+        
+        const result = await response.json();
+        
+        if (!response.ok) {
+            throw new Error(result.message || `HTTP error! status: ${response.status}`);
+        }
+        
+        if (result.success) {
+            alert('Officer deleted successfully!');
+            loadOfficers(); // Refresh the list
+        } else {
+            throw new Error(result.message || 'Failed to delete officer');
+        }
+    } catch (error) {
+        console.error('Error deleting officer:', error);
+        alert('Failed to delete officer. Please try again.');
+    } finally {
+        closeModal('confirmModal');
+    }
+}
+
+// ===== Save Officer Function =====
+async function saveOfficer() {
+    const form = $('#officerForm');
+    const officerId = $('#officerId').value;
+    const isEdit = !!officerId;
+    
+    // Clear previous errors
+    $$('.error-text').forEach(el => el.remove());
+    $$('.form-group input, .form-group select').forEach(input => {
+        input.classList.remove('error');
+    });
+    
+    // Basic validation
+    let isValid = true;
+    const requiredFields = ['name', 'email', 'badgeId', 'rank', 'department', 'phone', 'policeStation'];
+    
+    if (!isEdit) {
+        requiredFields.push('password', 'confirmPassword');
+    }
+    
+    requiredFields.forEach(field => {
+        const input = $(`#${field}`);
+        if (!input.value.trim()) {
+            input.classList.add('error');
+            const errorText = document.createElement('div');
+            errorText.className = 'error-text';
+            errorText.textContent = `${field.charAt(0).toUpperCase() + field.slice(1)} is required`;
+            input.parentNode.appendChild(errorText);
+            isValid = false;
+        }
+    });
+    
+    // Password validation for new officers
+    if (!isEdit) {
+        const password = $('#password').value;
+        const confirmPassword = $('#confirmPassword').value;
+        
+        if (password !== confirmPassword) {
+            $('#password').classList.add('error');
+            $('#confirmPassword').classList.add('error');
+            const errorText = document.createElement('div');
+            errorText.className = 'error-text';
+            errorText.textContent = 'Passwords do not match';
+            $('#confirmPassword').parentNode.appendChild(errorText);
+            isValid = false;
+        }
+        
+        if (password.length < 6) {
+            $('#password').classList.add('error');
+            const errorText = document.createElement('div');
+            errorText.className = 'error-text';
+            errorText.textContent = 'Password must be at least 6 characters long';
+            $('#password').parentNode.appendChild(errorText);
+            isValid = false;
+        }
+    }
+    
+    if (!isValid) return;
+    
+    // Prepare data
+    const officerData = {
+        name: $('#name').value.trim(),
+        email: $('#email').value.trim(),
+        badgeId: $('#badgeId').value.trim(),
+        rank: $('#rank').value,
+        department: $('#department').value,
+        status: $('#status').value,
+        phone: $('#phone').value.trim(),
+        policeStation: $('#policeStation').value.trim(),
+        assignedCases: parseInt($('#assignedCases').value) || 0
+    };
+    
+    // Add password only for new officers
+    if (!isEdit) {
+        officerData.password = $('#password').value;
+    }
+    
+    try {
+        const url = isEdit ? `${API_URL}/${officerId}` : API_URL;
+        const method = isEdit ? 'PUT' : 'POST';
+        
+        const response = await fetch(url, {
+            method: method,
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(officerData)
+        });
+        
+        const result = await response.json();
+        
+        if (!response.ok) {
+            throw new Error(result.message || `HTTP error! status: ${response.status}`);
+        }
+        
+        if (result.success) {
+            alert(`Officer ${isEdit ? 'updated' : 'added'} successfully!`);
+            closeModal('officerModal');
+            loadOfficers(); // Refresh the list
+        } else {
+            throw new Error(result.message || `Failed to ${isEdit ? 'update' : 'add'} officer`);
+        }
+    } catch (error) {
+        console.error(`Error ${isEdit ? 'updating' : 'adding'} officer:`, error);
+        
+        // Display specific error message
+        const errorDiv = document.createElement('div');
+        errorDiv.className = 'error-message';
+        errorDiv.innerHTML = `<i class="fas fa-exclamation-circle"></i> ${error.message}`;
+        
+        // Remove any existing error messages
+        $$('.modal-body .error-message').forEach(el => el.remove());
+        
+        // Add the error message to the modal
+        $('.modal-body').prepend(errorDiv);
+        
+        // Scroll to the error message
+        errorDiv.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+}
+    </script>
 </body>
 </html>
