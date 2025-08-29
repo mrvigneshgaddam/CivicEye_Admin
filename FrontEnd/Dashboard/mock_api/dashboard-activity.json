@@ -1,0 +1,26 @@
+{
+  "data": {
+    "activity": [
+      {
+        "type": "incident",
+        "message": "New incident reported in Sector 21",
+        "timestamp": "2025-08-28T07:30:00Z"
+      },
+      {
+        "type": "officer",
+        "message": "Officer Patel assigned to case #234",
+        "timestamp": "2025-08-28T08:00:00Z"
+      },
+      {
+        "type": "resolved",
+        "message": "Case #198 resolved successfully",
+        "timestamp": "2025-08-27T15:45:00Z"
+      },
+      {
+        "type": "message",
+        "message": "New message received from HQ",
+        "timestamp": "2025-08-28T09:10:00Z"
+      }
+    ]
+  }
+}

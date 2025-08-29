@@ -1,0 +1,16 @@
+{
+  "data": {
+    "overview": {
+      "activeUsers": 1000,
+      "totalIncidents": 1876,
+      "activeOfficers": 516,
+      "newMessages": 142,
+      "trends": {
+        "activeUsers": 100,
+        "totalIncidents": -10,
+        "activeOfficers": 50,
+        "newMessages": 12
+      }
+    }
+  }
+}

@@ -193,6 +193,7 @@
             background: #fee;
             border-radius: 4px;
             border: 1px solid #fcc;
+            display: none;
         }
         
         .shake {
@@ -208,29 +209,6 @@
         @keyframes fadeIn {
             from { opacity: 0; }
             to { opacity: 1; }
-        }
-        
-        .development .debug-panel {
-            position: fixed;
-            bottom: 0;
-            left: 0;
-            right: 0;
-            background: rgba(0, 0, 0, 0.8);
-            color: white;
-            padding: 15px;
-            font-family: monospace;
-            font-size: 14px;
-            max-height: 200px;
-            overflow-y: auto;
-        }
-        
-        .development .debug-panel h3 {
-            margin-bottom: 10px;
-            color: #fdbb2d;
-        }
-        
-        .development .debug-panel pre {
-            white-space: pre-wrap;
         }
         
         @media (max-width: 900px) {
@@ -272,6 +250,8 @@
                     </button>
                 </div>
                 
+                <div id="errorMessage" class="error-message"></div>
+                
                 <button type="submit" class="login-btn">
                     <span>Login</span>
                     <i class="fas fa-arrow-right"></i>
@@ -292,121 +272,113 @@
         </div>
     </div>
 
-    <div id="debugPanel" class="debug-panel" style="display: none;">
-        <h3>Debug Information</h3>
-        <p id="debugStatus">Status: Not initialized</p>
-        <pre id="debugResponse">Response: None</pre>
-    </div>
-    <script src="/FrontEnd/shared/auth-gaurd.js"></script>
     <script>
-document.addEventListener('DOMContentLoaded', function () {
-  const loginForm = document.getElementById('loginForm');
-  const togglePassword = document.querySelector('.toggle-password');
-  const passwordInput = document.getElementById('password');
-  const debugPanel = document.getElementById('debugPanel');
-  const debugStatus = document.getElementById('debugStatus');
-  const debugResponse = document.getElementById('debugResponse');
-
-  // show debug panel only on localhost
-  if (['localhost','127.0.0.1'].includes(location.hostname)) {
-    document.body.classList.add('development');
-    debugPanel.style.display = 'block';
-  }
-
-  // password eye toggle
-  togglePassword.addEventListener('click', function () {
-    const type = passwordInput.type === 'password' ? 'text' : 'password';
-    passwordInput.type = type;
-    this.querySelector('i').classList.toggle('fa-eye');
-    this.querySelector('i').classList.toggle('fa-eye-slash');
-  });
-
-  loginForm.addEventListener('submit', onLogin);
-
-  async function onLogin(e) {
-    e.preventDefault();
-
-    const email = document.getElementById('email').value.trim();
-    const password = document.getElementById('password').value;
-    const loginBtn = loginForm.querySelector('.login-btn');
-
-    if (!email || !password) return showError('Please fill all fields');
-
-    const originalBtnHTML = loginBtn.innerHTML;
-    loginBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
-    loginBtn.disabled = true;
-
-    updateDebug('Making request…', '—');
-
-    try {
-      const res = await fetch('http://localhost:5000/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ email, password })
-      });
-
-      const data = await res.json().catch(() => ({}));
-
-      if (!res.ok || !data.success || !data.token) {
-        updateDebug(`Error ${res.status}`, JSON.stringify(data, null, 2));
-        throw new Error(data.message || 'Invalid email or password');
-      }
-
-      // success
-      updateDebug('200 OK', JSON.stringify(data, null, 2));
-
-      localStorage.setItem('token', data.token);
-      localStorage.setItem('user', JSON.stringify(data.user || {}));
-
-      loginBtn.innerHTML = '<i class="fas fa-check"></i>';
-      loginBtn.style.backgroundColor = '#4BB543';
-      showSuccess('Login successful! Redirecting…');
-
-      setTimeout(() => {
-        window.location.href = '/FrontEnd/Dashboard/dashboard.html';
-      }, 900);
-
-    } catch (err) {
-      showError(err.message || 'Login failed');
-      loginBtn.innerHTML = originalBtnHTML;
-      loginBtn.style.backgroundColor = '';
-      loginBtn.disabled = false;
-    }
-  }
-
-  function updateDebug(status, resp) {
-    debugStatus.textContent = 'Status: ' + status;
-    debugResponse.textContent = 'Response: ' + (resp || '');
-  }
-
-  function showError(message) {
-    addBanner(message, '#ef233c', '#fee', '#fcc');
-    loginForm.classList.add('shake');
-    setTimeout(() => loginForm.classList.remove('shake'), 500);
-  }
-
-  function showSuccess(message) {
-    addBanner(message, '#4BB543', '#efe', '#cfc');
-  }
-
-  function addBanner(message, color, bg, border) {
-    const old = loginForm.querySelector('.error-message, .success-message');
-    if (old) old.remove();
-    const el = document.createElement('div');
-    el.className = color === '#4BB543' ? 'success-message' : 'error-message';
-    el.textContent = message;
-    el.style.cssText = `
-      color:${color};margin-top:10px;text-align:center;animation:fadeIn .3s ease-out;
-      padding:8px;background:${bg};border-radius:4px;border:1px solid ${border};
-    `;
-    loginForm.appendChild(el);
-  }
-});
-</script>
-
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('DOM fully loaded, initializing login form...');
+            
+            const loginForm = document.getElementById('loginForm');
+            const emailInput = document.getElementById('email');
+            const passwordInput = document.getElementById('password');
+            const togglePassword = document.querySelector('.toggle-password');
+            const errorMessage = document.getElementById('errorMessage');
+            
+            if (!loginForm) {
+                console.error('Login form not found!');
+                return;
+            }
+            
+            // Password visibility toggle
+            togglePassword.addEventListener('click', function() {
+                const type = passwordInput.type === 'password' ? 'text' : 'password';
+                passwordInput.type = type;
+                this.querySelector('i').classList.toggle('fa-eye');
+                this.querySelector('i').classList.toggle('fa-eye-slash');
+            });
+            
+            // Login form submission
+            loginForm.addEventListener('submit', async function(e) {
+                e.preventDefault();
+                
+                const email = emailInput.value.trim();
+                const password = passwordInput.value;
+                const loginBtn = loginForm.querySelector('.login-btn');
+                
+                // Basic validation
+                if (!email || !password) {
+                    showError('Please fill in all fields');
+                    return;
+                }
+                
+                // Email validation
+                if (!isValidEmail(email)) {
+                    showError('Please enter a valid email address');
+                    return;
+                }
+                
+                // Show loading state
+                const originalBtnHTML = loginBtn.innerHTML;
+                loginBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Logging in...';
+                loginBtn.disabled = true;
+                hideError();
+                
+                try {
+                    const res = await fetch('http://localhost:5000/api/auth/login', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({ email, password }),
+                    });
+                    
+                    const data = await res.json();
+                    
+                    if (!res.ok || !data.success || !data.token) {
+                        throw new Error(data.message || 'Invalid email or password');
+                    }
+                    
+                    // Store token & user info
+                    localStorage.setItem('token', data.token);
+                    localStorage.setItem('user', JSON.stringify(data.user || {}));
+                    
+                    // Show success and redirect
+                    loginBtn.innerHTML = '<i class="fas fa-check"></i> Login Successful!';
+                    loginBtn.style.background = '#4BB543';
+                    
+                    setTimeout(() => {
+                        window.location.href = '/FrontEnd/Dashboard/dashboard.html';
+                    }, 1000);
+                    
+                } catch (err) {
+                    console.error('Login error:', err);
+                    showError(err.message || 'Login failed. Please try again.');
+                    loginBtn.innerHTML = originalBtnHTML;
+                    loginBtn.disabled = false;
+                }
+            });
+            
+            function showError(message) {
+                errorMessage.textContent = message;
+                errorMessage.style.display = 'block';
+                loginForm.classList.add('shake');
+                setTimeout(() => loginForm.classList.remove('shake'), 500);
+            }
+            
+            function hideError() {
+                errorMessage.style.display = 'none';
+            }
+            
+            function isValidEmail(email) {
+                const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                return re.test(email);
+            }
+            
+            // Check if user is already logged in
+            const token = localStorage.getItem('token');
+            if (token) {
+                console.log('User already logged in, redirecting to dashboard...');
+                window.location.href = '/FrontEnd/Dashboard/dashboard.html';
+            }
+        });
+    </script>
 </body>
-
-</html>
-
 </html>
