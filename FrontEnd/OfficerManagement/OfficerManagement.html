@@ -194,7 +194,7 @@
             </div>
             <div class="modal-body">
                 <form id="officerForm">
-                    <input type="hidden" id="officerId">
+                    <input type="hidden" id="recordId">
                     <div class="form-row">
                         <div class="form-group">
                             <label for="name">Full Name *</label>
@@ -207,9 +207,15 @@
                     </div>
                     <div class="form-row">
                         <div class="form-group">
+                            <label for="officerId">Officer ID *</label>
+                            <input type="text" id="officerId" name="officerId" required>
+                        </div>
+                        <div class="form-group">
                             <label for="badgeId">Badge ID *</label>
                             <input type="text" id="badgeId" name="badgeId" required>
                         </div>
+                    </div>
+                    <div class="form-row">
                         <div class="form-group">
                             <label for="rank">Rank *</label>
                             <select id="rank" name="rank" required>
@@ -221,8 +227,6 @@
                                 <option value="Constable">Constable</option>
                             </select>
                         </div>
-                    </div>
-                    <div class="form-row">
                         <div class="form-group">
                             <label for="department">Department *</label>
                             <select id="department" name="department" required>
@@ -234,6 +238,8 @@
                                 <option value="Special Branch">Special Branch</option>
                             </select>
                         </div>
+                    </div>
+                    <div class="form-row">
                         <div class="form-group">
                             <label for="status">Status *</label>
                             <select id="status" name="status" required>
@@ -243,15 +249,19 @@
                                 <option value="Suspended">Suspended</option>
                             </select>
                         </div>
-                    </div>
-                    <div class="form-row">
                         <div class="form-group">
                             <label for="phone">Phone Number *</label>
                             <input type="tel" id="phone" name="phone" required>
                         </div>
+                    </div>
+                    <div class="form-row">
                         <div class="form-group">
                             <label for="policeStation">Police Station *</label>
                             <input type="text" id="policeStation" name="policeStation" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="assignedCases">Assigned Cases</label>
+                            <input type="number" id="assignedCases" name="assignedCases" min="0" value="0">
                         </div>
                     </div>
                     <div class="form-row" id="passwordField">
@@ -264,12 +274,9 @@
                             <input type="password" id="confirmPassword" name="confirmPassword" required>
                         </div>
                     </div>
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label for="assignedCases">Assigned Cases</label>
-                            <input type="number" id="assignedCases" name="assignedCases" min="0" value="0">
-                        </div>
-                    </div>
+                    
+                        
+                    
                 </form>
             </div>
             <div class="modal-footer">
@@ -533,7 +540,7 @@ function setupEventListeners() {
         addOfficerBtn.addEventListener('click', () => {
             $('#modalTitle').textContent = 'Add Officer';
             $('#passwordField').style.display = 'flex';
-            $('#officerId').value = '';
+            $('#recordId').value = '';
             openModal('officerModal');
         });
     }
@@ -760,7 +767,8 @@ async function editOfficer(id) {
         
         // Populate form
         $('#modalTitle').textContent = 'Edit Officer';
-        $('#officerId').value = officer._id;
+        $('#recordId').value = officer._id;
+        $('#officerId').value = officer.officerId|| '';
         $('#name').value = officer.name;
         $('#email').value = officer.email;
         $('#badgeId').value = officer.badgeId;
@@ -819,8 +827,8 @@ async function performDeleteAction() {
 // ===== Save Officer Function =====
 async function saveOfficer() {
     const form = $('#officerForm');
-    const officerId = $('#officerId').value;
-    const isEdit = !!officerId;
+    const recordId = $('#recordId').value;
+    const isEdit = !!recordId;
     
     // Clear previous errors
     $$('.error-text').forEach(el => el.remove());
@@ -830,7 +838,7 @@ async function saveOfficer() {
     
     // Basic validation
     let isValid = true;
-    const requiredFields = ['name', 'email', 'badgeId', 'rank', 'department', 'phone', 'policeStation'];
+    const requiredFields = ['name', 'email','officerId', 'badgeId', 'rank', 'department', 'phone', 'policeStation'];
     
     if (!isEdit) {
         requiredFields.push('password', 'confirmPassword');
@@ -879,6 +887,7 @@ async function saveOfficer() {
     const officerData = {
         name: $('#name').value.trim(),
         email: $('#email').value.trim(),
+        officerId: $('#officerId').value.trim(),
         badgeId: $('#badgeId').value.trim(),
         rank: $('#rank').value,
         department: $('#department').value,
@@ -894,7 +903,7 @@ async function saveOfficer() {
     }
     
     try {
-        const url = isEdit ? `${API_URL}/${officerId}` : API_URL;
+        const url = isEdit ? `${API_URL}/${recordId}` : API_URL;
         const method = isEdit ? 'PUT' : 'POST';
         
         const response = await fetch(url, {
