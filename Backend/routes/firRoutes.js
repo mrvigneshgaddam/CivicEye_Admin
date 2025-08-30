@@ -90,7 +90,24 @@ router.get('/:id', async (req, res) => {
     return res.status(500).json({ success: false, message: err.message });
   }
 });
-
+/* PUT /api/fir/:id/assign — assign officer manually */
+router.put('/:id/assign', async (req, res) => {
+  if (!ReportModel) return res.status(404).json({ success: false, message: 'Model not available' });
+  const { assignedOfficer } = req.body || {};
+  if (!assignedOfficer) return res.status(400).json({ success: false, message: 'assignedOfficer required' });
+  try {
+    const updated = await ReportModel.findByIdAndUpdate(
+      req.params.id,
+      { assignedOfficer },
+      { new: true }
+    );
+    if (!updated) return res.status(404).json({ success: false, message: 'FIR not found' });
+    return res.json({ success: true, data: updated });
+  } catch (err) {
+    console.error('[FIR ROUTES] PUT /:id/assign error:', err);
+    return res.status(500).json({ success: false, message: err.message });
+  }
+});
 /* DELETE /api/fir/:id */
 router.delete('/:id', async (req, res) => {
   if (!ReportModel) return res.status(404).json({ success: false, message: 'Model not available' });
