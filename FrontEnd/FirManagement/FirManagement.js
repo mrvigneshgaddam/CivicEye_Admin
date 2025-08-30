@@ -1,5 +1,6 @@
 /* ==================== CONFIG ==================== */
 const API_URL = 'http://localhost:5000/api/fir';  // base path to your backend
+const OFFICERS_API = 'http://localhost:5000/api/officers';  // if you have an officers endpoint
 const PAGE_SIZE = 10;
 const USE_TOKEN = false; // set true if you need Authorization Bearer from localStorage.token
 
@@ -7,6 +8,8 @@ const USE_TOKEN = false; // set true if you need Authorization Bearer from local
 let allReports = [];
 let filtered = [];
 let currentPage = 1;
+let OfficerCache = [];
+let assignTarget = null;
 
 /* ==================== UTILS ==================== */
 const $  = s => document.querySelector(s);
@@ -82,7 +85,7 @@ async function fetchReports() {
   const c = r.complainant || {};
   return {
    id: r._id,
-    reportId: r.firId || r.reportId || r.displayId || r._id,
+    reportId: r.reportId || r.firId || r.displayId || r._id,
     complaint: r.complaint || r.description || r.details || r.summary || '—',
     incidentType: r.incidentType || r.crimeType || '—',
     location: r.location || r.incidentLocation || r.address || '—',
@@ -141,6 +144,7 @@ function renderTable() {
   for (const r of rows) {
     const tr = document.createElement('tr');
     tr.innerHTML = `
+      <td>${safe(r.reportId)}</td>
       <td>${safe(r.complaint)}</td>
       <td>${safe(r.incidentType)}</td>
       <td>${safe(r.location)}</td>
@@ -172,7 +176,7 @@ function renderTable() {
     const item = allReports.find(x => String(x.id) === String(id));
     if (item) openModal(item);
   }));
-  $$('.assign-btn').forEach(b => b.addEventListener('click', () => assignOfficer(b.dataset.id)));
+  $$('.assign-btn').forEach(b => b.addEventListener('click', () => openAssignModal(b.dataset.id)));
 
   $$('.delete-btn').forEach(b => b.addEventListener('click', () => deleteReport(b.dataset.id)));
   renderPagination();
@@ -203,11 +207,46 @@ function renderPagination() {
   add('<i class="fas fa-chevron-right"></i>', Math.min(total, currentPage + 1), currentPage === total);
 }
 
-async function assignOfficer(id) {
-  const officer = prompt('Assign Officer');
-  if (!officer) return;
+async function fetchOfficer(id) {
   try {
-    const res = await fetch(`${API_URL}/${id}/assign`, {
+    const res = await fetch(`${OFFICERS_API}?limit=1000, { credentials: 'include' }`);
+    const data = await res.json();
+    return Array.isArray(data) ? data : (data.data || []);
+  } catch (err) {
+    console.error(err);
+    return [];
+  }
+}
+
+async function openAssignModal(id) {
+  assignTarget = id;
+  const select = $('#officerSelect');
+  select.innerHTML = '<option value="">Select officer</option>';
+  if (!officersCache.length) officersCache = await fetchOfficers();
+  officersCache.forEach(o => {
+    const opt = document.createElement('option');
+    opt.value = o.name;
+    opt.textContent = o.badgeId ? `${o.name} (${o.badgeId})` : o.name;
+    select.appendChild(opt);
+  });
+  const modal = $('#assignModal');
+  modal.style.display = 'flex';
+  modal.setAttribute('aria-hidden', 'false');
+}
+
+function closeAssignModal() {
+  const modal = $('#assignModal');
+  modal.style.display = 'none';
+  modal.setAttribute('aria-hidden', 'true');
+  assignTarget = null;
+}
+
+async function confirmAssign() {
+  const select = $('#officerSelect');
+  const officer = select.value;
+  if (!officer || !assignTarget) return;
+  try {
+    const res = await fetch(`${API_URL}/${assignTarget}/assign`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
@@ -215,18 +254,20 @@ async function assignOfficer(id) {
     });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const payload = await res.json();
-    const item = allReports.find(r => String(r.id) === String(id));
+    const item = allReports.find(r => String(r.id) === String(assignTarget));
     if (item) item.assignedOfficer = payload?.data?.assignedOfficer || officer;
     renderTable();
   } catch (err) {
     showError(`Failed to assign officer: ${err.message}`);
+  }finally{
+    closeAssignModal();
   }
 }
 
 async function deleteReport(id) {
   if (!confirm('Delete this report?')) return;
   try {
-    const res = await fetch(`${API_URL}/${id}, { method: 'DELETE', credentials: 'include' }`);
+    const res = await fetch(`${API_URL}/${id}`, { method: 'DELETE', credentials: 'include' });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     allReports = allReports.filter(r => String(r.id) !== String(id));
     applyFilter($('#tableFilter')?.value || $('#globalSearch')?.value || '');
@@ -331,7 +372,12 @@ document.addEventListener('DOMContentLoaded', () => {
   const r2 = $('#btnSoftRefresh'); if (r2) r2.addEventListener('click', fetchReports);
   const ex = $('#exportCsvBtn'); if (ex) ex.addEventListener('click', exportCsv);
   const x  = $('#closeModal'); if (x) x.addEventListener('click', closeModal);
-  window.addEventListener('click', e => { if (e.target.id === 'reportModal') closeModal(); });
+  window.addEventListener('click', e => {
+    if (e.target.id === 'reportModal') closeModal();
+    if (e.target.id === 'assignModal') closeAssignModal();
+  });
+  const xa = $('#closeAssignModal'); if (xa) xa.addEventListener('click', closeAssignModal);
+  const conf = $('#confirmAssign'); if (conf) conf.addEventListener('click', confirmAssign);
 
   const style = document.createElement('style');
   style.textContent = '@keyframes spin{0%{transform:rotate(0)}100%{transform:rotate(360deg)}}';
