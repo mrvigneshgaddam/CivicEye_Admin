@@ -103,6 +103,8 @@ body{background:#f5f7fa;color:var(--dark);overflow-x:hidden}
 .close-btn:hover{color:var(--dark)}
 .modal-body .detail{display:flex;gap:12px;margin-bottom:10px}
 .modal-body .label{min-width:160px;font-weight:600;color:var(--gray-dark)}
+.modal-body select{width:100%;padding:8px;border:1px solid #ced4da;border-radius:4px;margin-bottom:12px}
+.assign-actions{display:flex;justify-content:flex-end;gap:10px}
 
 .feedback{margin-top:15px}
 .error-message{background:#ffebee;color:#c62828;padding:12px 14px;border-radius:6px;display:flex;align-items:center;gap:10px}
