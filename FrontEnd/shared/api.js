@@ -17,16 +17,17 @@ function url(p) {
 
 
 export async function api(path, { method = 'GET', body, headers } = {}) {
-
   const opts = {
-
     method,
-
     credentials: 'include',
-
     headers: { 'Content-Type': 'application/json', ...(headers || {}) },
-
   };
+
+  try {
+    const token = typeof window !== 'undefined' && window.localStorage.getItem('authToken');
+    if (token) opts.headers.Authorization = `Bearer ${token}`;
+  }
+    catch (e) { /* ignore */ }
 
   if (body !== undefined) opts.body = JSON.stringify(body);
 

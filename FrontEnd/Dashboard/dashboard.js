@@ -1,4 +1,7 @@
 // dashboard.js - Fixed version with proper authentication handling
+const API_BASE = (typeof window !== 'undefined' && window.API_BASE)
+    ? window.API_BASE
+    : 'http://localhost:5000';  
 document.addEventListener('DOMContentLoaded', function() {
     // Add a small delay to ensure token is stored after redirect
     setTimeout(() => {
@@ -30,7 +33,7 @@ document.addEventListener('DOMContentLoaded', function() {
 // Function to verify token with server
 async function verifyToken(token) {
     try {
-        const response = await fetch('/api/auth/verify', {
+        const response = await fetch(`${API_BASE}/api/auth/verify`, {
             headers: {
                 'Authorization': `Bearer ${token}`
             }
