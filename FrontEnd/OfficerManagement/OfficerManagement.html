@@ -454,7 +454,7 @@ function setupModals() {
     $$('.close, [data-modal]').forEach(btn => {
         btn.addEventListener('click', function() {
             const modalId = this.getAttribute('data-modal') || 
-                           this.closest('.modal').id;
+                        this.closest('.modal').id;
             closeModal(modalId);
         });
     });

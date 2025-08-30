@@ -7,6 +7,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="/FrontEnd/Dashboard/dashboard.css">
     <link rel="stylesheet" href="profile.css">
+    <script src="profile.js"></script>
 </head>
 <body>
     <div class="container">
@@ -46,7 +47,7 @@
                         <span class="notification-badge">5</span>
                     </button>
                     <div class="profile-dropdown">
-                        <div class = "profile-img initials-avatar"></div>
+                        <img id="headerAvatar" class="profile-img" alt="">
                         <div class="dropdown-content">
                             <a href="profile.html"><i class="fas fa-user"></i> Profile</a>
                             <a href="settings.html"><i class="fas fa-cog"></i> Settings</a>
@@ -72,15 +73,15 @@
                     <div class="profile-card">
                         <div class="profile-header">
                             <div class="profile-avatar">
-                                <div class="avatar-initials initials-avatar" ></div>
-                                <button class="edit-avatar-btn" id="editAvatarBtn">
+                                  <img id="profileAvatar" alt="">
+                                  <button class="edit-avatar-btn" id="editAvatarBtn" title="Change Avatar">
                                     <i class="fas fa-camera"></i>
                                 </button>
                             </div>
                             <div class="profile-info">
-                                <h2 id="profileName">Vignesh Gaddam</h2>
-                                <p class="profile-role" id="profileRank">Senior Police Officer</p>
-                                <p class="profile-department" id="profileDepartment">Mumbai Police Department</p>
+                                <h2 id="profileName"></h2>
+                                <p class="profile-role" id="profileRank"></p>
+                                <p class="profile-department" id="profileDepartment"></p>
                                 <div class="profile-badges">
                                     <span class="badge"><i class="fas fa-shield-alt"></i> 5 Years Service</span>
                                     <span class="badge"><i class="fas fa-star"></i> Top Performer</span>
@@ -92,23 +93,23 @@
                                 <h3>Personal Information</h3>
                                 <div class="detail-row">
                                     <span class="detail-label"><i class="fas fa-envelope"></i> Email</span>
-                                    <span class="detail-value" id="profileEmail">vigneshgaddam100@gmail.com</span>
+                                    <span class="detail-value" id="profileEmail"></span>
                                 </div>
                                 <div class="detail-row">
                                     <span class="detail-label"><i class="fas fa-phone"></i> Phone</span>
-                                    <span class="detail-value" id="profilePhone">+91 9372071366</span>
+                                    <span class="detail-value" id="profilePhone"></span>
                                 </div>
                                 <div class="detail-row">
                                     <span class="detail-label"><i class="fas fa-id-card"></i> Badge Number</span>
-                                    <span class="detail-value" id="profileBadge">MPD-8472</span>
+                                    <span class="detail-value" id="profileBadge"></span>
                                 </div>
                                 <div class="detail-row">
                                     <span class="detail-label"><i class="fas fa-id-badge"></i> Officer ID</span>
-                                    <span class="detail-value" id="profileOfficerId">OFF-001</span>
+                                    <span class="detail-value" id="profileOfficerId"></span>
                                 </div>
                                 <div class="detail-row">
                                     <span class="detail-label"><i class="fas fa-map-marker-alt"></i> Station</span>
-                                    <span class="detail-value" id ="profileStation">Mumbai Central Station</span>
+                                    <span class="detail-value" id ="profileStation"></span>
                                 </div>
                             </div>
 
@@ -227,6 +228,6 @@
       <script src="/FrontEnd/shared/auth-guard.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="/FrontEnd/Dashboard/dashboard.js"></script>
-    <script src="profile.js"></script>
+    
 </body>
 </html>
