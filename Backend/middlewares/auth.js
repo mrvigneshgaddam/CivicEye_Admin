@@ -3,9 +3,19 @@ const jwt = require('jsonwebtoken');
 const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret';
 
 module.exports = function requireAuth(req, res, next) {
-  const token = req.cookies?.token;
-  if (!token) return res.status(401).json({ success: false, message: 'Unauthorized' });
+  // const token = req.cookies?.token;
+  // if (!token) return res.status(401).json({ success: false, message: 'Unauthorized' });
 
+  let token = req.cookies?.token;
+  if (!token) {
+    const authHeader = req.headers.authorization || '';
+    if (authHeader.startsWith('Bearer ')) {
+      token = authHeader.slice(7);
+    }
+  }
+  if (!token) {
+    return res.status(401).json({ success: false, message: 'Unauthorized' });
+  }
   try {
     const payload = jwt.verify(token, JWT_SECRET);
     req.user = { id: payload.id };

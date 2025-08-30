@@ -43,9 +43,9 @@ document.addEventListener('DOMContentLoaded', function() {
 // Function to verify token with server
 async function verifyToken(token) {
     try {
-        const response = await fetch(${API_BASE}/api/auth/verify, {
+        const response = await fetch(`${API_BASE}/api/auth/verify`, {
             headers: {
-                'Authorization': Bearer ${token}
+                'Authorization': `Bearer ${token}`
             }
         });
         
@@ -78,29 +78,46 @@ function initializeDashboardComponents(token, userData) {
         });
     }
 
-    // Init dashboard
-    initializeDashboard(token);
+    const page = document.body.dataset.page || document.documentElement.dataset.page;
 
-    // Chart period buttons (separate for Overview vs Types)
-    document.querySelectorAll('.chart-card').forEach(card => {
-        const title = card.querySelector('h3')?.textContent || '';
-        const buttons = card.querySelectorAll('.chart-period button');
+    if (page === 'dashboard') {
+        // Init dashboard only on the dashboard page
+        initializeDashboard(token);
 
-        buttons.forEach(button => {
-            button.addEventListener('click', function() {
-                buttons.forEach(btn => btn.classList.remove('active'));
-                this.classList.add('active');
+        // Chart period buttons (separate for Overview vs Types)
+        document.querySelectorAll('.chart-card').forEach(card => {
+            const title = card.querySelector('h3')?.textContent || '';
+            const buttons = card.querySelectorAll('.chart-period button');
 
-                const period = this.dataset.period;
+            buttons.forEach(button => {
+                button.addEventListener('click', function() {
+                    buttons.forEach(btn => btn.classList.remove('active'));
+                    this.classList.add('active');
 
-                if (title.includes('Overview')) {
-                    updateCharts(period, token); // line chart only
-                } else if (title.includes('Types')) {
-                    updateIncidentTypes(period, token); // bar chart only
-                }
+                    const period = this.dataset.period;
+
+                    if (title.includes('Overview')) {
+                        updateCharts(period, token); // line chart only
+                    } else if (title.includes('Types')) {
+                        updateIncidentTypes(period, token); // bar chart only
+                    }
+                });
             });
         });
-    });
+        // Refresh button
+        const refreshBtn = document.getElementById('refreshDashboard');
+        if (refreshBtn) {
+            refreshBtn.addEventListener('click', function() {
+                initializeDashboard(token);
+            });
+        }
+
+        // Auto-refresh every 5 mins
+        setInterval(() => {
+            const token = localStorage.getItem('authToken');
+            if (token) initializeDashboard(token);
+        }, 5 * 60 * 1000);
+    }
 
     // Logout
     const logoutBtn = document.querySelector('.logout-btn');
@@ -112,19 +129,7 @@ function initializeDashboardComponents(token, userData) {
         });
     }
 
-    // Refresh button
-    const refreshBtn = document.getElementById('refreshDashboard');
-    if (refreshBtn) {
-        refreshBtn.addEventListener('click', function() {
-            initializeDashboard(token);
-        });
-    }
-
-    // Auto-refresh every 5 mins
-    setInterval(() => {
-        const token = localStorage.getItem('authToken');
-        if (token) initializeDashboard(token);
-    }, 5 * 60 * 1000);
+    
 }
 
 // Dashboard initialization function
@@ -164,7 +169,7 @@ async function initializeDashboard(token) {
 // ---------------- Mock API Functions ----------------
 async function fetchDashboardStats() {
     try {
-        const response = await fetch('./mock_api/dashboard-stats.json');
+        const response = await fetch(`mock_api/dashboard-stats.json`);
         const data = await response.json();
         return data.data;
     } catch (err) {
@@ -175,7 +180,7 @@ async function fetchDashboardStats() {
 
 async function fetchDashboardCharts(period = 'week') {
     try {
-        const response = await fetch('./mock_api/dashboard-charts.json');
+        const response = await fetch(`${SCRIPT_BASE}mock_api/dashboard-charts.json`);
         const data = await response.json();
 
         if (period === 'day') return data.data.daily;
@@ -189,7 +194,7 @@ async function fetchDashboardCharts(period = 'week') {
 
 async function fetchRecentActivity() {
     try {
-        const response = await fetch('./mock_api/dashboard-activity.json');
+        const response = await fetch(`${SCRIPT_BASE}mock_api/recent-activity.json`);
         const data = await response.json();
         return data.data?.activity || [];
     } catch (err) {
@@ -200,7 +205,7 @@ async function fetchRecentActivity() {
 
 async function fetchNotifications() {
     try {
-        const response = await fetch('./mock_api/notifications.json');
+        const response = await fetch(`${SCRIPT_BASE}/mock_api/notifications.json`);
         const data = await response.json();
         return data.data || [];
     } catch (err) {
@@ -245,8 +250,8 @@ function updateStats(data) {
             if (el) {
                 const isPositive = change.value >= 0;
                 el.innerHTML = isPositive ? 
-                    <i class="fas fa-arrow-up"></i><span>${Math.abs(change.value)}%</span>:
-                    <i class="fas fa-arrow-down"></i><span>${Math.abs(change.value)}%</span>;
+                    `<i class="fas fa-arrow-up"></i><span>${Math.abs(change.value)}%</span>`:
+                    `<i class="fas fa-arrow-down"></i><span>${Math.abs(change.value)}%</span>`;
                 
                 el.className = isPositive ? 'stats-card-change positive' : 'stats-card-change negative';
             }
@@ -314,7 +319,7 @@ function initCharts(chartData) {
 // ✅ Update only line chart
 async function updateCharts(period, token) {
     try {
-        console.log(🔄 Updating line chart for period: ${period});
+        console.log(`🔄 Updating line chart for period: ${period}`);
         const chartsData = await fetchDashboardCharts(period);
 
         if (incidentsChart) incidentsChart.destroy();
@@ -346,7 +351,7 @@ async function updateCharts(period, token) {
 // ✅ Update only bar chart
 async function updateIncidentTypes(period, token) {
     try {
-        console.log(🔄 Updating bar chart for period: ${period});
+        console.log(`🔄 Updating bar chart for period: ${period}`);
         const chartsData = await fetchDashboardCharts(period);
 
         if (incidentTypesChart) incidentTypesChart.destroy();
@@ -435,9 +440,9 @@ function formatTime(timestamp) {
     const days = Math.floor(diff / 86400000);
 
     if (minutes < 1) return 'Just now';
-    if (minutes < 60) return ${minutes} minutes ago;
-    if (hours < 24) return ${hours} hours ago;
-    if (days < 7) return ${days} days ago;
+    if (minutes < 60) return `${minutes} minutes ago`;
+    if (hours < 24) return `${hours} hours ago`;
+    if (days < 7) return `${days} days ago`;
     return time.toLocaleDateString();
 }
 
