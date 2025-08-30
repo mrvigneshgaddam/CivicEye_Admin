@@ -12,7 +12,7 @@ const PoliceSchema = new mongoose.Schema({
   department: String,
   status: { type: String, default: 'Active' },
   assignedCases: { type: Number, default: 0 },
-  aasignedReports: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Report' }],
+  aasignedReports: { type:[{ type: mongoose.Schema.Types.ObjectId, ref: 'Report' }], default: [] },
   policeStation: String,
   password: { type: String, required: true, select: false },   // select:false -> must .select('+password') when logging in
 }, { timestamps: true });
@@ -25,4 +25,4 @@ PoliceSchema.pre('save', async function (next) {
   next();
 });
 
-module.exports = mongoose.model('Police', PoliceSchema); // collection = "polices"
+module.exports = mongoose.model('Police', PoliceSchema);

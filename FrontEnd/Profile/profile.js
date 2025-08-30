@@ -6,15 +6,14 @@ document.addEventListener('DOMContentLoaded', function() {
         .then(resp => {
             const p = resp.data || {};
             if (p) {
-                $('#profileName').textContent = p.name || '';
-                $('#profileRank').textContent = p.rank || '';
-                $('#profileDepartment').textContent = p.department || '';
-                $('#profileEmail').textContent = p.email || '';
-                $('#profilePhone').textContent = p.phone || '';
-                $('#profileBadge').textContent = p.badgeId || '';
-                $('#profileOfficerId').textContent = p.officerId || '';
-                $('#profileStation').textContent = p.policeStation || '';
-
+                $('#profileName')?.textContent = p.name || '';
+                $('#profileRank')?.textContent = p.rank || '';
+                $('#profileDepartment')?.textContent = p.department || '';
+                $('#profileEmail')?.textContent = p.email || '';
+                $('#profilePhone')?.textContent = p.phone || '';
+                $('#profileBadge')?.textContent = p.badgeId || '';
+                $('#profileOfficerId')?.textContent = p.officerId || '';
+                $('#profileStation')?.textContent = p.policeStation || '';
                 const initials = (p.name || '')
                     .split(' ')
                     .filter(Boolean)
