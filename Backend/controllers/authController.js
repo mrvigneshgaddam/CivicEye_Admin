@@ -1,63 +1,61 @@
 const jwt = require('jsonwebtoken');
+const bcrypt = require('bcryptjs');
 const Police = require('../models/Police');
 
-function sign(user) {
-  return jwt.sign(
-    { id: user._id, email: user.email, name: user.name, badgeId: user.badgeId },
-    process.env.JWT_SECRET || 'dev_secret',
-    { expiresIn: '7d' }
-  );
+const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret';
+const JWT_EXPIRES = process.env.JWT_EXPIRES || '1d';
+
+function cookieOpts() {
+  const isProd = process.env.NODE_ENV === 'production';
+  return { httpOnly: true, sameSite: 'lax', secure: isProd, maxAge: 24*60*60*1000, path: '/' };
 }
 
-// POST /api/auth/login
 exports.login = async (req, res) => {
-  const { email, password } = req.body || {};
+  const rawEmail = (req.body?.email || '').trim();
+  const email = rawEmail.toLowerCase();
+  const password = req.body?.password || '';
+
   if (!email || !password) {
-    return res.status(400).json({ success: false, message: 'Email and password are required' });
+    return res.status(400).json({ success: false, message: 'Email and password required' });
   }
 
-  // include password field explicitly (select: false on schema)
-  const user = await Police.findOne({ email: email.toLowerCase().trim() }).select('+password');
+  // DEBUG (temporarily):
+  // console.log('[login] body:', req.body);
+
+  // Because password has select:false
+  const user = await Police.findOne({ email }).select('+password');
+
   if (!user) {
     return res.status(401).json({ success: false, message: 'Invalid credentials' });
   }
 
-  const ok = await user.comparePassword(password);
+  const ok = await bcrypt.compare(password, user.password);
   if (!ok) {
     return res.status(401).json({ success: false, message: 'Invalid credentials' });
   }
 
-  const token = sign(user);
-  const safeUser = {
-    id: user._id,
-    name: user.name,
-    email: user.email,
-    badgeId: user.badgeId,
-    rank: user.rank,
-    department: user.department,
-    status: user.status,
-  };
-
-  return res.json({ success: true, token, user: safeUser });
+  const token = jwt.sign({ id: user._id }, JWT_SECRET, { expiresIn: JWT_EXPIRES });
+  res.cookie('token', token, cookieOpts());
+  res.json({ success: true });
 };
 
-// (optional) POST /api/auth/register  — for seeding from UI; remove in prod
-exports.register = async (req, res) => {
-  const { name, email, password, phone, badgeId, rank, department } = req.body || {};
-  if (!name || !email || !password) {
-    return res.status(400).json({ success: false, message: 'name, email, password required' });
-  }
-  const exists = await Police.findOne({ email: email.toLowerCase().trim() });
-  if (exists) return res.status(409).json({ success: false, message: 'Email already exists' });
-
-  const u = await Police.create({ name, email, password, phone, badgeId, rank, department });
-  return res.status(201).json({ success: true, id: u._id });
+exports.logout = async (req, res) => {
+  res.clearCookie('token', { ...cookieOpts(), maxAge: 0 });
+  res.json({ success: true });
 };
 
-// GET /api/auth/me
 exports.me = async (req, res) => {
-  const user = await Police.findById(req.user.id).lean();
-  if (!user) return res.status(404).json({ success: false, message: 'Not found' });
-  delete user.password;
-  res.json({ success: true, user });
+  const u = await Police.findById(req.user.id).lean();
+  if (!u) return res.status(404).json({ success: false, message: 'Not found' });
+  delete u.password;
+  res.json({ success: true, user: u });
+};
+
+authController.verify = async (req, res) => {
+    try {
+        // The auth middleware already verified the token
+        res.json({ success: true, user: req.user });
+    } catch (error) {
+        res.status(401).json({ success: false, message: 'Invalid token' });
+    }
 };

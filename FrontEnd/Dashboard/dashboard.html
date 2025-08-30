@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-page = "dashboard">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -238,11 +238,17 @@
             </div>
         </main>
     </div>
-     <script src="/FrontEnd/shared/auth-guard.js"></script>
+     <!-- <script src="/FrontEnd/shared/auth-guard.js" type="module"></script> -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
     <script src="/FrontEnd/Dashboard/dashboard.js"></script>
-
+<script type="module">
+    import { logout } from '/FrontEnd/shared/api.js';
+    document.querySelector('#logout-btn')?.addEventListener('click', async () => {
+      await logout();
+      location.replace('/index.html');
+    });
+  </script>
     <script src="dashboard.js"></script>
 
 </body>
