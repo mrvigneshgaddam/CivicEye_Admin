@@ -1,6 +1,7 @@
 /* ==================== CONFIG ==================== */
 const API_URL = 'http://localhost:5000/api/fir';  // base path to your backend
 const OFFICERS_API = 'http://localhost:5000/api/officers';  // if you have an officers endpoint
+const REPORTS_API = 'http://localhost:5000/api/reports';  // Add this for reports-specific operations
 const PAGE_SIZE = 10;
 const USE_TOKEN = false; // set true if you need Authorization Bearer from localStorage.token
 
@@ -54,11 +55,24 @@ function showError(msg) {
     </div>`;
 }
 
+function showSuccess(msg) {
+  const area = $('#feedbackArea');
+  if (!area) return;
+  area.innerHTML = `
+    <div class="feedback">
+      <div class="success-message">
+        <i class="fas fa-check-circle"></i>
+        <span>${msg}</span>
+      </div>
+    </div>`;
+  setTimeout(() => { area.innerHTML = ''; }, 3000);
+}
+
 /* ==================== FETCH ==================== */
 async function fetchReports() {
   const tbody = $('#reportsTbody');
   tbody.innerHTML = `
-    <tr><td colspan="5" class="loading-cell">
+    <tr><td colspan="8" class="loading-cell">
       <div style="border:3px solid #f3f3f3;border-top:3px solid var(--primary);border-radius:50%;width:30px;height:30px;animation:spin 1s linear infinite;margin:0 auto"></div>
       <div style="margin-top:8px;color:#777">Loading reports...</div>
     </td></tr>`;
@@ -70,10 +84,17 @@ async function fetchReports() {
       if (token) headers['Authorization'] = `Bearer ${token}`;
     }
 
-    // ask for many to paginate on the client; you can switch to server-side later
-    const url = `${API_URL}?limit=1000`;
-    const res = await fetch(url, { headers, credentials: 'include' });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    // Try both endpoints - fir and reports
+    let url = `${REPORTS_API}?limit=1000`;
+    let res = await fetch(url, { headers, credentials: 'include' });
+    
+    if (!res.ok) {
+      // If reports endpoint fails, try fir endpoint
+      url = `${API_URL}?limit=1000`;
+      res = await fetch(url, { headers, credentials: 'include' });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    }
+    
     const payload = await res.json();
 
     // API returns: { success: true, data: [...] , pagination: {...} }
@@ -82,22 +103,21 @@ async function fetchReports() {
 
     // Normalize shapes (FIR vs earlier "report" schema)
     allReports = list.map(r => {
-  const c = r.complainant || {};
-  return {
-   id: r._id,
-    reportId: r.reportId || r.firId || r.displayId || r._id,
-    complaint: r.complaint || r.description || r.details || r.summary || '—',
-    incidentType: r.incidentType || r.crimeType || '—',
-    location: r.location || r.incidentLocation || r.address || '—',
-    state: r.state || r.region || '—',
-    dateTime: r.incidentDateTime || r.reportedAt || r.date || r.createdAt || null,
-    status: r.status || '—',
-    assignedOfficer: r.assignedOfficer || 'Unassigned',
-    assignedOfficerId: r.assignedOfficerId || '',
-    raw: r
-  };
-});
-
+      const c = r.complainant || {};
+      return {
+        id: r._id || r.reportId || r.id,
+        reportId: r.reportId || r.firId || r.displayId || r._id,
+        complaint: r.complaint || r.description || r.details || r.summary || '—',
+        incidentType: r.incidentType || r.crimeType || '—',
+        location: r.location || r.incidentLocation || r.address || '—',
+        state: r.state || r.region || '—',
+        dateTime: r.incidentDateTime || r.reportedAt || r.date || r.createdAt || null,
+        status: r.status || '—',
+        assignedOfficer: r.assignedOfficer || r.assignedOfficerName || 'Unassigned',
+        assignedOfficerId: r.assignedOfficerId || r.assignedOfficer || '',
+        raw: r
+      };
+    });
 
     filtered = [...allReports];
     currentPage = 1;
@@ -105,51 +125,38 @@ async function fetchReports() {
     renderTable();
   } catch (err) {
     $('#reportsTbody').innerHTML = '';
-    showError(`Failed to load reports: ${err.message}. Check ${API_URL} in DevTools → Network.`);
+    showError(`Failed to load reports: ${err.message}. Check API endpoints in DevTools → Network.`);
   }
 }
 
 async function fetchOfficers() {
-
   try {
-
     const headers = { 'Content-Type': 'application/json' };
-
     if (USE_TOKEN) {
-
       const token = localStorage.getItem('token');
-
       if (token) headers['Authorization'] = `Bearer ${token}`;
-
     }
 
     const res = await fetch(OFFICERS_API, { headers, credentials: 'include' });
-
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
-
     const payload = await res.json();
 
     const list = Array.isArray(payload?.data) ? payload.data
-
                : (Array.isArray(payload) ? payload : []);
 
     return list.map(o => ({
-
+      id: o._id || o.id || o.officerId,
       name: o.name || o.fullName || o.officerName || '',
-
-      badgeId: o.badgeId || o.id || o._id || ''
-
+      badgeId: o.badgeId || o.id || o._id || '',
+      officerId: o.officerId || o._id || o.id
     }));
 
   } catch (err) {
-
     showError(`Failed to load officers: ${err.message}`);
-
     return [];
-
   }
-
 }
+
 /* ==================== RENDER ==================== */
 function renderStats() {
   const elTotal = $('#statTotal');
@@ -187,11 +194,11 @@ function renderTable() {
     const tr = document.createElement('tr');
     tr.innerHTML = `
       <td>${safe(r.reportId)}</td>
-      <td>${safe(r.complaint)}</td>
+      <td class="complaint-cell">${safe(r.complaint)}</td>
       <td>${safe(r.incidentType)}</td>
       <td>${safe(r.location)}</td>
       <td>${formatDateTime(r.dateTime)}</td>
-      <td>${safe(r.status)}</td>
+      <td><span class="status-badge status-${r.status.toLowerCase()}">${safe(r.status)}</span></td>
       <td>${safe(r.assignedOfficer)}</td>
       <td>
         <div class="action-buttons">
@@ -249,28 +256,23 @@ function renderPagination() {
   add('<i class="fas fa-chevron-right"></i>', Math.min(total, currentPage + 1), currentPage === total);
 }
 
-async function fetchOfficer() {
-  try {
-    const res = await fetch(`${OFFICERS_API}?limit=1000`, { credentials: 'include' });
-    const data = await res.json();
-    return Array.isArray(data) ? data : (data.data || []);
-  } catch (err) {
-    console.error(err);
-    return [];
-  }
-}
-
 async function openAssignModal(id) {
   assignTarget = id;
   const select = $('#officerSelect');
   select.innerHTML = '<option value="">Select officer</option>';
-  if (!officersCache.length) officersCache = await fetchOfficers();
+  
+  if (!officersCache.length) {
+    officersCache = await fetchOfficers();
+  }
+  
   officersCache.forEach(o => {
     const opt = document.createElement('option');
-    opt.value = o.officerId;
-    opt.textContent = o.badgeId ? `${o.name} (${o.badgeId})` : `${o.name} (${o.officerId})`;
+    opt.value = o.id; // Use the officer's ID as value
+    opt.textContent = o.badgeId ? `${o.name} (${o.badgeId})` : o.name;
+    opt.setAttribute('data-name', o.name);
     select.appendChild(opt);
   });
+  
   const modal = $('#assignModal');
   modal.style.display = 'flex';
   modal.setAttribute('aria-hidden', 'false');
@@ -281,42 +283,108 @@ function closeAssignModal() {
   modal.style.display = 'none';
   modal.setAttribute('aria-hidden', 'true');
   assignTarget = null;
+  $('#officerSelect').value = '';
 }
 
 async function confirmAssign() {
   const select = $('#officerSelect');
   const officerId = select.value;
-  if (!officerId || !assignTarget) return;
+  const officerName = select.options[select.selectedIndex]?.getAttribute('data-name') || '';
+  
+  if (!officerId || !assignTarget) {
+    showError('Please select an officer');
+    return;
+  }
+
   try {
-    const res = await fetch(`${API_URL}/${assignTarget}/assign`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
-      body: JSON.stringify({ officerId })
-    });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const payload = await res.json();
-    const item = allReports.find(r => String(r.id) === String(assignTarget));
-    const officer = officersCache.find(o => o.officerId === officerId);
-    if (item && officer) {
-      item.assignedOfficer = officer.name;
-      item.assignedOfficerId = officer.officerId;
+    // Try multiple endpoints for assigning officers
+    const endpoints = [
+      `${REPORTS_API}/${assignTarget}/assign`,
+      `${REPORTS_API}/${assignTarget}`,
+      `${API_URL}/${assignTarget}/assign`,
+      `${API_URL}/${assignTarget}`
+    ];
+
+    let success = false;
+    
+    for (const endpoint of endpoints) {
+      try {
+        const res = await fetch(endpoint, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ 
+            assignedOfficer: officerName,
+            assignedOfficerId: officerId,
+            status: 'assigned' // Also update status to assigned
+          })
+        });
+        
+        if (res.ok) {
+          const payload = await res.json();
+          console.log('Assignment successful via', endpoint, payload);
+          
+          // Update local data
+          const item = allReports.find(r => String(r.id) === String(assignTarget));
+          if (item) {
+            item.assignedOfficer = officerName;
+            item.assignedOfficerId = officerId;
+            item.status = 'assigned';
+          }
+          
+          renderTable();
+          showSuccess(`Officer ${officerName} assigned successfully!`);
+          success = true;
+          break;
+        }
+      } catch (err) {
+        console.warn(`Failed with endpoint ${endpoint}:`, err);
+        // Continue to next endpoint
+      }
     }
-    renderTable();
+
+    if (!success) {
+      throw new Error('All assignment endpoints failed');
+    }
   } catch (err) {
     showError(`Failed to assign officer: ${err.message}`);
-  }finally{
+  } finally {
     closeAssignModal();
   }
 }
 
 async function deleteReport(id) {
-  if (!confirm('Delete this report?')) return;
+  if (!confirm('Are you sure you want to delete this report?')) return;
   try {
-    const res = await fetch(`${API_URL}/${id}`, { method: 'DELETE', credentials: 'include' });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    allReports = allReports.filter(r => String(r.id) !== String(id));
-    applyFilter($('#tableFilter')?.value || $('#globalSearch')?.value || '');
+    const endpoints = [
+      `${REPORTS_API}/${id}`,
+      `${API_URL}/${id}`
+    ];
+    
+    let success = false;
+    
+    for (const endpoint of endpoints) {
+      try {
+        const res = await fetch(endpoint, { 
+          method: 'DELETE', 
+          credentials: 'include' 
+        });
+        
+        if (res.ok) {
+          allReports = allReports.filter(r => String(r.id) !== String(id));
+          applyFilter($('#tableFilter')?.value || $('#globalSearch')?.value || '');
+          showSuccess('Report deleted successfully!');
+          success = true;
+          break;
+        }
+      } catch (err) {
+        console.warn(`Delete failed with endpoint ${endpoint}:`, err);
+      }
+    }
+    
+    if (!success) {
+      throw new Error('All delete endpoints failed');
+    }
   } catch (err) {
     showError(`Failed to delete report: ${err.message}`);
   }
@@ -345,14 +413,15 @@ function detail(label, val) {
 
 function openModal(item) {
   $('#modalBody').innerHTML = `
-    ${detail('FIR ID', item.reportId)}
-    ${detail('Complain', item.complaint)}
+    ${detail('Report ID', item.reportId)}
+    ${detail('Complaint', item.complaint)}
     ${detail('Incident Type', item.incidentType)}
     ${detail('Location', item.location)}
     ${detail('Date/Time', formatDateTime(item.dateTime))}
     ${detail('Status', item.status)}
     ${detail('Assigned Officer', item.assignedOfficer)}
     ${detail('Officer ID', item.assignedOfficerId || '-')}
+    ${detail('State', item.state || '-')}
   `;
   const modal = $('#reportModal'); 
   modal.style.display = 'flex'; 
@@ -376,13 +445,14 @@ function exportCsv() {
     dateTime: r.dateTime || '',
     status: r.status,
     assignedOfficer: r.assignedOfficer,
+    assignedOfficerId: r.assignedOfficerId,
     state: r.state
   }));
   const blob = new Blob([toCsv(rows)], { type: 'text/csv;charset=utf-8;' });
   const url = URL.createObjectURL(blob); 
   const a = document.createElement('a');
   a.href = url; 
-  a.download = `fir_reports_${Date.now()}.csv`; 
+  a.download = `reports_${new Date().toISOString().split('T')[0]}.csv`; 
   document.body.appendChild(a); 
   a.click();
   document.body.removeChild(a); 
@@ -427,6 +497,19 @@ document.addEventListener('DOMContentLoaded', () => {
   const conf = $('#confirmAssign'); if (conf) conf.addEventListener('click', confirmAssign);
 
   const style = document.createElement('style');
-  style.textContent = '@keyframes spin{0%{transform:rotate(0)}100%{transform:rotate(360deg)}}';
+  style.textContent = `
+    @keyframes spin{0%{transform:rotate(0)}100%{transform:rotate(360deg)}}
+    .status-badge {
+      padding: 4px 8px;
+      border-radius: 12px;
+      font-size: 12px;
+      font-weight: 500;
+    }
+    .status-registered { background: #e3f2fd; color: #1976d2; }
+    .status-assigned { background: #fff8e1; color: #f57c00; }
+    .status-in-progress { background: #fff3e0; color: #ef6c00; }
+    .status-resolved { background: #e8f5e9; color: #388e3c; }
+    .status-closed { background: #f5f5f5; color: #616161; }
+  `;
   document.head.appendChild(style);
 });
