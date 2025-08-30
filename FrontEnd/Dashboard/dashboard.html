@@ -1,14 +1,11 @@
 <!DOCTYPE html>
-<html lang="en" data-page = "dashboard">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CivikEye - Admin Dashboard</title>
+    <title>CivicEye - Admin Dashboard</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-
-    
-    <link rel="stylesheet" href="dashboard.css">
-
+    <link rel="stylesheet" href="/FrontEnd/Dashboard/dashboard.css">
 </head>
 <body>
     <div class="container">
@@ -52,11 +49,7 @@
                         <div class="dropdown-content">
                             <a href="#"><i class="fas fa-user"></i> Profile</a>
                             <a href="#"><i class="fas fa-cog"></i> Settings</a>
-
                             <a href="/index.html" class="logout-btn"><i class="fas fa-sign-out-alt"></i> Logout</a>
-
-                            
-
                         </div>
                     </div>
                 </div>
@@ -238,18 +231,8 @@
             </div>
         </main>
     </div>
-     <!-- <script src="/FrontEnd/shared/auth-guard.js" type="module"></script> -->
+
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
     <script src="/FrontEnd/Dashboard/dashboard.js"></script>
-<script type="module">
-    import { logout } from '/FrontEnd/shared/api.js';
-    document.querySelector('#logout-btn')?.addEventListener('click', async () => {
-      await logout();
-      location.replace('/index.html');
-    });
-  </script>
-    <script src="dashboard.js"></script>
-
 </body>
 </html>

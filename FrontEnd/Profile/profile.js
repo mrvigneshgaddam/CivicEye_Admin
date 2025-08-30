@@ -15,6 +15,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 $('#profileBadge')?.textContent = p.badgeId || '';
                 $('#profileOfficerId')?.textContent = p.officerId || '';
                 $('#profileStation')?.textContent = p.policeStation || '';
+                $('#profileStatus')?.textContent = p.status || '';
+                $('#profileAssignedCases')?.textContent = (p.assignedCases !== undefined && p.assignedCases !== null) ? p.assignedCases : '';
+                $('#profileAssignedReports')?.textContent = Array.isArray(p.assignedReports) ? p.assignedReports.join(', ') : (p.assignedReports || '');
                 
                 const avatarUrl = `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(p.name || '')}`;
                 const altText = safe(p.name);
