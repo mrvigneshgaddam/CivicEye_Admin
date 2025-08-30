@@ -103,11 +103,12 @@ router.put('/:id/assign', async (req, res) => {
     const report = await ReportModel.findById(req.params.id);
     if (!report) return res.status(404).json({ success: false, message: 'FIR not found' });
 
+    const reportIdentifier = report.reportId|| report.firId || report._id;
     // If report was previously assigned to another officer, remove from that officer's list
     if (report.assignedOfficerId && report.assignedOfficerId !== officer.officerId) {
       await Police.updateOne(
         { officerId: report.assignedOfficerId },
-        { $pull: { assignedReports: report._id }, $inc: { assignedCases: -1 } }
+        { $pull: { assignedReports: reportIdentifier }, $inc: { assignedCases: -1 } }
       );
     }
 
@@ -116,8 +117,9 @@ router.put('/:id/assign', async (req, res) => {
     await report.save();
 
     // Add report to new officer's list
-    if (!officer.assignedReports.includes(report._id)) {
-      officer.assignedReports.push(report._id);
+    if (!Array.isArray(officer.assignedReports)) officer.assignedReports = [];
+    if (!officer.assignedReports.includes(reportIdentifier)) {
+      officer.assignedReports.push(reportIdentifier);
     }
     officer.assignedCases = officer.assignedReports.length;
     await officer.save();

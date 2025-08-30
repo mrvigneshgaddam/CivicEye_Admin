@@ -12,7 +12,7 @@ const PoliceSchema = new mongoose.Schema({
   department: String,
   status: { type: String, default: 'Active' },
   assignedCases: { type: Number, default: 0 },
-  aasignedReports: { type:[{ type: mongoose.Schema.Types.ObjectId, ref: 'Report' }], default: [] },
+  assignedReports: {type:[String],default:[]}, // array of report IDs},
   policeStation: String,
   password: { type: String, required: true, select: false },   // select:false -> must .select('+password') when logging in
 }, { timestamps: true });
