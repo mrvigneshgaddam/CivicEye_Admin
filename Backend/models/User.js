@@ -1,6 +1,7 @@
 const mongoose = require('mongoose');
 const crypto = require('crypto');
 const argon2 = require('argon2');
+const bcrypt = require('bcryptjs');
 
 const userSchema = new mongoose.Schema({
   name: { type: String, required: true, trim: true },
@@ -20,6 +21,7 @@ const userSchema = new mongoose.Schema({
 userSchema.pre('save', async function(next) {
   if (!this.isModified('password')) return next();
   try {
+    const salt = await bcrypt.genSalt(10);
     this.password = await argon2.hash(this.password);
     next();
   } catch (error) {

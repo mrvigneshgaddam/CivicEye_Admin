@@ -225,6 +225,7 @@
         }
     </style>
 </head>
+
 <body>
     <div class="login-container">
         <div class="login-card">
@@ -271,114 +272,28 @@
             </div>
         </div>
     </div>
+    <!-- Tell the frontend which API origin to use -->
 
-    <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            console.log('DOM fully loaded, initializing login form...');
-            
-            const loginForm = document.getElementById('loginForm');
-            const emailInput = document.getElementById('email');
-            const passwordInput = document.getElementById('password');
-            const togglePassword = document.querySelector('.toggle-password');
-            const errorMessage = document.getElementById('errorMessage');
-            
-            if (!loginForm) {
-                console.error('Login form not found!');
-                return;
-            }
-            
-            // Password visibility toggle
-            togglePassword.addEventListener('click', function() {
-                const type = passwordInput.type === 'password' ? 'text' : 'password';
-                passwordInput.type = type;
-                this.querySelector('i').classList.toggle('fa-eye');
-                this.querySelector('i').classList.toggle('fa-eye-slash');
-            });
-            
-            // Login form submission
-            loginForm.addEventListener('submit', async function(e) {
-                e.preventDefault();
-                
-                const email = emailInput.value.trim();
-                const password = passwordInput.value;
-                const loginBtn = loginForm.querySelector('.login-btn');
-                
-                // Basic validation
-                if (!email || !password) {
-                    showError('Please fill in all fields');
-                    return;
-                }
-                
-                // Email validation
-                if (!isValidEmail(email)) {
-                    showError('Please enter a valid email address');
-                    return;
-                }
-                
-                // Show loading state
-                const originalBtnHTML = loginBtn.innerHTML;
-                loginBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Logging in...';
-                loginBtn.disabled = true;
-                hideError();
-                
-                try {
-                    const res = await fetch('http://localhost:5000/api/auth/login', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                        },
-                        body: JSON.stringify({ email, password }),
-                    });
-                    
-                    const data = await res.json();
-                    
-                    if (!res.ok || !data.success || !data.token) {
-                        throw new Error(data.message || 'Invalid email or password');
-                    }
-                    
-                    // Store token & user info
-                    localStorage.setItem('token', data.token);
-                    localStorage.setItem('user', JSON.stringify(data.user || {}));
-                    
-                    // Show success and redirect
-                    loginBtn.innerHTML = '<i class="fas fa-check"></i> Login Successful!';
-                    loginBtn.style.background = '#4BB543';
-                    
-                    setTimeout(() => {
-                        window.location.href = '/FrontEnd/Dashboard/dashboard.html';
-                    }, 1000);
-                    
-                } catch (err) {
-                    console.error('Login error:', err);
-                    showError(err.message || 'Login failed. Please try again.');
-                    loginBtn.innerHTML = originalBtnHTML;
-                    loginBtn.disabled = false;
-                }
-            });
-            
-            function showError(message) {
-                errorMessage.textContent = message;
-                errorMessage.style.display = 'block';
-                loginForm.classList.add('shake');
-                setTimeout(() => loginForm.classList.remove('shake'), 500);
-            }
-            
-            function hideError() {
-                errorMessage.style.display = 'none';
-            }
-            
-            function isValidEmail(email) {
-                const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-                return re.test(email);
-            }
-            
-            // Check if user is already logged in
-            const token = localStorage.getItem('token');
-            if (token) {
-                console.log('User already logged in, redirecting to dashboard...');
-                window.location.href = '/FrontEnd/Dashboard/dashboard.html';
-            }
-        });
-    </script>
+<script>
+
+  window.API_BASE = 'http://localhost:5000';
+
+</script>
+<script>
+(function(){
+  const API = 'http://localhost:5000';
+  const origFetch = window.fetch;
+  window.fetch = function(input, init){
+    if (typeof input === 'string' && /^\/?api\//.test(input)) {
+      if (!input.startsWith('/')) input = '/' + input;
+      input = API + input;
+    }
+    return origFetch(input, init);
+  };
+})();
+</script>
+    <script src="./FrontEnd/shared/auth-guard.js" type="module"></script>
+    
+    <script src ="./FrontEnd/login.js" type="module"></script>
 </body>
 </html>

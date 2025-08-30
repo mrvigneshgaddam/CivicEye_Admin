@@ -8,15 +8,9 @@ const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const hpp = require('hpp');
 const mongoSanitize = require('express-mongo-sanitize');
+const cookieParser = require('cookie-parser');
 
-// Routes
-const authRoutes = require('./routes/authRoutes');
-const chatRoutes = require('./routes/chatRoutes');
-const dashboardRoutes = require('./routes/dashboardRoutes');
-const emergencyRoutes = require('./routes/emergencyRoutes');
-const firRoutes = require('./routes/firRoutes');
-const officerRoutes = require('./routes/officerRoutes');
-const profileRoutes = require('./routes/profileRoutes');
+
 
 // DB bootstrap
 const { connectDB, initializeFirebase } = require('./config/db');
@@ -79,7 +73,7 @@ const generalLimiter = rateLimit({
   standardHeaders: true, legacyHeaders: false
 });
 const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, max: 10, skip: skipOptions,
+  windowMs: 15 * 60 * 1000, max: 100, skip: skipOptions,
   message: { error: 'Too many authentication attempts, please try again later.' },
   standardHeaders: true, legacyHeaders: false
 });
@@ -96,6 +90,7 @@ app.use('/api/dashboard', dashboardLimiter);
 /* --------------------------- Parsers --------------------------- */
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+app.use(cookieParser());
 
 /* ----------------------- DB connections ------------------------ */
 const mongoUri = process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/civiceye';
@@ -103,6 +98,14 @@ initializeFirebase();
 connectDB();
 
 /* ---------------------------- Routes --------------------------- */
+// Routes
+const authRoutes = require('./routes/authRoutes');
+const chatRoutes = require('./routes/chatRoutes');
+const dashboardRoutes = require('./routes/dashboardRoutes');
+const emergencyRoutes = require('./routes/emergencyRoutes');
+const firRoutes = require('./routes/firRoutes');
+const officerRoutes = require('./routes/officerRoutes');
+const profileRoutes = require('./routes/profileRoutes');
 app.use('/api/auth', authRoutes);
 app.use('/api/chat', chatRoutes);
 app.use('/api/dashboard', dashboardRoutes);

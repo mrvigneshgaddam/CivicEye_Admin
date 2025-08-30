@@ -1,41 +1,49 @@
-document.addEventListener('DOMContentLoaded', function() {
-    const loginForm = document.getElementById('loginForm');
+// FrontEnd/shared/auth-guard.js
+(function () {
+  const API_BASE = (typeof window !== 'undefined' && window.API_BASE)
+    ? window.API_BASE
+    : 'http://localhost:5000';
+
+  const isLoginPage =
+    document.documentElement.getAttribute('data-page') === 'login' ||
+    /(^\/$|\/index\.html$)/i.test(location.pathname);
+
+  // Check if we have a token in localStorage first
+  function hasLocalToken() {
+    return !!localStorage.getItem('authToken');
+  }
+
+  async function isAuthed() {
+    // First check localStorage to avoid unnecessary API calls
+    if (!hasLocalToken()) return false;
     
-    if (!loginForm) {
-        console.error('Login form not found!');
-        return;
+    try {
+      const res = await fetch(API_BASE + '/api/auth/verify', {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('authToken')}`
+        }
+      });
+      return res.ok;
+    } catch { 
+      return false; 
+    }
+  }
+
+  (async () => {
+    // Add a small delay to ensure proper page load
+    await new Promise(resolve => setTimeout(resolve, 100));
+    
+    if (isLoginPage) {
+      if (await isAuthed()) {
+        location.replace('/FrontEnd/Dashboard/dashboard.html');
+      }
+      return;
     }
     
-    loginForm.addEventListener('submit', async (e) => {
-        e.preventDefault();
-
-        const email = document.getElementById('email').value;
-        const password = document.getElementById('password').value;
-
-        try {
-            const res = await fetch('http://localhost:5000/api/auth/login', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ email, password }),
-            });
-
-            const data = await res.json();
-
-            // Validate response before storing
-            if (!res.ok || !data.success || !data.token) {
-                throw new Error(data.message || 'Invalid email or password');
-            }
-
-            // Store token & user info
-            localStorage.setItem('token', data.token);
-            localStorage.setItem('user', JSON.stringify(data.user || {}));
-
-            // Redirect to dashboard
-            window.location.href = '/FrontEnd/Dashboard/dashboard.html';
-        } catch (err) {
-            alert(err.message);
-        }
-    });
-});
+    if (!(await isAuthed())) {
+      localStorage.removeItem('authToken');
+      localStorage.removeItem('user');
+      location.replace('/index.html');
+    }
+  })();
+})();
