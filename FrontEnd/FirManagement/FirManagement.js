@@ -93,6 +93,7 @@ async function fetchReports() {
     dateTime: r.incidentDateTime || r.reportedAt || r.date || r.createdAt || null,
     status: r.status || '—',
     assignedOfficer: r.assignedOfficer || 'Unassigned',
+    assignedOfficerId: r.assignedOfficerId || '',
     raw: r
   };
 });
@@ -351,6 +352,7 @@ function openModal(item) {
     ${detail('Date/Time', formatDateTime(item.dateTime))}
     ${detail('Status', item.status)}
     ${detail('Assigned Officer', item.assignedOfficer)}
+    ${detail('Officer ID', item.assignedOfficerId || '-')}
   `;
   const modal = $('#reportModal'); 
   modal.style.display = 'flex'; 
