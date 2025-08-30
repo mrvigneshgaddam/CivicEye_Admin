@@ -1,7 +1,17 @@
 // dashboard.js - Fixed version with proper authentication handling
 const API_BASE = (typeof window !== 'undefined' && window.API_BASE)
     ? window.API_BASE
-    : 'http://localhost:5000';  
+    : 'http://localhost:5000';
+
+// Determine the directory of this script so mock data can be loaded
+const SCRIPT_BASE = (() => {
+    try {
+        const script = document.currentScript || document.querySelector('script[src*="dashboard.js"]');
+        return script ? script.src.replace(/[^/]+$/, '') : '';
+    } catch (e) {
+        return '';
+    }
+})();  
 document.addEventListener('DOMContentLoaded', function() {
     // Add a small delay to ensure token is stored after redirect
     setTimeout(() => {
