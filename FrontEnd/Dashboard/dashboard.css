@@ -246,6 +246,17 @@ body {
     transition: all 0.2s ease;
 }
 
+.profile-img.initials-avatar {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--secondary);
+    color: #fff;
+    font-weight: 600;
+    font-size: 0.9rem;
+    text-transform: uppercase;
+}
+
 .profile-dropdown:hover .profile-img {
     border-color: var(--primary);
 }

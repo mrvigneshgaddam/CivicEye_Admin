@@ -14,6 +14,15 @@ document.addEventListener('DOMContentLoaded', function() {
                 $('#profileBadge').textContent = p.badgeId || '';
                 $('#profileOfficerId').textContent = p.officerId || '';
                 $('#profileStation').textContent = p.policeStation || '';
+
+                const initials = (p.name || '')
+                    .split(' ')
+                    .filter(Boolean)
+                    .map(n => n[0])
+                    .join('')
+                    .toUpperCase();
+                document.querySelectorAll('.initials-avatar')
+                    .forEach(el => el.textContent = initials);
             }
         })
         .catch(err => console.error('Profile fetch error', err));
