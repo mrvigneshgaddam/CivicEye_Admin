@@ -7,10 +7,12 @@ const PoliceSchema = new mongoose.Schema({
   email: { type: String, required: true, trim: true, lowercase: true, unique: true },
   phone: String,
   badgeId: String,
+  officerId: { type: String, unique: true, sparse: true }, // sparse allows multiple nulls
   rank: String,
   department: String,
   status: { type: String, default: 'Active' },
   assignedCases: { type: Number, default: 0 },
+  aasignedReports: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Report' }],
   policeStation: String,
   password: { type: String, required: true, select: false },   // select:false -> must .select('+password') when logging in
 }, { timestamps: true });

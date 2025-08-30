@@ -266,8 +266,8 @@ async function openAssignModal(id) {
   if (!officersCache.length) officersCache = await fetchOfficers();
   officersCache.forEach(o => {
     const opt = document.createElement('option');
-    opt.value = o.name;
-    opt.textContent = o.badgeId ? `${o.name} (${o.badgeId})` : o.name;
+    opt.value = o.officerId;
+    opt.textContent = o.badgeId ? `${o.name} (${o.badgeId})` : `${o.name} (${o.officerId})`;
     select.appendChild(opt);
   });
   const modal = $('#assignModal');
@@ -284,19 +284,23 @@ function closeAssignModal() {
 
 async function confirmAssign() {
   const select = $('#officerSelect');
-  const officer = select.value;
-  if (!officer || !assignTarget) return;
+  const officerId = select.value;
+  if (!officerId || !assignTarget) return;
   try {
     const res = await fetch(`${API_URL}/${assignTarget}/assign`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
-      body: JSON.stringify({ assignedOfficer: officer })
+      body: JSON.stringify({ officerId })
     });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const payload = await res.json();
     const item = allReports.find(r => String(r.id) === String(assignTarget));
-    if (item) item.assignedOfficer = payload?.data?.assignedOfficer || officer;
+    const officer = officersCache.find(o => o.officerId === officerId);
+    if (item && officer) {
+      item.assignedOfficer = officer.name;
+      item.assignedOfficerId = officer.officerId;
+    }
     renderTable();
   } catch (err) {
     showError(`Failed to assign officer: ${err.message}`);

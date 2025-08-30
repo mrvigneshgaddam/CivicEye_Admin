@@ -1,4 +1,22 @@
 document.addEventListener('DOMContentLoaded', function() {
+    const $ = s => document.querySelector(s);
+    // Fetch profile details of logged-in officer
+    fetch('/api/profile', { credentials: 'include' })
+        .then(r => r.json())
+        .then(resp => {
+            const p = resp.data || {};
+            if (p) {
+                $('#profileName').textContent = p.name || '';
+                $('#profileRank').textContent = p.rank || '';
+                $('#profileDepartment').textContent = p.department || '';
+                $('#profileEmail').textContent = p.email || '';
+                $('#profilePhone').textContent = p.phone || '';
+                $('#profileBadge').textContent = p.badgeId || '';
+                $('#profileOfficerId').textContent = p.officerId || '';
+                $('#profileStation').textContent = p.policeStation || '';
+            }
+        })
+        .catch(err => console.error('Profile fetch error', err));
     // Toggle edit profile modal
     const editProfileBtn = document.getElementById('editProfileBtn');
     const closeEditProfileModal = document.getElementById('closeEditProfileModal');
