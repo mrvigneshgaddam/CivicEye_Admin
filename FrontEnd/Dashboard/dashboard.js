@@ -43,9 +43,9 @@ document.addEventListener('DOMContentLoaded', function() {
 // Function to verify token with server
 async function verifyToken(token) {
     try {
-        const response = await fetch(`${API_BASE}/api/auth/verify`, {
+        const response = await fetch(${API_BASE}/api/auth/verify, {
             headers: {
-                'Authorization': `Bearer ${token}`
+                'Authorization': Bearer ${token}
             }
         });
         
@@ -245,8 +245,8 @@ function updateStats(data) {
             if (el) {
                 const isPositive = change.value >= 0;
                 el.innerHTML = isPositive ? 
-                    `<i class="fas fa-arrow-up"></i><span>${Math.abs(change.value)}%</span>`:
-                    `<i class="fas fa-arrow-down"></i><span>${Math.abs(change.value)}%</span>`;
+                    <i class="fas fa-arrow-up"></i><span>${Math.abs(change.value)}%</span>:
+                    <i class="fas fa-arrow-down"></i><span>${Math.abs(change.value)}%</span>;
                 
                 el.className = isPositive ? 'stats-card-change positive' : 'stats-card-change negative';
             }
@@ -314,7 +314,7 @@ function initCharts(chartData) {
 // ✅ Update only line chart
 async function updateCharts(period, token) {
     try {
-        console.log(`🔄 Updating line chart for period: ${period}`);
+        console.log(🔄 Updating line chart for period: ${period});
         const chartsData = await fetchDashboardCharts(period);
 
         if (incidentsChart) incidentsChart.destroy();
@@ -346,7 +346,7 @@ async function updateCharts(period, token) {
 // ✅ Update only bar chart
 async function updateIncidentTypes(period, token) {
     try {
-        console.log(`🔄 Updating bar chart for period: ${period}`);
+        console.log(🔄 Updating bar chart for period: ${period});
         const chartsData = await fetchDashboardCharts(period);
 
         if (incidentTypesChart) incidentTypesChart.destroy();
@@ -435,9 +435,9 @@ function formatTime(timestamp) {
     const days = Math.floor(diff / 86400000);
 
     if (minutes < 1) return 'Just now';
-    if (minutes < 60) return `${minutes} minutes ago`;
-    if (hours < 24) return `${hours} hours ago`;
-    if (days < 7) return `${days} days ago`;
+    if (minutes < 60) return ${minutes} minutes ago;
+    if (hours < 24) return ${hours} hours ago;
+    if (days < 7) return ${days} days ago;
     return time.toLocaleDateString();
 }
 
