@@ -103,7 +103,7 @@ router.put('/:id/assign', async (req, res) => {
     const report = await ReportModel.findById(req.params.id);
     if (!report) return res.status(404).json({ success: false, message: 'FIR not found' });
 
-    const reportIdentifier = report.reportId|| report.firId || report._id;
+    const reportIdentifier = report.reportId;
     // If report was previously assigned to another officer, remove from that officer's list
     if (report.assignedOfficerId && report.assignedOfficerId !== officer.officerId) {
       await Police.updateOne(
