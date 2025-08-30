@@ -9,24 +9,19 @@ document.addEventListener('DOMContentLoaded', async function() {
         const { ok, data } = await api('/api/profile');
         if (ok && data?.data) {
             const p = data.data;
-            $('#profileName')?.textContent = p.name || '';
-            $('#profileRank')?.textContent = p.rank || '';
-            $('#profileDepartment')?.textContent = p.department || '';
-            $('#profileEmail')?.textContent = p.email || '';
-            $('#profilePhone')?.textContent = p.phone || '';
-            $('#profileBadge')?.textContent = p.badgeId || '';
-            $('#profileOfficerId')?.textContent = p.officerId || '';
-            $('#profileStation')?.textContent = p.policeStation || '';
-            $('#profileStatus')?.textContent = p.status || '';
-            $('#profileAssignedCases')?.textContent =
-                (p.assignedCases !== undefined && p.assignedCases !== null)
-                    ? p.assignedCases
-                    : '';
-            $('#profileAssignedReports')?.textContent = Array.isArray(p.assignedReports)
-                ? p.assignedReports.join(', ')
-                : (p.assignedReports || '');
+            console.log('Profile data', p);
+            $('#profileName') && ($('#profileName').textContent = safe(p.name) || '');
+            $('#profileRank') && ($('#profileRank').textContent = safe(p.rank) || '');
+            $('#profileDepartment') && ($('#profileDepartment').textContent = safe(p.department) || '');
+            $('#profileEmail') && ($('#profileEmail').textContent = safe(p.email) || '');
+            $('#profilePhone')  && ($('#profilePhone').textContent = safe(p.phone) || '');
+            $('#profileBadge') && ($('#profileBadge').textContent = safe(p.badgeId) || '');
+            $('#profileOfficerId') && ($('#profileOfficerId').textContent = safe(p.officerId) || '');
+            $('#profileStation') && ($('#profileStation').textContent = safe(p.policeStation) || '');
+            $('#profileStatus') && ($('#profileStatus').textContent = safe(p.status) || '');
+            $('#profileAssignedCases') && ($('#profileAssignedCases').textContent = safe(p.assignedCases) || '0');
 
-            const avatarUrl = https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(p.name || '')};
+            const avatarUrl = `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(p.name || '')}`;
             const altText = safe(p.name);
 
             const profileAvatar = document.getElementById('profileAvatar');

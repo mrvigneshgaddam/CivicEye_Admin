@@ -9,6 +9,7 @@
   <link rel="stylesheet" href="/FrontEnd/Dashboard/dashboard.css">
   <link rel="stylesheet" href="chatapp.css">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <script type="module" src ="/FrontEnd/Profile/profile.js"></script>
 </head>
 <body>
   <div class="container">
@@ -40,11 +41,11 @@
             <input type="text" id="contact-search" placeholder="Search contacts...">
           </div>
           <div class="profile-dropdown">
-            <img src="https://randomuser.me/api/portraits/men/32.jpg" alt="Profile" class="profile-img">
+            <img id="headerAvatar" class="profile-img" alt="">
             <div class="dropdown-content">
-                <a href="#"><i class="fas fa-user"></i> Profile</a>
-                <a href="#"><i class="fas fa-cog"></i> Settings</a>
-                <a href="#" id="logout-btn"><i class="fas fa-sign-out-alt"></i> Logout</a>
+                <a href="/FrontEnd/Profile/profile.html"><i class="fas fa-user"></i> Profile</a>
+                <a href="/FrontEnd/Setting/setting.html"><i class="fas fa-cog"></i> Settings</a>
+                <a href="/index.html" id="logout-btn"><i class="fas fa-sign-out-alt"></i> Logout</a>
             </div>
           </div>
         </div>
