@@ -8,7 +8,7 @@ const USE_TOKEN = false; // set true if you need Authorization Bearer from local
 let allReports = [];
 let filtered = [];
 let currentPage = 1;
-let OfficersCache = [];
+let officersCache = [];
 let assignTarget = null;
 
 /* ==================== UTILS ==================== */
@@ -108,6 +108,47 @@ async function fetchReports() {
   }
 }
 
+async function fetchOfficers() {
+
+  try {
+
+    const headers = { 'Content-Type': 'application/json' };
+
+    if (USE_TOKEN) {
+
+      const token = localStorage.getItem('token');
+
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
+    }
+
+    const res = await fetch(OFFICERS_API, { headers, credentials: 'include' });
+
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+    const payload = await res.json();
+
+    const list = Array.isArray(payload?.data) ? payload.data
+
+               : (Array.isArray(payload) ? payload : []);
+
+    return list.map(o => ({
+
+      name: o.name || o.fullName || o.officerName || '',
+
+      badgeId: o.badgeId || o.id || o._id || ''
+
+    }));
+
+  } catch (err) {
+
+    showError(`Failed to load officers: ${err.message}`);
+
+    return [];
+
+  }
+
+}
 /* ==================== RENDER ==================== */
 function renderStats() {
   const elTotal = $('#statTotal');
