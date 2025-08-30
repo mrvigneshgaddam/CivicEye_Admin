@@ -18,6 +18,7 @@ async function login(e) {
     return;
   }
 
+  localStorage.setItem('authToken', data.token);
   localStorage.setItem('token', data.token);
   localStorage.setItem('user', JSON.stringify(data.user));
   // redirect to dashboard (or wherever you go after login)

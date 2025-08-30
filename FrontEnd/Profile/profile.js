@@ -1,5 +1,6 @@
 document.addEventListener('DOMContentLoaded', function() {
     const $ = s => document.querySelector(s);
+    const safe = v => (v === null || v === undefined)? '' : String(v);
     // Fetch profile details of logged-in officer
     fetch('/api/profile', { credentials: 'include' })
         .then(r => r.json())
@@ -14,14 +15,20 @@ document.addEventListener('DOMContentLoaded', function() {
                 $('#profileBadge')?.textContent = p.badgeId || '';
                 $('#profileOfficerId')?.textContent = p.officerId || '';
                 $('#profileStation')?.textContent = p.policeStation || '';
-                const initials = (p.name || '')
-                    .split(' ')
-                    .filter(Boolean)
-                    .map(n => n[0])
-                    .join('')
-                    .toUpperCase();
-                document.querySelectorAll('.initials-avatar')
-                    .forEach(el => el.textContent = initials);
+                
+                const avatarUrl = `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(p.name || '')}`;
+                const altText = safe(p.name);
+
+                const profileAvatar = document.getElementById('profileAvatar');
+                if (profileAvatar) {
+                    profileAvatar.src = avatarUrl;
+                    profileAvatar.alt = altText;
+                }
+                const headerAvatar = document.getElementById('headerAvatar');
+                if (headerAvatar) {
+                    headerAvatar.src = avatarUrl;
+                    headerAvatar.alt = altText;
+                }
             }
         })
         .catch(err => console.error('Profile fetch error', err));
