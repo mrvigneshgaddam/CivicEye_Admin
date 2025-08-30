@@ -8,7 +8,7 @@ const USE_TOKEN = false; // set true if you need Authorization Bearer from local
 let allReports = [];
 let filtered = [];
 let currentPage = 1;
-let OfficerCache = [];
+let OfficersCache = [];
 let assignTarget = null;
 
 /* ==================== UTILS ==================== */
@@ -207,9 +207,9 @@ function renderPagination() {
   add('<i class="fas fa-chevron-right"></i>', Math.min(total, currentPage + 1), currentPage === total);
 }
 
-async function fetchOfficer(id) {
+async function fetchOfficer() {
   try {
-    const res = await fetch(`${OFFICERS_API}?limit=1000, { credentials: 'include' }`);
+    const res = await fetch(`${OFFICERS_API}?limit=1000`, { credentials: 'include' });
     const data = await res.json();
     return Array.isArray(data) ? data : (data.data || []);
   } catch (err) {
