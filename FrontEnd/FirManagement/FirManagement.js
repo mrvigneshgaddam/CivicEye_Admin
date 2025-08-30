@@ -81,18 +81,16 @@ async function fetchReports() {
     allReports = list.map(r => {
   const c = r.complainant || {};
   return {
-    reportId   : r.reportId || r.firId || r.displayId || r._id,   // ✅ include it
-    name       : r.name || c.name || '—',
-    email      : r.email || c.email || '—',
-    phone      : r.phone || c.phone || '—',
-    crimeType  : r.crimeType || r.incidentType || '—',
-    date       : r.date || r.incidentDate || r.reportedAt || r.createdAt || null,
-    createdAt  : r.createdAt || r.reportedAt || r.date || null,
-    location   : r.location || r.address || '—',
-    state      : r.state || r.region || '—',
-    description: r.description || r.details || r.summary || '—',
-    evidence   : r.evidence || r.attachments || '—',
-    raw        : r
+   id: r._id,
+    reportId: r.firId || r.reportId || r.displayId || r._id,
+    complaint: r.complaint || r.description || r.details || r.summary || '—',
+    incidentType: r.incidentType || r.crimeType || '—',
+    location: r.location || r.incidentLocation || r.address || '—',
+    state: r.state || r.region || '—',
+    dateTime: r.incidentDateTime || r.reportedAt || r.date || r.createdAt || null,
+    status: r.status || '—',
+    assignedOfficer: r.assignedOfficer || 'Unassigned',
+    raw: r
   };
 });
 
@@ -117,12 +115,12 @@ function renderStats() {
   if (el24h) {
     const now = Date.now();
     const last24 = allReports.filter(r => {
-      const d = r.createdAt || r.date; const t = d ? new Date(d).getTime() : NaN;
+      const d = r.dateTime; const t = d ? new Date(d).getTime() : NaN;
       return !isNaN(t) && (now - t) <= 24 * 60 * 60 * 1000;
     }).length;
     el24h.textContent = last24;
   }
-  if (elCyber)  elCyber.textContent  = allReports.filter(r => String(r.crimeType).toLowerCase().includes('cyber')).length;
+  if (elCyber)  elCyber.textContent  = allReports.filter(r => String(r.incidentType).toLowerCase().includes('cyber')).length;
   if (elStates) elStates.textContent = new Set(allReports.map(r => safe(r.state, ''))).size || 0;
 }
 
@@ -133,7 +131,7 @@ function renderTable() {
   const rows  = filtered.slice(start, start + PAGE_SIZE);
 
   if (!rows.length) {
-    tbody.innerHTML = `<tr><td colspan="5" class="loading-cell">No reports found</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="8" class="loading-cell">No reports found</td></tr>`;
     const ti = $('#tableInfo');
     if (ti) ti.textContent = `Showing 0 to 0 of ${filtered.length} entries`;
     renderPagination(); 
@@ -143,14 +141,22 @@ function renderTable() {
   for (const r of rows) {
     const tr = document.createElement('tr');
     tr.innerHTML = `
-      <td>${safe(r.reportId)}</td>
-      <td>${safe(r.phone)}</td>
-      <td>${safe(r.crimeType)}</td>
-      <td>${safe(r.state)}</td>
+      <td>${safe(r.complaint)}</td>
+      <td>${safe(r.incidentType)}</td>
+      <td>${safe(r.location)}</td>
+      <td>${formatDateTime(r.dateTime)}</td>
+      <td>${safe(r.status)}</td>
+      <td>${safe(r.assignedOfficer)}</td>
       <td>
         <div class="action-buttons">
-          <button class="btn-icon small view-btn" data-id="${String(r.reportId).replace(/"/g,'&quot;')}">
+          <button class="btn-icon small view-btn" data-id="${r.id}">
             <i class="fas fa-eye"></i>
+          </button>
+          <button class="btn-icon small assign-btn" data-id="${r.id}">
+            <i class="fas fa-user-plus"></i>
+          </button>
+          <button class="btn-icon small delete-btn" data-id="${r.id}">
+            <i class="fas fa-trash"></i>
           </button>
         </div>
       </td>`;
@@ -163,10 +169,12 @@ function renderTable() {
 
   $$('.view-btn').forEach(b => b.addEventListener('click', () => {
     const id = b.getAttribute('data-id');
-    const item = allReports.find(x => String(x.reportId) === String(id));
+    const item = allReports.find(x => String(x.id) === String(id));
     if (item) openModal(item);
   }));
+  $$('.assign-btn').forEach(b => b.addEventListener('click', () => assignOfficer(b.dataset.id)));
 
+  $$('.delete-btn').forEach(b => b.addEventListener('click', () => deleteReport(b.dataset.id)));
   renderPagination();
 }
 
@@ -195,11 +203,43 @@ function renderPagination() {
   add('<i class="fas fa-chevron-right"></i>', Math.min(total, currentPage + 1), currentPage === total);
 }
 
+async function assignOfficer(id) {
+  const officer = prompt('Assign Officer');
+  if (!officer) return;
+  try {
+    const res = await fetch(`${API_URL}/${id}/assign`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ assignedOfficer: officer })
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const payload = await res.json();
+    const item = allReports.find(r => String(r.id) === String(id));
+    if (item) item.assignedOfficer = payload?.data?.assignedOfficer || officer;
+    renderTable();
+  } catch (err) {
+    showError(`Failed to assign officer: ${err.message}`);
+  }
+}
+
+async function deleteReport(id) {
+  if (!confirm('Delete this report?')) return;
+  try {
+    const res = await fetch(`${API_URL}/${id}, { method: 'DELETE', credentials: 'include' }`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    allReports = allReports.filter(r => String(r.id) !== String(id));
+    applyFilter($('#tableFilter')?.value || $('#globalSearch')?.value || '');
+  } catch (err) {
+    showError(`Failed to delete report: ${err.message}`);
+  }
+}
+
 /* ==================== SEARCH ==================== */
 function applyFilter(term) {
   const t = term.trim().toLowerCase();
   filtered = !t ? [...allReports] : allReports.filter(r => {
-    const blob = [r.reportId, r.phone, r.crimeType, r.state, r.name, r.email, r.location, r.description]
+   const blob = [r.reportId, r.complaint, r.incidentType, r.location, r.status, r.assignedOfficer, r.state]
       .map(v => String(v ?? '').toLowerCase()).join(' ');
     return blob.includes(t);
   });
@@ -218,17 +258,13 @@ function detail(label, val) {
 
 function openModal(item) {
   $('#modalBody').innerHTML = `
-    ${detail('Report ID', item.reportId)}
-    ${detail('Created At', formatDateTime(item.createdAt))}
-    ${detail('Date', formatDateTime(item.date))}
-    ${detail('Name', item.name)}
-    ${detail('Email', item.email)}
-    ${detail('Phone', item.phone)}
-    ${detail('Crime Type', item.crimeType)}
-    ${detail('State', item.state)}
+    ${detail('FIR ID', item.reportId)}
+    ${detail('Complain', item.complaint)}
+    ${detail('Incident Type', item.incidentType)}
     ${detail('Location', item.location)}
-    ${detail('Description', item.description)}
-    ${detail('Evidence', item.evidence)}
+    ${detail('Date/Time', formatDateTime(item.dateTime))}
+    ${detail('Status', item.status)}
+    ${detail('Assigned Officer', item.assignedOfficer)}
   `;
   const modal = $('#reportModal'); 
   modal.style.display = 'flex'; 
@@ -245,9 +281,14 @@ function closeModal() {
 function exportCsv() {
   if (!filtered.length) return showError('Nothing to export.');
   const rows = filtered.map(r => ({
-    reportId: r.reportId, createdAt: r.createdAt || '', date: r.date || '',
-    name: r.name, email: r.email, phone: r.phone, crimeType: r.crimeType,
-    state: r.state, location: r.location, description: r.description, evidence: r.evidence
+    reportId: r.reportId,
+    complaint: r.complaint,
+    incidentType: r.incidentType,
+    location: r.location,
+    dateTime: r.dateTime || '',
+    status: r.status,
+    assignedOfficer: r.assignedOfficer,
+    state: r.state
   }));
   const blob = new Blob([toCsv(rows)], { type: 'text/csv;charset=utf-8;' });
   const url = URL.createObjectURL(blob); 
