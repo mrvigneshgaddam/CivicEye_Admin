@@ -1,6 +1,10 @@
-const API_BASE = (typeof window !== 'undefined' && window.API_BASE)
-  ? window.API_BASE
-: (typeof window !== 'undefined' ? window.location.origin : 'http://localhost:5000');
+const API_BASE = (()=>{
+    if (typeof window === 'undefined') return 'http://localhost:5000';
+    if (window.API_BASE) return window.API_BASE;
+    return window.location.port === '5000'
+    ? window.location.origin
+    : 'http://localhost:5000';
+})();
 
 
 
