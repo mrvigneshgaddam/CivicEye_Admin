@@ -24,6 +24,12 @@ form?.addEventListener('submit', async (e) => {
   submit.disabled = false;
 
   if (ok) {
+    if(data?.token){
+        localStorage.setItem('authToken', data.token);
+    }
+    if(data?.user){
+        localStorage.setItem('user', JSON.stringify(data.user));
+    }
     location.replace('/FrontEnd/Dashboard/dashboard.html');
   } else {
     showError((data && (data.message || data.error)) || 'Invalid email or password');

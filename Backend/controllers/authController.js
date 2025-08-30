@@ -36,7 +36,17 @@ exports.login = async (req, res) => {
 
   const token = jwt.sign({ id: user._id }, JWT_SECRET, { expiresIn: JWT_EXPIRES });
   res.cookie('token', token, cookieOpts());
-  res.json({ success: true });
+  
+  const userData = {
+
+    id: user._id,
+
+    name: user.name,
+
+    email: user.email,
+
+  };
+  res.json({ success: true, token, user: userData });
 };
 
 exports.logout = async (req, res) => {
@@ -51,11 +61,30 @@ exports.me = async (req, res) => {
   res.json({ success: true, user: u });
 };
 
-authController.verify = async (req, res) => {
-    try {
-        // The auth middleware already verified the token
-        res.json({ success: true, user: req.user });
-    } catch (error) {
-        res.status(401).json({ success: false, message: 'Invalid token' });
+exports.verify = async (req, res) => {
+  try {
+    const authHeader = req.headers.authorization || '';
+    let token = null;
+
+    if (authHeader.startsWith('Bearer ')) {
+      token = authHeader.slice(7);
+    } else if (req.cookies?.token) {
+      token = req.cookies.token;
     }
+
+    if (!token) {
+      return res.status(401).json({ success: false, message: 'No token provided' });
+    }
+
+    const decoded = jwt.verify(token, JWT_SECRET);
+    const user = await Police.findById(decoded.id).lean();
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+    delete user.password;
+
+    res.json({ success: true, user });
+  } catch (error) {
+    res.status(401).json({ success: false, message: 'Invalid token' });
+  }
 };
