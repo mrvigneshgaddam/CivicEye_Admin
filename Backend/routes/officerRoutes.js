@@ -60,7 +60,7 @@ router.get('/:id', async (req, res, next) => {
 router.post('/', async (req, res, next) => {
   try {
     const {
-      name, email, phone, badgeId, rank, department,
+      name, email, phone, badgeId,officerId, rank, department,
       status, assignedCases, policeStation, password
     } = req.body || {};
 
@@ -68,19 +68,20 @@ router.post('/', async (req, res, next) => {
     requireStr(name, 'name is required');
     requireStr(email, 'email is required');
     requireStr(password, 'password is required');
+    requireStr(officerId, 'officerId is required');
 
     // Check uniqueness
     const exists = await Police.findOne({ 
       $or: [
         { email: String(email).toLowerCase().trim() },
-        { badgeId: badgeId ? String(badgeId).trim() : undefined }
+        { officerId: officerId ? String(officerId).trim() : undefined }
       ]
     }).lean();
     
     if (exists) {
       return res.status(409).json({ 
         success: false, 
-        message: 'Email or Badge ID already exists' 
+        message: 'Email or Officer ID already exists' 
       });
     }
 
@@ -89,6 +90,7 @@ router.post('/', async (req, res, next) => {
       email: String(email).toLowerCase().trim(),
       phone: phone ? String(phone).trim() : undefined,
       badgeId: badgeId ? String(badgeId).trim() : undefined,
+      officerId: String(officerId).trim(),
       rank: rank ? String(rank).trim() : undefined,
       department: department ? String(department).trim() : undefined,
       status: status || 'Active',
@@ -118,27 +120,28 @@ router.post('/', async (req, res, next) => {
 router.put('/:id', async (req, res, next) => {
   try {
     const {
-      name, email, phone, badgeId, rank, department,
+      name, email, phone, badgeId, officerId,rank, department,
       status, assignedCases, policeStation
     } = req.body || {};
 
     // Validate required fields
     requireStr(name, 'name is required');
     requireStr(email, 'email is required');
+    requireStr(officerId, 'officerId is required');
 
-    // Check if another officer has the same email or badgeId
+    // Check if another officer has the same email or officerId
     const existingOfficer = await Police.findOne({
       _id: { $ne: req.params.id },
       $or: [
         { email: String(email).toLowerCase().trim() },
-        { badgeId: badgeId ? String(badgeId).trim() : undefined }
+        { officerId: officerId ? String(officerId).trim() : undefined }
       ]
     }).lean();
     
     if (existingOfficer) {
       return res.status(409).json({ 
         success: false, 
-        message: 'Email or Badge ID already exists' 
+        message: 'Email or officer ID already exists' 
       });
     }
 
@@ -149,6 +152,7 @@ router.put('/:id', async (req, res, next) => {
         email: String(email).toLowerCase().trim(),
         phone: phone ? String(phone).trim() : undefined,
         badgeId: badgeId ? String(badgeId).trim() : undefined,
+        officerId: String(officerId).trim(),
         rank: rank ? String(rank).trim() : undefined,
         department: department ? String(department).trim() : undefined,
         status: status || 'Active',

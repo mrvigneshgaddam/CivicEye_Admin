@@ -38,13 +38,9 @@ exports.login = async (req, res) => {
   res.cookie('token', token, cookieOpts());
   
   const userData = {
-
     id: user._id,
-
     name: user.name,
-
     email: user.email,
-
   };
   res.json({ success: true, token, user: userData });
 };

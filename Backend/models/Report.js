@@ -30,7 +30,7 @@ const ReportSchema = new mongoose.Schema(
 
     /* ---------- FIR-style schema (for admin app) ---------- */
 
-    firId: { type: String, index: true,  sparse: true }, // sparse lets many docs have no firId
+    reportId: { type: String, index: true,  sparse: true }, // sparse lets many docs have no firId
 
     complainant: {
 
@@ -62,8 +62,8 @@ const ReportSchema = new mongoose.Schema(
 
     },
 
-    assignedOfficer: { type: String, default: 'Unassigned', trim: true }
-
+    assignedOfficer: { type: String, default: 'Unassigned', trim: true },
+    assignedOfficerId:{type:String,trim:true}
   },
 
   { timestamps: true }

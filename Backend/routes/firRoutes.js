@@ -14,6 +14,7 @@ try {
   }
 }
 
+const Police = require('../models/Police'); // for officer assignment
 /* Quick ping to prove the router is mounted */
 router.get('/ping', (req, res) => res.json({ ok: true, where: '/api/fir/ping' }));
 
@@ -93,16 +94,35 @@ router.get('/:id', async (req, res) => {
 /* PUT /api/fir/:id/assign — assign officer manually */
 router.put('/:id/assign', async (req, res) => {
   if (!ReportModel) return res.status(404).json({ success: false, message: 'Model not available' });
-  const { assignedOfficer } = req.body || {};
-  if (!assignedOfficer) return res.status(400).json({ success: false, message: 'assignedOfficer required' });
+  const { officerId } = req.body || {};
+  if (!officerId) return res.status(400).json({ success: false, message: 'officerId required' });
   try {
-    const updated = await ReportModel.findByIdAndUpdate(
-      req.params.id,
-      { assignedOfficer },
-      { new: true }
-    );
-    if (!updated) return res.status(404).json({ success: false, message: 'FIR not found' });
-    return res.json({ success: true, data: updated });
+    const officer = await Police.findOne({ officerId }).exec();
+    if (!officer) return res.status(404).json({ success: false, message: 'Officer not found' });
+
+    const report = await ReportModel.findById(req.params.id);
+    if (!report) return res.status(404).json({ success: false, message: 'FIR not found' });
+
+    // If report was previously assigned to another officer, remove from that officer's list
+    if (report.assignedOfficerId && report.assignedOfficerId !== officer.officerId) {
+      await Police.updateOne(
+        { officerId: report.assignedOfficerId },
+        { $pull: { assignedReports: report._id }, $inc: { assignedCases: -1 } }
+      );
+    }
+
+    report.assignedOfficer = officer.name;
+    report.assignedOfficerId = officer.officerId;
+    await report.save();
+
+    // Add report to new officer's list
+    if (!officer.assignedReports.includes(report._id)) {
+      officer.assignedReports.push(report._id);
+    }
+    officer.assignedCases = officer.assignedReports.length;
+    await officer.save();
+
+    return res.json({ success: true, data: report });
   } catch (err) {
     console.error('[FIR ROUTES] PUT /:id/assign error:', err);
     return res.status(500).json({ success: false, message: err.message });
