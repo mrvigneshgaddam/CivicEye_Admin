@@ -6,14 +6,13 @@
     <title>CivicEye - Admin Dashboard</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="/FrontEnd/Dashboard/dashboard.css">
-    <script type="module" src ="/FrontEnd/Profile/profile.js"></script>
 </head>
 <body>
     <div class="container">
         <!-- Sidebar -->
         <aside class="sidebar">
             <div class="sidebar-header">
-                <h3><i class="fas fa-shield-alt"></i> CivicEye</h3>
+                <h3><i class="fas fa-shield-alt"></i> CivikEye</h3>
                 <button class="sidebar-collapse-btn" id="sidebarCollapse">
                     <i class="fas fa-bars"></i>
                 </button>
@@ -46,7 +45,7 @@
                         <span class="notification-badge">5</span>
                     </button>
                     <div class="profile-dropdown">
-                        <img id="headerAvatar" class="profile-img" alt="">
+                        <img src="https://randomuser.me/api/portraits/men/32.jpg" alt="Profile" class="profile-img">
                         <div class="dropdown-content">
                             <a href="/FrontEnd/Profile/profile.html"><i class="fas fa-user"></i> Profile</a>
                             <a href="/FrontEnd/Setting/setting.html"><i class="fas fa-cog"></i> Settings</a>
@@ -202,11 +201,11 @@
                             <h3>Quick Actions</h3>
                         </div>
                         <div class="actions-grid">
-                            <button class="action-btn" data-action="assign-officer" onclick="location.href='/FrontEnd/FirManagement/FirManagement.html'">
+                            <button class="action-btn" data-action="assign-officer">
                                 <i class="fas fa-user-plus"></i>
                                 <span>Assign Officer</span>
                             </button>
-                            <button class="action-btn" data-action="dispatch" onclick="location.href='/FrontEnd/EmergencyManagement/Emergency.html'">
+                            <button class="action-btn" data-action="dispatch">
                                 <i class="fas fa-ambulance"></i>
                                 <span>Dispatch Team</span>
                             </button>
