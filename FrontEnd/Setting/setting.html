@@ -3,9 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CivicEye - Settings</title>
+    <title>CivicEye - Admin Settings</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="/FrontEnd/Dashboard/dashboard.css">
     <link rel="stylesheet" href="setting.css">
 </head>
 <body>
@@ -23,7 +22,7 @@
                 <li><a href="/FrontEnd/ChatApp/chatapp.html"><i class="fas fa-comments"></i><span>Chat App</span></a></li>
                 <li><a href="/FrontEnd/FirManagement/FirManagement.html"><i class="fas fa-file-alt"></i><span>FIR Management</span></a></li>
                 <li><a href="/FrontEnd/OfficerManagement/OfficerManagement.html"><i class="fas fa-users"></i><span>Officer Management</span></a></li>
-                <li><a href="/FrontEnd/EmergencyManagement/Emergency.html"><i class="fas fa-exclamation-triangle"></i><span>Emergency Management</span></a></li>
+                <li><a href="/FrontEnd/MyCases/MyCases.html"><i class="fas fa-exclamation-triangle"></i><span>MyCases</span></a></li>
                 <li><a href="/FrontEnd/Profile/profile.html"><i class="fas fa-user-circle"></i><span>Profile</span></a></li>
                 <li><a href="/FrontEnd/Setting/setting.html" class="active"><i class="fas fa-cog"></i><span>Settings</span></a></li>
             </ul>
@@ -34,7 +33,7 @@
             <!-- Header -->
             <header class="header">
                 <div class="header-left">
-                    <h2>Settings</h2>
+                    <h2>Admin Settings</h2>
                 </div>
                 <div class="header-right">
                     <div class="search-box">
@@ -46,11 +45,11 @@
                         <span class="notification-badge">5</span>
                     </button>
                     <div class="profile-dropdown">
-                        <img id="headerAvatar" class="profile-img" alt="">
+                        <img src="https://randomuser.me/api/portraits/men/32.jpg" alt="Profile" class="profile-img">
                         <div class="dropdown-content">
                             <a href="/FrontEnd/Profile/profile.html"><i class="fas fa-user"></i> Profile</a>
-                            <a href="/FrontEnd/Setting/setting.html"><i class="fas fa-cog"></i> Settings</a>
-                            <a href="/index.html" class="logout-btn"><i class="fas fa-sign-out-alt"></i> Logout</a>
+                            <a href="settings.html"><i class="fas fa-cog"></i> Settings</a>
+                            <a href="#"><i class="fas fa-sign-out-alt"></i> Logout</a>
                         </div>
                     </div>
                 </div>
@@ -59,7 +58,7 @@
             <!-- Content -->
             <div class="content">
                 <div class="page-title">
-                    <h1>Settings</h1>
+                    <h1>Admin Settings</h1>
                     <div class="breadcrumb">
                         <a href="/FrontEnd/Dashboard/dashboard.html">Home</a>
                         <i class="fas fa-chevron-right"></i>
@@ -67,499 +66,303 @@
                     </div>
                 </div>
 
-                <!-- Settings Tabs -->
-                <div class="settings-container">
-                    <div class="settings-tabs">
-                        <button class="tab-btn active" data-tab="account">
-                            <i class="fas fa-user-cog"></i> Account
+                <!-- Vertical Settings Navigation -->
+                <div class="settings-layout">
+                    <div class="settings-nav">
+                        <button class="nav-btn active" data-section="security">
+                            <i class="fas fa-shield-alt"></i>
+                            <span>Security</span>
                         </button>
-                        <button class="tab-btn" data-tab="security">
-                            <i class="fas fa-shield-alt"></i> Security
+                        <button class="nav-btn" data-section="alerts">
+                            <i class="fas fa-bell"></i>
+                            <span>Alerts</span>
                         </button>
-                        <button class="tab-btn" data-tab="notifications">
-                            <i class="fas fa-bell"></i> Notifications
+                        <button class="nav-btn" data-section="system">
+                            <i class="fas fa-cogs"></i>
+                            <span>System</span>
                         </button>
-                        <button class="tab-btn" data-tab="appearance">
-                            <i class="fas fa-palette"></i> Appearance
-                        </button>
-                        <button class="tab-btn" data-tab="advanced">
-                            <i class="fas fa-sliders-h"></i> Advanced
+                        <button class="nav-btn" data-section="access">
+                            <i class="fas fa-user-lock"></i>
+                            <span>Access Control</span>
                         </button>
                     </div>
 
                     <div class="settings-content">
-                        <!-- Account Settings -->
-                        <div class="tab-content active" id="account">
-                            <div class="settings-section">
-                                <h3><i class="fas fa-user-edit"></i> Profile Information</h3>
-                                <form class="settings-form">
-                                    <div class="form-group">
-                                        <label for="settings-name">Full Name</label>
-                                        <input type="text" id="settings-name" value="John D. Anderson">
-                                    </div>
-                                    <div class="form-group">
-                                        <label for="settings-email">Email</label>
-                                        <input type="email" id="settings-email" value="john.anderson@police.gov">
-                                    </div>
-                                    <div class="form-group">
-                                        <label for="settings-phone">Phone Number</label>
-                                        <input type="tel" id="settings-phone" value="+1 (555) 123-4567">
-                                    </div>
-                                    <div class="form-group">
-                                        <label for="settings-department">Department</label>
-                                        <input type="text" id="settings-department" value="Metropolitan Police Department" disabled>
-                                    </div>
-                                    <div class="form-group">
-                                        <label for="settings-position">Position</label>
-                                        <input type="text" id="settings-position" value="Senior Police Officer" disabled>
-                                    </div>
-                                    <div class="form-actions">
-                                        <button type="button" class="btn btn-secondary">Cancel</button>
-                                        <button type="submit" class="btn btn-primary">Save Changes</button>
-                                    </div>
-                                </form>
-                            </div>
-
-                            <div class="settings-section">
-                                <h3><i class="fas fa-globe"></i> Regional Settings</h3>
-                                <form class="settings-form">
-                                    <div class="form-group">
-                                        <label for="settings-timezone">Time Zone</label>
-                                        <select id="settings-timezone">
-                                            <option value="est">Eastern Time (ET)</option>
-                                            <option value="cst">Central Time (CT)</option>
-                                            <option value="mst">Mountain Time (MT)</option>
-                                            <option value="pst" selected>Pacific Time (PT)</option>
-                                            <option value="akst">Alaska Time (AKST)</option>
-                                            <option value="hst">Hawaii Time (HST)</option>
-                                        </select>
-                                    </div>
-                                    <div class="form-group">
-                                        <label for="settings-date">Date Format</label>
-                                        <select id="settings-date">
-                                            <option value="mm/dd/yyyy">MM/DD/YYYY</option>
-                                            <option value="dd/mm/yyyy">DD/MM/YYYY</option>
-                                            <option value="yyyy-mm-dd">YYYY-MM-DD</option>
-                                        </select>
-                                    </div>
-                                    <div class="form-group">
-                                        <label for="settings-language">Language</label>
-                                        <select id="settings-language">
-                                            <option value="en" selected>English</option>
-                                            <option value="es">Spanish</option>
-                                            <option value="fr">French</option>
-                                            <option value="de">German</option>
-                                        </select>
-                                    </div>
-                                    <div class="form-actions">
-                                        <button type="button" class="btn btn-secondary">Cancel</button>
-                                        <button type="submit" class="btn btn-primary">Save Changes</button>
-                                    </div>
-                                </form>
-                            </div>
-                        </div>
-
-                        <!-- Security Settings -->
-                        <div class="tab-content" id="security">
-                            <div class="settings-section">
-                                <h3><i class="fas fa-lock"></i> Password</h3>
-                                <form class="settings-form">
-                                    <div class="form-group">
-                                        <label for="current-password">Current Password</label>
-                                        <input type="password" id="current-password">
-                                        <button type="button" class="toggle-password" data-target="current-password">
-                                            <i class="fas fa-eye"></i>
-                                        </button>
-                                    </div>
-                                    <div class="form-group">
-                                        <label for="new-password">New Password</label>
-                                        <input type="password" id="new-password">
-                                        <button type="button" class="toggle-password" data-target="new-password">
-                                            <i class="fas fa-eye"></i>
-                                        </button>
-                                        <div class="password-strength">
-                                            <div class="strength-meter">
-                                                <span class="strength-bar weak"></span>
-                                                <span class="strength-bar"></span>
-                                                <span class="strength-bar"></span>
-                                                <span class="strength-bar"></span>
-                                            </div>
-                                            <span class="strength-text">Weak</span>
-                                        </div>
-                                    </div>
-                                    <div class="form-group">
-                                        <label for="confirm-password">Confirm New Password</label>
-                                        <input type="password" id="confirm-password">
-                                        <button type="button" class="toggle-password" data-target="confirm-password">
-                                            <i class="fas fa-eye"></i>
-                                        </button>
-                                    </div>
-                                    <div class="form-actions">
-                                        <button type="button" class="btn btn-secondary">Cancel</button>
-                                        <button type="submit" class="btn btn-primary">Change Password</button>
-                                    </div>
-                                </form>
-                            </div>
-
-                            <div class="settings-section">
-                                <h3><i class="fas fa-shield-virus"></i> Two-Factor Authentication</h3>
-                                <div class="two-factor-status">
-                                    <div class="status-info">
-                                        <i class="fas fa-mobile-alt"></i>
-                                        <div>
-                                            <h4>SMS Authentication</h4>
-                                            <p>Receive verification codes via SMS</p>
-                                        </div>
+                        <!-- Security Settings Section -->
+                        <div class="settings-section active" id="security-section">
+                            <h2><i class="fas fa-shield-alt"></i> Security Settings</h2>
+                            <div class="settings-card">
+                                <h3>Authentication Policies</h3>
+                                <div class="setting-item">
+                                    <div class="setting-info">
+                                        <h4>Two-Factor Authentication</h4>
+                                        <p>Require 2FA for all admin accounts</p>
                                     </div>
                                     <label class="switch">
-                                        <input type="checkbox" checked>
+                                        <input type="checkbox" id="require2FA">
                                         <span class="slider round"></span>
                                     </label>
                                 </div>
-                                <div class="two-factor-status">
-                                    <div class="status-info">
-                                        <i class="fas fa-mobile-alt"></i>
-                                        <div>
-                                            <h4>Authenticator App</h4>
-                                            <p>Use an authenticator app for verification codes</p>
-                                        </div>
+                                <div class="setting-item">
+                                    <div class="setting-info">
+                                        <h4>Password Policy</h4>
+                                        <p>Enforce strong password requirements</p>
                                     </div>
                                     <label class="switch">
-                                        <input type="checkbox">
+                                        <input type="checkbox" id="strongPasswords" checked>
                                         <span class="slider round"></span>
                                     </label>
                                 </div>
-                                <div class="form-actions">
-                                    <button type="button" class="btn btn-primary">Configure Authenticator</button>
+                                <div class="setting-item">
+                                    <div class="setting-info">
+                                        <h4>Session Timeout</h4>
+                                        <p>Auto-logout after period of inactivity</p>
+                                    </div>
+                                    <div class="select-wrapper">
+                                        <select id="session-timeout">
+                                            <option value="15">15 minutes</option>
+                                            <option value="30" selected>30 minutes</option>
+                                            <option value="60">60 minutes</option>
+                                            <option value="120">2 hours</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="settings-card">
+                                <h3>Login Security</h3>
+                                <div class="setting-item">
+                                    <div class="setting-info">
+                                        <h4>Failed Login Attempts</h4>
+                                        <p>Lock account after multiple failed attempts</p>
+                                    </div>
+                                    <div class="select-wrapper">
+                                        <select id="login-attempts">
+                                            <option value="3">3 attempts</option>
+                                            <option value="5" selected>5 attempts</option>
+                                            <option value="10">10 attempts</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="setting-item">
+                                    <div class="setting-info">
+                                        <h4>IP Whitelisting</h4>
+                                        <p>Restrict admin access to specific IP ranges</p>
+                                    </div>
+                                    <label class="switch">
+                                        <input type="checkbox" id="ipWhitelisting">
+                                        <span class="slider round"></span>
+                                    </label>
                                 </div>
                             </div>
 
-                            <div class="settings-section">
-                                <h3><i class="fas fa-laptop-code"></i> Active Sessions</h3>
-                                <div class="sessions-list">
-                                    <div class="session-item">
-                                        <div class="session-info">
-                                            <i class="fas fa-desktop"></i>
-                                            <div>
-                                                <h4>Windows 10 - Chrome</h4>
-                                                <p>San Francisco, CA • Active now</p>
-                                            </div>
-                                        </div>
-                                        <button class="btn btn-text">Logout</button>
+                            <div class="form-actions">
+                                <button type="button" class="btn btn-secondary" id="cancelSecurity">Discard Changes</button>
+                                <button type="button" class="btn btn-primary" id="saveSecurity">Save Security Settings</button>
+                            </div>
+                        </div>
+
+                        <!-- Alert Settings Section -->
+                        <div class="settings-section" id="alerts-section">
+                            <h2><i class="fas fa-bell"></i> Alert Preferences</h2>
+                            <div class="settings-card">
+                                <h3>Notification Channels</h3>
+                                <div class="setting-item">
+                                    <div class="setting-info">
+                                        <h4>Emergency Alerts</h4>
+                                        <p>Receive critical emergency notifications</p>
                                     </div>
-                                    <div class="session-item">
-                                        <div class="session-info">
-                                            <i class="fas fa-mobile-alt"></i>
-                                            <div>
-                                                <h4>iPhone 12 - Safari</h4>
-                                                <p>San Francisco, CA • 2 hours ago</p>
-                                            </div>
-                                        </div>
-                                        <button class="btn btn-text">Logout</button>
+                                    <label class="switch">
+                                        <input type="checkbox" id="emergencyAlerts" checked>
+                                        <span class="slider round"></span>
+                                    </label>
+                                </div>
+                                <div class="setting-item">
+                                    <div class="setting-info">
+                                        <h4>FIR Updates</h4>
+                                        <p>Notifications for new FIR submissions</p>
                                     </div>
-                                    <div class="session-item">
-                                        <div class="session-info">
-                                            <i class="fas fa-desktop"></i>
-                                            <div>
-                                                <h4>MacOS - Firefox</h4>
-                                                <p>New York, NY • 1 week ago</p>
-                                            </div>
-                                        </div>
-                                        <button class="btn btn-text">Logout</button>
+                                    <label class="switch">
+                                        <input type="checkbox" id="firUpdates" checked>
+                                        <span class="slider round"></span>
+                                    </label>
+                                </div>
+                                <div class="setting-item">
+                                    <div class="setting-info">
+                                        <h4>Officer Activities</h4>
+                                        <p>Notifications for officer check-ins and reports</p>
+                                    </div>
+                                    <label class="switch">
+                                        <input type="checkbox" id="officerActivities">
+                                        <span class="slider round"></span>
+                                    </label>
+                                </div>
+                            </div>
+
+                            <div class="settings-card">
+                                <h3>Alert Methods</h3>
+                                <div class="setting-item">
+                                    <div class="setting-info">
+                                        <h4>Email Notifications</h4>
+                                        <p>Receive alerts via email</p>
+                                    </div>
+                                    <label class="switch">
+                                        <input type="checkbox" id="emailAlerts" checked>
+                                        <span class="slider round"></span>
+                                    </label>
+                                </div>
+                                <div class="setting-item">
+                                    <div class="setting-info">
+                                        <h4>SMS Alerts</h4>
+                                        <p>Receive critical alerts via SMS</p>
+                                    </div>
+                                    <label class="switch">
+                                        <input type="checkbox" id="smsAlerts">
+                                        <span class="slider round"></span>
+                                    </label>
+                                </div>
+                                <div class="setting-item">
+                                    <div class="setting-info">
+                                        <h4>Push Notifications</h4>
+                                        <p>Receive alerts on mobile devices</p>
+                                    </div>
+                                    <label class="switch">
+                                        <input type="checkbox" id="pushAlerts" checked>
+                                        <span class="slider round"></span>
+                                    </label>
+                                </div>
+                            </div>
+
+                            <div class="form-actions">
+                                <button type="button" class="btn btn-secondary" id="cancelAlerts">Discard Changes</button>
+                                <button type="button" class="btn btn-primary" id="saveAlerts">Save Alert Preferences</button>
+                            </div>
+                        </div>
+
+                        <!-- System Settings Section -->
+                        <div class="settings-section" id="system-section">
+                            <h2><i class="fas fa-cogs"></i> System Settings</h2>
+                            <div class="settings-card">
+                                <h3>Data Management</h3>
+                                <div class="setting-item">
+                                    <div class="setting-info">
+                                        <h4>Backup Frequency</h4>
+                                        <p>How often to backup system data</p>
+                                    </div>
+                                    <div class="select-wrapper">
+                                        <select id="backup-frequency">
+                                            <option value="daily">Daily</option>
+                                            <option value="weekly" selected>Weekly</option>
+                                            <option value="monthly">Monthly</option>
+                                        </select>
                                     </div>
                                 </div>
-                                <div class="form-actions">
-                                    <button type="button" class="btn btn-danger">Logout All Devices</button>
+                                <div class="setting-item">
+                                    <div class="setting-info">
+                                        <h4>Log Retention</h4>
+                                        <p>How long to keep system logs</p>
+                                    </div>
+                                    <div class="select-wrapper">
+                                        <select id="log-retention">
+                                            <option value="30">30 days</option>
+                                            <option value="90" selected>90 days</option>
+                                            <option value="180">180 days</option>
+                                            <option value="365">1 year</option>
+                                        </select>
+                                    </div>
                                 </div>
                             </div>
-                        </div>
 
-                        <!-- Notification Settings -->
-                        <div class="tab-content" id="notifications">
-                            <div class="settings-section">
-                                <h3><i class="fas fa-bell"></i> Notification Preferences</h3>
-                                <form class="settings-form">
-                                    <div class="notification-preference">
-                                        <div class="preference-info">
-                                            <h4>Email Notifications</h4>
-                                            <p>Receive important notifications via email</p>
-                                        </div>
-                                        <label class="switch">
-                                            <input type="checkbox" checked>
-                                            <span class="slider round"></span>
-                                        </label>
+                            <div class="settings-card">
+                                <h3>System Maintenance</h3>
+                                <div class="setting-item">
+                                    <div class="setting-info">
+                                        <h4>Auto Updates</h4>
+                                        <p>Automatically install security updates</p>
                                     </div>
-                                    <div class="notification-preference">
-                                        <div class="preference-info">
-                                            <h4>Push Notifications</h4>
-                                            <p>Receive notifications on your devices</p>
-                                        </div>
-                                        <label class="switch">
-                                            <input type="checkbox" checked>
-                                            <span class="slider round"></span>
-                                        </label>
+                                    <label class="switch">
+                                        <input type="checkbox" id="autoUpdates" checked>
+                                        <span class="slider round"></span>
+                                    </label>
+                                </div>
+                                <div class="setting-item">
+                                    <div class="setting-info">
+                                        <h4>Maintenance Window</h4>
+                                        <p>Schedule system maintenance times</p>
                                     </div>
-                                    <div class="notification-preference">
-                                        <div class="preference-info">
-                                            <h4>SMS Alerts</h4>
-                                            <p>Receive critical alerts via SMS</p>
-                                        </div>
-                                        <label class="switch">
-                                            <input type="checkbox">
-                                            <span class="slider round"></span>
-                                        </label>
+                                    <div class="select-wrapper">
+                                        <select id="maintenance-window">
+                                            <option value="00:00-04:00">12 AM - 4 AM</option>
+                                            <option value="02:00-06:00" selected>2 AM - 6 AM</option>
+                                            <option value="04:00-08:00">4 AM - 8 AM</option>
+                                        </select>
                                     </div>
-                                    <div class="notification-preference">
-                                        <div class="preference-info">
-                                            <h4>Sound Alerts</h4>
-                                            <p>Play sound for new notifications</p>
-                                        </div>
-                                        <label class="switch">
-                                            <input type="checkbox" checked>
-                                            <span class="slider round"></span>
-                                        </label>
-                                    </div>
-                                    <div class="form-actions">
-                                        <button type="button" class="btn btn-secondary">Cancel</button>
-                                        <button type="submit" class="btn btn-primary">Save Preferences</button>
-                                    </div>
-                                </form>
+                                </div>
                             </div>
 
-                            <div class="settings-section">
-                                <h3><i class="fas fa-inbox"></i> Notification Types</h3>
-                                <form class="settings-form">
-                                    <div class="notification-type">
-                                        <div class="type-info">
-                                            <h4>Emergency Alerts</h4>
-                                            <p>Critical incidents requiring immediate attention</p>
-                                        </div>
-                                        <div class="type-options">
-                                            <label class="checkbox-container">Email
-                                                <input type="checkbox" checked>
-                                                <span class="checkmark"></span>
-                                            </label>
-                                            <label class="checkbox-container">Push
-                                                <input type="checkbox" checked>
-                                                <span class="checkmark"></span>
-                                            </label>
-                                            <label class="checkbox-container">SMS
-                                                <input type="checkbox" checked>
-                                                <span class="checkmark"></span>
-                                            </label>
-                                        </div>
-                                    </div>
-                                    <div class="notification-type">
-                                        <div class="type-info">
-                                            <h4>Case Updates</h4>
-                                            <p>Updates on cases you're assigned to</p>
-                                        </div>
-                                        <div class="type-options">
-                                            <label class="checkbox-container">Email
-                                                <input type="checkbox" checked>
-                                                <span class="checkmark"></span>
-                                            </label>
-                                            <label class="checkbox-container">Push
-                                                <input type="checkbox">
-                                                <span class="checkmark"></span>
-                                            </label>
-                                            <label class="checkbox-container">SMS
-                                                <input type="checkbox">
-                                                <span class="checkmark"></span>
-                                            </label>
-                                        </div>
-                                    </div>
-                                    <div class="notification-type">
-                                        <div class="type-info">
-                                            <h4>System Messages</h4>
-                                            <p>Important system updates and maintenance</p>
-                                        </div>
-                                        <div class="type-options">
-                                            <label class="checkbox-container">Email
-                                                <input type="checkbox" checked>
-                                                <span class="checkmark"></span>
-                                            </label>
-                                            <label class="checkbox-container">Push
-                                                <input type="checkbox">
-                                                <span class="checkmark"></span>
-                                            </label>
-                                            <label class="checkbox-container">SMS
-                                                <input type="checkbox">
-                                                <span class="checkmark"></span>
-                                            </label>
-                                        </div>
-                                    </div>
-                                    <div class="form-actions">
-                                        <button type="button" class="btn btn-secondary">Cancel</button>
-                                        <button type="submit" class="btn btn-primary">Save Preferences</button>
-                                    </div>
-                                </form>
+                            <div class="form-actions">
+                                <button type="button" class="btn btn-secondary" id="cancelSystem">Discard Changes</button>
+                                <button type="button" class="btn btn-primary" id="saveSystem">Save System Settings</button>
                             </div>
                         </div>
 
-                        <!-- Appearance Settings -->
-                        <div class="tab-content" id="appearance">
-                            <div class="settings-section">
-                                <h3><i class="fas fa-paint-brush"></i> Theme</h3>
-                                <form class="settings-form">
-                                    <div class="theme-options">
-                                        <label class="theme-option">
-                                            <input type="radio" name="theme" value="light" checked>
-                                            <div class="theme-preview light">
-                                                <div class="theme-header"></div>
-                                                <div class="theme-sidebar"></div>
-                                                <div class="theme-content"></div>
-                                            </div>
-                                            <span>Light</span>
-                                        </label>
-                                        <label class="theme-option">
-                                            <input type="radio" name="theme" value="dark">
-                                            <div class="theme-preview dark">
-                                                <div class="theme-header"></div>
-                                                <div class="theme-sidebar"></div>
-                                                <div class="theme-content"></div>
-                                            </div>
-                                            <span>Dark</span>
-                                        </label>
-                                        <label class="theme-option">
-                                            <input type="radio" name="theme" value="system">
-                                            <div class="theme-preview system">
-                                                <div class="theme-header"></div>
-                                                <div class="theme-sidebar"></div>
-                                                <div class="theme-content"></div>
-                                            </div>
-                                            <span>System Default</span>
-                                        </label>
+                        <!-- Access Control Section -->
+                        <div class="settings-section" id="access-section">
+                            <h2><i class="fas fa-user-lock"></i> Access Control</h2>
+                            <div class="settings-card">
+                                <h3>Role Permissions</h3>
+                                <div class="setting-item">
+                                    <div class="setting-info">
+                                        <h4>Admin Privileges</h4>
+                                        <p>Control access to sensitive administrative functions</p>
                                     </div>
-                                    <div class="form-actions">
-                                        <button type="button" class="btn btn-secondary">Cancel</button>
-                                        <button type="submit" class="btn btn-primary">Apply Theme</button>
+                                    <div class="select-wrapper">
+                                        <select id="admin-privileges">
+                                            <option value="restricted">Restricted</option>
+                                            <option value="standard" selected>Standard</option>
+                                            <option value="elevated">Elevated</option>
+                                        </select>
                                     </div>
-                                </form>
+                                </div>
+                                <div class="setting-item">
+                                    <div class="setting-info">
+                                        <h4>Data Export Permissions</h4>
+                                        <p>Control who can export sensitive data</p>
+                                    </div>
+                                    <label class="switch">
+                                        <input type="checkbox" id="exportPermissions" checked>
+                                        <span class="slider round"></span>
+                                    </label>
+                                </div>
                             </div>
 
-                            <div class="settings-section">
-                                <h3><i class="fas fa-palette"></i> Accent Color</h3>
-                                <form class="settings-form">
-                                    <div class="color-options">
-                                        <label class="color-option">
-                                            <input type="radio" name="color" value="blue" checked>
-                                            <div class="color-preview blue"></div>
-                                            <span>Blue</span>
-                                        </label>
-                                        <label class="color-option">
-                                            <input type="radio" name="color" value="red">
-                                            <div class="color-preview red"></div>
-                                            <span>Red</span>
-                                        </label>
-                                        <label class="color-option">
-                                            <input type="radio" name="color" value="green">
-                                            <div class="color-preview green"></div>
-                                            <span>Green</span>
-                                        </label>
-                                        <label class="color-option">
-                                            <input type="radio" name="color" value="purple">
-                                            <div class="color-preview purple"></div>
-                                            <span>Purple</span>
-                                        </label>
-                                        <label class="color-option">
-                                            <input type="radio" name="color" value="orange">
-                                            <div class="color-preview orange"></div>
-                                            <span>Orange</span>
-                                        </label>
+                            <div class="settings-card">
+                                <h3>Audit Logging</h3>
+                                <div class="setting-item">
+                                    <div class="setting-info">
+                                        <h4>Activity Monitoring</h4>
+                                        <p>Log all administrative activities</p>
                                     </div>
-                                    <div class="form-actions">
-                                        <button type="button" class="btn btn-secondary">Cancel</button>
-                                        <button type="submit" class="btn btn-primary">Apply Color</button>
+                                    <label class="switch">
+                                        <input type="checkbox" id="activityMonitoring" checked>
+                                        <span class="slider round"></span>
+                                    </label>
+                                </div>
+                                <div class="setting-item">
+                                    <div class="setting-info">
+                                        <h4>Login Auditing</h4>
+                                        <p>Record all login attempts</p>
                                     </div>
-                                </form>
+                                    <label class="switch">
+                                        <input type="checkbox" id="loginAuditing" checked>
+                                        <span class="slider round"></span>
+                                    </label>
+                                </div>
                             </div>
 
-                            <div class="settings-section">
-                                <h3><i class="fas fa-font"></i> Font Size</h3>
-                                <form class="settings-form">
-                                    <div class="font-size-options">
-                                        <label class="font-option">
-                                            <input type="radio" name="font-size" value="small">
-                                            <span class="font-small">Aa</span>
-                                            <span>Small</span>
-                                        </label>
-                                        <label class="font-option">
-                                            <input type="radio" name="font-size" value="medium" checked>
-                                            <span class="font-medium">Aa</span>
-                                            <span>Medium</span>
-                                        </label>
-                                        <label class="font-option">
-                                            <input type="radio" name="font-size" value="large">
-                                            <span class="font-large">Aa</span>
-                                            <span>Large</span>
-                                        </label>
-                                    </div>
-                                    <div class="form-actions">
-                                        <button type="button" class="btn btn-secondary">Cancel</button>
-                                        <button type="submit" class="btn btn-primary">Apply Font Size</button>
-                                    </div>
-                                </form>
-                            </div>
-                        </div>
-
-                        <!-- Advanced Settings -->
-                        <div class="tab-content" id="advanced">
-                            <div class="settings-section">
-                                <h3><i class="fas fa-database"></i> Data Management</h3>
-                                <form class="settings-form">
-                                    <div class="data-option">
-                                        <div class="option-info">
-                                            <h4>Clear Cache</h4>
-                                            <p>Remove temporary files to free up space</p>
-                                        </div>
-                                        <button type="button" class="btn btn-secondary">Clear Now</button>
-                                    </div>
-                                    <div class="data-option">
-                                        <div class="option-info">
-                                            <h4>Export Data</h4>
-                                            <p>Download all your data in JSON format</p>
-                                        </div>
-                                        <button type="button" class="btn btn-secondary">Export</button>
-                                    </div>
-                                    <div class="data-option">
-                                        <div class="option-info">
-                                            <h4>Delete Account</h4>
-                                            <p>Permanently remove your account and all data</p>
-                                        </div>
-                                        <button type="button" class="btn btn-danger">Delete Account</button>
-                                    </div>
-                                </form>
-                            </div>
-
-                            <div class="settings-section">
-                                <h3><i class="fas fa-code"></i> Developer Options</h3>
-                                <form class="settings-form">
-                                    <div class="developer-option">
-                                        <div class="option-info">
-                                            <h4>API Access</h4>
-                                            <p>Generate API keys for development</p>
-                                        </div>
-                                        <button type="button" class="btn btn-secondary">Generate Key</button>
-                                    </div>
-                                    <div class="developer-option">
-                                        <div class="option-info">
-                                            <h4>Debug Mode</h4>
-                                            <p>Enable detailed logging for troubleshooting</p>
-                                        </div>
-                                        <label class="switch">
-                                            <input type="checkbox">
-                                            <span class="slider round"></span>
-                                        </label>
-                                    </div>
-                                    <div class="developer-option">
-                                        <div class="option-info">
-                                            <h4>Reset Preferences</h4>
-                                            <p>Restore all settings to default values</p>
-                                        </div>
-                                        <button type="button" class="btn btn-danger">Reset All Settings</button>
-                                    </div>
-                                </form>
+                            <div class="form-actions">
+                                <button type="button" class="btn btn-secondary" id="cancelAccess">Discard Changes</button>
+                                <button type="button" class="btn btn-primary" id="saveAccess">Save Access Settings</button>
                             </div>
                         </div>
                     </div>
@@ -568,25 +371,6 @@
         </main>
     </div>
 
-    <!-- Delete Account Confirmation Modal -->
-    <div class="modal" id="deleteAccountModal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3>Delete Account</h3>
-                <button class="modal-close" id="closeDeleteAccountModal">&times;</button>
-            </div>
-            <div class="modal-body">
-                <p>Are you sure you want to delete your account? This action cannot be undone. All your data will be permanently removed.</p>
-                <div class="form-actions">
-                    <button type="button" class="btn btn-secondary" id="cancelDeleteAccount">Cancel</button>
-                    <button type="button" class="btn btn-danger" id="confirmDeleteAccount">Delete Account</button>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="/FrontEnd/Dashboard/dashboard.js"></script>
     <script src="setting.js"></script>
 </body>
 </html>

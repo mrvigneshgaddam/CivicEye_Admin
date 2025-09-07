@@ -1,3 +1,4 @@
+// Backend/server.js
 require('dotenv').config();
 const express = require('express');
 const mongoose = require('mongoose');
@@ -106,6 +107,7 @@ const emergencyRoutes = require('./routes/emergencyRoutes');
 const firRoutes = require('./routes/firRoutes');
 const officerRoutes = require('./routes/officerRoutes');
 const profileRoutes = require('./routes/profileRoutes');
+const settingsRoutes = require('./routes/settingsRoutes');
 app.use('/api/auth', authRoutes);
 app.use('/api/chat', chatRoutes);
 app.use('/api/dashboard', dashboardRoutes);
@@ -113,6 +115,7 @@ app.use('/api/emergency', emergencyRoutes);
 app.use('/api/fir', firRoutes);          // <-- FIR endpoints live here
 app.use('/api/officers', officerRoutes);
 app.use('/api/profile', profileRoutes);
+app.use('/api/settings', settingsRoutes);
 
 /* -------------------------- Static files ----------------------- */
 app.use(express.static(path.join(__dirname, 'public')));
