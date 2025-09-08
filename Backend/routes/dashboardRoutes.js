@@ -1,7 +1,7 @@
 // Backend/routes/dashboardRoutes.js
 const express = require('express');
 const router = express.Router();
-const auth = require('../middlewares/auth');
+const { auth } = require('../middlewares/auth');
 const User = require('../models/User');
 const Message = require('../models/Message');
 const Notification = require('../models/Notification');

@@ -1,6 +1,7 @@
 // Backend/routes/firRoutes.js
 const express = require('express');
 const router = express.Router();
+const { auth } = require('../middlewares/auth');
 
 /* Try to use whichever model you actually have */
 let ReportModel = null;
@@ -15,12 +16,12 @@ try {
 }
 
 const Police = require('../models/Police'); // for officer assignment
+
 /* Quick ping to prove the router is mounted */
 router.get('/ping', (req, res) => res.json({ ok: true, where: '/api/fir/ping' }));
 
-/* GET /api/fir  — list with pagination & optional search/status */
-router.get('/', async (req, res) => {
-  // If no model is available, return an empty list so the route still works
+/* GET /api/fir  — list with pagination, optional search/status, and officer filtering */
+router.get('/', auth, async (req, res) => {
   if (!ReportModel) return res.json({ success: true, data: [], pagination: { currentPage: 1, totalPages: 1, totalItems: 0, itemsPerPage: 0 } });
 
   try {
@@ -30,14 +31,22 @@ router.get('/', async (req, res) => {
     const status = req.query.status || '';
 
     const query = {};
+
+    // Officers only see their assigned FIRs; admins see all
+    if (!req.police?.isAdmin) {
+      query.assignedOfficerId = req.police.officerId;
+    }
+
+    // Apply search
     if (search) {
       query.$or = [
-        { firId: { $regex: search, $options: 'i' } },
+        { reportId: { $regex: search, $options: 'i' } },
         { 'complainant.name': { $regex: search, $options: 'i' } },
         { incidentType: { $regex: search, $options: 'i' } },
         { location: { $regex: search, $options: 'i' } }
       ];
     }
+
     if (status) query.status = status;
 
     const docs = await ReportModel.find(query)
@@ -64,14 +73,21 @@ router.get('/', async (req, res) => {
   }
 });
 
-/* GET /api/fir/stats */
-router.get('/stats', async (req, res) => {
+/* GET /api/fir/stats — optionally filtered by officer */
+router.get('/stats', auth, async (req, res) => {
   if (!ReportModel) return res.json({ success: true, data: { total: 0, pending: 0, resolved: 0, urgent: 0 } });
+
   try {
-    const total    = await ReportModel.countDocuments();
-    const pending  = await ReportModel.countDocuments({ status: 'Pending' });
-    const resolved = await ReportModel.countDocuments({ status: 'Resolved' });
-    const urgent   = await ReportModel.countDocuments({ status: 'Urgent' });
+    const filter = {};
+    if (!req.police?.isAdmin) {
+      filter.assignedOfficerId = req.police.officerId;
+    }
+
+    const total    = await ReportModel.countDocuments(filter);
+    const pending  = await ReportModel.countDocuments({ ...filter, status: 'Pending' });
+    const resolved = await ReportModel.countDocuments({ ...filter, status: 'Resolved' });
+    const urgent   = await ReportModel.countDocuments({ ...filter, status: 'Urgent' });
+
     return res.json({ success: true, data: { total, pending, resolved, urgent } });
   } catch (err) {
     console.error('[FIR ROUTES] /stats error:', err);
@@ -80,22 +96,31 @@ router.get('/stats', async (req, res) => {
 });
 
 /* GET /api/fir/:id */
-router.get('/:id', async (req, res) => {
+router.get('/:id', auth, async (req, res) => {
   if (!ReportModel) return res.status(404).json({ success: false, message: 'Model not available' });
+
   try {
     const report = await ReportModel.findById(req.params.id);
     if (!report) return res.status(404).json({ success: false, message: 'FIR not found' });
+
+    // Officer can only access their own FIR
+    if (!req.police?.isAdmin && report.assignedOfficerId !== req.police.officerId) {
+      return res.status(403).json({ success: false, message: 'Access denied' });
+    }
+
     return res.json({ success: true, data: report });
   } catch (err) {
     console.error('[FIR ROUTES] /:id error:', err);
     return res.status(500).json({ success: false, message: err.message });
   }
 });
+
 /* PUT /api/fir/:id/assign — assign officer manually */
-router.put('/:id/assign', async (req, res) => {
+router.put('/:id/assign', auth, async (req, res) => {
   if (!ReportModel) return res.status(404).json({ success: false, message: 'Model not available' });
   const { officerId } = req.body || {};
   if (!officerId) return res.status(400).json({ success: false, message: 'officerId required' });
+
   try {
     const officer = await Police.findOne({ officerId }).exec();
     if (!officer) return res.status(404).json({ success: false, message: 'Officer not found' });
@@ -104,7 +129,8 @@ router.put('/:id/assign', async (req, res) => {
     if (!report) return res.status(404).json({ success: false, message: 'FIR not found' });
 
     const reportIdentifier = report.reportId;
-    // If report was previously assigned to another officer, remove from that officer's list
+
+    // Remove from previous officer if reassigned
     if (report.assignedOfficerId && report.assignedOfficerId !== officer.officerId) {
       await Police.updateOne(
         { officerId: report.assignedOfficerId },
@@ -118,9 +144,7 @@ router.put('/:id/assign', async (req, res) => {
 
     // Add report to new officer's list
     if (!Array.isArray(officer.assignedReports)) officer.assignedReports = [];
-    if (!officer.assignedReports.includes(reportIdentifier)) {
-      officer.assignedReports.push(reportIdentifier);
-    }
+    if (!officer.assignedReports.includes(reportIdentifier)) officer.assignedReports.push(reportIdentifier);
     officer.assignedCases = officer.assignedReports.length;
     await officer.save();
 
@@ -130,9 +154,11 @@ router.put('/:id/assign', async (req, res) => {
     return res.status(500).json({ success: false, message: err.message });
   }
 });
+
 /* DELETE /api/fir/:id */
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', auth, async (req, res) => {
   if (!ReportModel) return res.status(404).json({ success: false, message: 'Model not available' });
+
   try {
     const removed = await ReportModel.findByIdAndDelete(req.params.id);
     if (!removed) return res.status(404).json({ success: false, message: 'FIR not found' });
