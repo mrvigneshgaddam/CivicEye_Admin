@@ -1,11 +1,12 @@
+// Backend/routes/profileRoutes.js
 const express = require('express');
 const router = express.Router();
-const auth  = require('../middlewares/auth');
+const { auth } = require('../middlewares/auth');
 const Police = require('../models/Police');
 
 router.get('/',auth, async (req, res, next) => {
   try{
-    const officer = await Police.findById(req.user.id).select('-password');
+    const officer = await Police.findById(req.policeId).select('-password');
     if (!officer) {
       return res.status(404).json({ 
         success: false, 

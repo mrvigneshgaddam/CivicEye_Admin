@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CivicEye - My Cases</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="stylesheet" href="MyCases.css">
+</head>
+<body>
+  <div class="container">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <h3><i class="fas fa-shield-alt"></i> CivicEye</h3>
+        <button class="sidebar-collapse-btn" id="sidebarCollapse">
+          <i class="fas fa-bars"></i>
+        </button>
+      </div>
+      <ul class="sidebar-menu">
+        <li><a href="/FrontEnd/Dashboard/dashboard.html"><i class="fas fa-tachometer-alt"></i><span>Dashboard</span></a></li>
+        <li><a href="/FrontEnd/ChatApp/chatapp.html"><i class="fas fa-comments"></i><span>Chat App</span></a></li>
+        <li><a href="/FrontEnd/FirManagement/FirManagement.html"><i class="fas fa-file-alt"></i><span>FIR Management</span></a></li>
+        <li><a href="/FrontEnd/OfficerManagement/OfficerManagement.html"><i class="fas fa-users"></i><span>Officer Management</span></a></li>
+        <li><a href="/my-cases.html" class="active"><i class="fas fa-briefcase"></i><span>My Cases</span></a></li>
+        <li><a href="/FrontEnd/Profile/profile.html"><i class="fas fa-user-circle"></i><span>Profile</span></a></li>
+        <li><a href="/FrontEnd/Setting/setting.html"><i class="fas fa-cog"></i><span>Settings</span></a></li>
+      </ul>
+    </aside>
+
+    <!-- Main -->
+    <main class="main">
+      <!-- Header -->
+      <header class="header">
+        <div class="header-left"><h2>My Cases</h2></div>
+        <div class="header-right">
+          <div class="search-box">
+            <i class="fas fa-search"></i>
+            <input type="text" placeholder="Search my cases...">
+          </div>
+          <button class="notification-btn">
+            <i class="fas fa-bell"></i>
+            <span class="notification-badge">3</span>
+          </button>
+          <div class="profile-dropdown">
+            <img src="https://randomuser.me/api/portraits/men/32.jpg" alt="Profile" class="profile-img" id="headerAvatar">
+            <div class="dropdown-content">
+              <a href="/FrontEnd/Profile/profile.html"><i class="fas fa-user"></i> Profile</a>
+              <a href="/FrontEnd/Setting/setting.html"><i class="fas fa-cog"></i> Settings</a>
+              <a href="/index.html" class="logout-btn"><i class="fas fa-sign-out-alt"></i> Logout</a>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <!-- Content -->
+      <div class="content">
+        <div class="page-title">
+          <h1>My Cases</h1>
+          <div class="breadcrumb">
+            <a href="#">Home</a>
+            <i class="fas fa-chevron-right"></i>
+            <span>My Cases</span>
+          </div>
+        </div>
+
+        <!-- Loading -->
+        <div id="loadingIndicator" class="loading-indicator">
+          <div class="loading-spinner"></div>
+          <p>Loading cases...</p>
+        </div>
+
+        <!-- Error -->
+        <div id="errorMessage" class="error-message" style="display:none;">
+          <i class="fas fa-exclamation-circle"></i>
+          <p>Failed to load cases. Please try again.</p>
+          <button id="retryButton" class="btn-primary">Retry</button>
+        </div>
+
+        <!-- Case Stats -->
+        <div class="case-stats" id="caseStats" style="display:none;">
+          <div class="stats-card total">
+            <div class="stats-card-icon"><i class="fas fa-briefcase"></i></div>
+            <h3>Total Cases</h3>
+            <h2 id="totalCases">0</h2>
+          </div>
+          <div class="stats-card pending">
+            <div class="stats-card-icon"><i class="fas fa-clock"></i></div>
+            <h3>Pending</h3>
+            <h2 id="pendingCases">0</h2>
+          </div>
+          <div class="stats-card in-progress">
+            <div class="stats-card-icon"><i class="fas fa-tasks"></i></div>
+            <h3>In Progress</h3>
+            <h2 id="inProgressCases">0</h2>
+          </div>
+          <div class="stats-card resolved">
+            <div class="stats-card-icon"><i class="fas fa-check-circle"></i></div>
+            <h3>Resolved</h3>
+            <h2 id="resolvedCases">0</h2>
+          </div>
+        </div>
+
+        <!-- Actions Bar -->
+        <div class="case-actions-bar" id="caseActionsBar" style="display:none;">
+          <div class="case-search-filter">
+            <div class="search-box">
+              <i class="fas fa-search"></i>
+              <input type="text" id="caseSearch" placeholder="Search by case ID, title, or loc">
+            </div>
+            <select id="caseStatusFilter">
+              <option value="all">All Statuses</option>
+              <option value="pending">Pending</option>
+              <option value="assigned">Assigned</option>
+              <option value="in_progress">In Progress</option>
+              <option value="resolved">Resolved</option>
+              <option value="closed">Closed</option>
+            </select>
+            <select id="casePriorityFilter">
+              <option value="all">All Priorities</option>
+              <option value="low">Low</option>
+              <option value="medium">Medium</option>
+              <option value="high">High</option>
+              <option value="critical">Critical</option>
+            </select>
+          </div>
+          <div class="case-actions">
+            <button class="btn-primary" id="refreshCasesBtn"><i class="fas fa-sync-alt"></i> Refresh</button>
+            <button class="btn-secondary" id="exportCasesBtn"><i class="fas fa-download"></i> Export</button>
+          </div>
+        </div>
+
+        <!-- Case Table -->
+        <div class="case-table-container" id="caseTableContainer" style="display:none;">
+          <table class="case-table">
+            <thead>
+              <tr>
+                <th>Case ID</th>
+                <th>Title</th>
+                <th>Type</th>
+                <th>Location</th>
+                <th>Assigned Date</th>
+                <th>Status</th>
+                <th>Priority</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="casesTableBody"></tbody>
+          </table>
+        </div>
+
+        <!-- Pagination -->
+        <div class="pagination" id="pagination" style="display:none;">
+          <button class="pagination-btn" id="prevPageBtn" disabled><i class="fas fa-chevron-left"></i> Previous</button>
+          <div class="pagination-pages" id="paginationPages"></div>
+          <button class="pagination-btn" id="nextPageBtn">Next <i class="fas fa-chevron-right"></i></button>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- Case Details Modal -->
+  <div id="caseModal" class="modal">
+    <div class="modal-content">
+      <span id="closeCaseModal" class="close">&times;</span>
+      <div id="caseDetailsContent"></div>
+    </div>
+  </div>
+
+  <script src="MyCases.js"></script>
+</body>
+</html>
