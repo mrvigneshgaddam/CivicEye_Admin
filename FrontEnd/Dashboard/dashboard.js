@@ -1,4 +1,4 @@
-// dashboard.js - Fixed version with proper authentication handling
+// dashboard.js - Fixed version WITHOUT token verification
 const API_BASE = (typeof window !== 'undefined' && window.API_BASE)
     ? window.API_BASE
     : 'http://localhost:5000';
@@ -12,59 +12,36 @@ const SCRIPT_BASE = (() => {
         return '';
     }
 })();  
+
 document.addEventListener('DOMContentLoaded', function() {
-    // Add a small delay to ensure token is stored after redirect
-    setTimeout(() => {
-        const token = localStorage.getItem('authToken');
-        const userData = JSON.parse(localStorage.getItem('user') || '{}');
+    console.log('Dashboard DOMContentLoaded');
+    
+    // Simple sessionStorage check - NO server verification
+    const token = sessionStorage.getItem('authToken');
+    const userData = JSON.parse(sessionStorage.getItem('user') || '{}');
+    
+    console.log('Token exists:', !!token);
+    console.log('User data:', userData);
 
-        if (!token) {
-            console.log('No auth token found, redirecting to login...');
-            window.location.href = '/index.html';
-            return;
-        }
-
-        // Verify the token is actually valid (not just present)
-        verifyToken(token).then(isValid => {
-            if (!isValid) {
-                console.log('Invalid token, redirecting to login...');
-                localStorage.removeItem('authToken');
-                localStorage.removeItem('user');
-                window.location.href = '/index.html';
-                return;
-            }
-            
-            // Only initialize dashboard if token is valid
-            initializeDashboardComponents(token, userData);
-        });
-    }, 100); // 100ms delay to ensure storage operations complete
-});
-
-// Function to verify token with server
-async function verifyToken(token) {
-    try {
-        const response = await fetch(`${API_BASE}/api/auth/verify`, {
-            headers: {
-                'Authorization': `Bearer ${token}`
-            }
-        });
-        
-        if (!response.ok) return false;
-        
-        const data = await response.json();
-        return data.success === true;
-    } catch (error) {
-        console.error('Token verification failed:', error);
-        return false;
+    if (!token) {
+        console.log('No auth token found, redirecting to login...');
+        window.location.href = '/index.html';
+        return;
     }
-}
+
+    console.log('Token found, initializing dashboard...');
+    // Initialize dashboard immediately if token exists
+    initializeDashboardComponents(token, userData);
+});
 
 // Initialize all dashboard components
 function initializeDashboardComponents(token, userData) {
+    console.log('Initializing dashboard components...');
+    
     // Display username
     const usernameElement = document.getElementById('username-display');
-    if (usernameElement && userData.username) {
-        usernameElement.textContent = userData.username;
+    if (usernameElement && userData.name) {
+        usernameElement.textContent = userData.name;
     }
 
     // Sidebar toggle
@@ -104,6 +81,7 @@ function initializeDashboardComponents(token, userData) {
                 });
             });
         });
+        
         // Refresh button
         const refreshBtn = document.getElementById('refreshDashboard');
         if (refreshBtn) {
@@ -114,7 +92,7 @@ function initializeDashboardComponents(token, userData) {
 
         // Auto-refresh every 5 mins
         setInterval(() => {
-            const token = localStorage.getItem('authToken');
+            const token = sessionStorage.getItem('authToken');
             if (token) initializeDashboard(token);
         }, 5 * 60 * 1000);
     }
@@ -123,20 +101,18 @@ function initializeDashboardComponents(token, userData) {
     const logoutBtn = document.querySelector('.logout-btn');
     if (logoutBtn) {
         logoutBtn.addEventListener('click', function() {
-            localStorage.removeItem('authToken');
-            localStorage.removeItem('user');
-            window.location.href = 'index.html';
+            console.log('Logging out...');
+            sessionStorage.removeItem('authToken');
+            sessionStorage.removeItem('user');
+            window.location.href = '/index.html';
         });
     }
-
-    
 }
 
 // Dashboard initialization function
 async function initializeDashboard(token) {
     try {
         showLoadingState(true);
-
         console.log('🔄 Fetching local mock data...');
 
         const [statsData, chartsData, activityData, notificationsData] = await Promise.all([
@@ -270,6 +246,9 @@ function initCharts(chartData) {
         return;
     }
 
+    // Debug the data structure
+    console.log('Chart data structure:', chartData);
+
     // Line chart (overview)
     const incidentsCtx = document.getElementById('incidentsChart');
     if (incidentsCtx && chartData.overview) {
@@ -287,7 +266,11 @@ function initCharts(chartData) {
                     fill: true
                 }]
             },
-            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+            options: { 
+                responsive: true, 
+                maintainAspectRatio: false, 
+                plugins: { legend: { display: false } } 
+            }
         });
     }
 
@@ -311,12 +294,15 @@ function initCharts(chartData) {
                     borderRadius: 5
                 }]
             },
-            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+            options: { 
+                responsive: true, 
+                maintainAspectRatio: false, 
+                plugins: { legend: { display: false } } 
+            }
         });
     }
 }
 
-// ✅ Update only line chart
 async function updateCharts(period, token) {
     try {
         console.log(`🔄 Updating line chart for period: ${period}`);
@@ -348,7 +334,6 @@ async function updateCharts(period, token) {
     }
 }
 
-// ✅ Update only bar chart
 async function updateIncidentTypes(period, token) {
     try {
         console.log(`🔄 Updating bar chart for period: ${period}`);
