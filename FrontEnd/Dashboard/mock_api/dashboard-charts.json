@@ -1,4 +1,6 @@
 {
+  "success": true,
+  "period": "week",
   "data": {
     "overview": {
       "labels": ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
@@ -7,6 +9,51 @@
     "types": {
       "labels": ["Theft", "Assault", "Accident", "Fraud", "Other"],
       "data": [15, 35, 20, 55, 10]
+    },
+    "daily": {
+      "overview": {
+        "labels": ["00:00", "04:00", "08:00", "12:00", "16:00", "20:00"],
+        "data": [5, 8, 15, 22, 18, 12]
+      },
+      "types": {
+        "labels": ["Theft", "Assault", "Accident", "Fraud", "Other"],
+        "data": [8, 12, 6, 20, 4]
+      }
+    },
+    "weekly": {
+      "overview": {
+        "labels": ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
+        "data": [10, 14, 14, 5, 2, 30, 17]
+      },
+      "types": {
+        "labels": ["Theft", "Assault", "Accident", "Fraud", "Other"],
+        "data": [15, 35, 20, 55, 10]
+      }
+    },
+    "monthly": {
+      "overview": {
+        "labels": ["Week 1", "Week 2", "Week 3", "Week 4"],
+        "data": [45, 68, 52, 75]
+      },
+      "types": {
+        "labels": ["Theft", "Assault", "Accident", "Fraud", "Other"],
+        "data": [60, 120, 80, 200, 40]
+      }
+    },
+    "departments": {
+      "labels": ["Police", "Fire", "Medical", "Dispatch", "Admin"],
+      "data": [45, 15, 20, 12, 8],
+      "active": [38, 12, 18, 10, 7]
+    },
+    "status": {
+      "emergencies": {
+        "labels": ["Pending", "In Progress", "Resolved", "Cancelled"],
+        "data": [25, 30, 40, 5]
+      },
+      "firs": {
+        "labels": ["Registered", "Under Investigation", "Closed", "Rejected"],
+        "data": [20, 45, 30, 5]
+      }
     }
   }
 }

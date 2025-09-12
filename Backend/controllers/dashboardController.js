@@ -1,3 +1,4 @@
+// Backend/controllers/dashboardController.js
 const User = require('../models/User');
 const Conversation = require('../models/Conversation');
 const Message = require('../models/Message');

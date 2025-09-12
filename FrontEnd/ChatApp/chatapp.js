@@ -78,14 +78,18 @@ async function decryptMessage(privKey, b64) {
   return new TextDecoder().decode(dec);
 }
 
-// Function to generate a proper fingerprint from public key
+// Fixed function to generate fingerprint from actual public key
 async function generateFingerprint(publicKeyBase64) {
   try {
-    // Decode the base64 public key
-    const publicKeyBuffer = Uint8Array.from(atob(publicKeyBase64), c => c.charCodeAt(0));
+    // First import the public key properly
+    const publicKey = await importPublicKey(publicKeyBase64);
     
-    // Create a hash of the public key (SHA-256)
-    const hashBuffer = await crypto.subtle.digest('SHA-256', publicKeyBuffer);
+    // Export the key in SPKI format to get the raw bytes
+    const spkiBuffer = await crypto.subtle.exportKey("spki", publicKey);
+    const spkiBytes = new Uint8Array(spkiBuffer);
+    
+    // Create a hash of the actual public key bytes (SHA-256)
+    const hashBuffer = await crypto.subtle.digest('SHA-256', spkiBytes);
     const hashArray = Array.from(new Uint8Array(hashBuffer));
     
     // Convert to hex string and format for readability
@@ -117,9 +121,9 @@ function compareFingerprints() {
     return;
   }
   
-  // Normalize both fingerprints (remove spaces for comparison)
-  const normalizedEntered = enteredFingerprint.replace(/\s/g, '');
-  const normalizedActual = actualFingerprint.replace(/\s/g, '');
+  // Normalize both fingerprints (remove spaces and make uppercase for comparison)
+  const normalizedEntered = enteredFingerprint.replace(/\s/g, '').toUpperCase();
+  const normalizedActual = actualFingerprint.replace(/\s/g, '').toUpperCase();
   
   if (normalizedEntered === normalizedActual) {
     resultElement.innerHTML = "<p class='verification-success'>✅ Fingerprints match! Connection is secure.</p>";
