@@ -50,13 +50,14 @@ exports.logout = async (req, res) => {
   res.json({ success: true });
 };
 
+// Update just the 'me' function in your authController.js
 exports.me = async (req, res) => {
   const u = await Police.findById(req.user.id).lean();
   if (!u) return res.status(404).json({ success: false, message: 'Not found' });
   delete u.password;
-  res.json({ success: true, user: u });
+  // Changed from 'user' to 'data' to match your profile route expectation
+  res.json({ success: true, data: u });
 };
-
 exports.verify = async (req, res) => {
   try {
     const authHeader = req.headers.authorization || '';

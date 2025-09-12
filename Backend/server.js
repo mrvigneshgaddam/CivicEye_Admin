@@ -118,7 +118,10 @@ app.use('/api/profile', profileRoutes);
 app.use(express.static(path.join(__dirname, 'public')));
 app.use(express.static(path.join(__dirname, '../FrontEnd')));
 app.use('/public', express.static(path.join(__dirname, '../FrontEnd/public')));
-
+app.use((req, res, next) => {
+    console.log(`${req.method} ${req.path} - ${new Date().toISOString()}`);
+    next();
+})
 /* -------------------------- Health check ----------------------- */
 app.get('/api/health', (req, res) => {
   const dbStatus = mongoose.connection.readyState === 1 ? 'connected' : 'disconnected';
@@ -151,9 +154,13 @@ app.get('/api', (req, res) => {
 });
 app.get('/api/fir/ping',(req,res) => res.json({ ok:true}));
 /* -------------------------- SPA fallback ----------------------- */
+// Adjust path here:
 app.get('*', (req, res, next) => {
+  // If the request is for API, skip
   if (req.path.startsWith('/api/')) return next();
-  res.sendFile(path.join(__dirname, '../FrontEnd/index.html'));
+
+  // Send your main frontend file
+  res.sendFile(path.join(__dirname, '../index.html'));
 });
 
 /* ------------------------- 404 for /api ------------------------ */

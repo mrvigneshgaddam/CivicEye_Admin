@@ -1,11 +1,19 @@
 // Backend/routes/authRoutes.js
 const express = require('express');
 const router = express.Router();
+const authController = require('../controllers/authController');
 const auth = require('../middlewares/auth');
-const ctrl = require('../controllers/authController');
 
-router.post('/login', ctrl.login);
-router.post('/logout', ctrl.logout);
-router.get('/me', auth, ctrl.me);
-router.get('/verify',  ctrl.verify);
+// Login route - uses the actual auth controller
+router.post('/login', authController.login);
+
+// Logout route
+router.post('/logout', authController.logout);
+
+// Get current user info (protected route)
+router.get('/me', auth, authController.me);
+
+// Verify token route
+router.post('/verify', authController.verify);
+
 module.exports = router;

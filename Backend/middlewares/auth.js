@@ -1,26 +1,77 @@
-// Backend/middleware/auth.js
+// Backend/middlewares/auth.js
 const jwt = require('jsonwebtoken');
+const Police = require('../models/Police');
+
 const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret';
 
-module.exports = function requireAuth(req, res, next) {
-  // const token = req.cookies?.token;
-  // if (!token) return res.status(401).json({ success: false, message: 'Unauthorized' });
-
-  let token = req.cookies?.token;
-  if (!token) {
-    const authHeader = req.headers.authorization || '';
-    if (authHeader.startsWith('Bearer ')) {
-      token = authHeader.slice(7);
-    }
-  }
-  if (!token) {
-    return res.status(401).json({ success: false, message: 'Unauthorized' });
-  }
+const auth = async (req, res, next) => {
   try {
-    const payload = jwt.verify(token, JWT_SECRET);
-    req.user = { id: payload.id };
+    // Get token from header or cookie
+    let token = null;
+    
+    // Check Authorization header
+    const authHeader = req.headers.authorization;
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      token = authHeader.substring(7);
+    }
+    
+    // If no token in header, check cookies
+    if (!token && req.cookies && req.cookies.token) {
+      token = req.cookies.token;
+    }
+
+    if (!token) {
+      return res.status(401).json({
+        success: false,
+        message: 'Access denied. No token provided.'
+      });
+    }
+
+    // Verify token
+    const decoded = jwt.verify(token, JWT_SECRET);
+    
+    // Find user and attach to request
+    const user = await Police.findById(decoded.id).select('-password');
+    if (!user) {
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid token. User not found.'
+      });
+    }
+
+    // Check if user is active
+    if (user.status !== 'Active') {
+      return res.status(401).json({
+        success: false,
+        message: 'Account is not active.'
+      });
+    }
+
+    // Attach user to request object
+    req.user = user;
     next();
-  } catch (e) {
-    return res.status(401).json({ success: false, message: 'Unauthorized' });
+  } catch (error) {
+    console.error('Auth middleware error:', error);
+    
+    if (error.name === 'JsonWebTokenError') {
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid token.'
+      });
+    }
+    
+    if (error.name === 'TokenExpiredError') {
+      return res.status(401).json({
+        success: false,
+        message: 'Token expired.'
+      });
+    }
+
+    res.status(500).json({
+      success: false,
+      message: 'Server error in authentication.'
+    });
   }
 };
+
+module.exports = auth;
