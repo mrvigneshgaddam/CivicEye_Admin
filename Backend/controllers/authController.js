@@ -24,17 +24,7 @@ exports.login = async (req, res) => {
     return res.status(400).json({ success: false, message: 'Email and password required' });
   }
 
-  // DEBUG (temporarily):
-  // console.log('[login] body:', req.body);
 
-  // Because password has select:false
-  const user = await Police.findOne({ email }).select('+password');
-
-
-
-  if (!email || !password) {
-    return res.status(400).json({ success: false, message: 'Email and password required' });
-  }
 
   // DEBUG (temporarily):
   // console.log('[login] body:', req.body);
