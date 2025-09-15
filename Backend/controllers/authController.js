@@ -1,6 +1,10 @@
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
+
+const { sendAdminEmail } = require('../utils/sendAdminEmail');
+
 const Police = require('../models/Police');
+
 
 const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret';
 const JWT_EXPIRES = process.env.JWT_EXPIRES || '1d';
@@ -14,6 +18,19 @@ exports.login = async (req, res) => {
   const rawEmail = (req.body?.email || '').trim();
   const email = rawEmail.toLowerCase();
   const password = req.body?.password || '';
+
+
+  if (!email || !password) {
+    return res.status(400).json({ success: false, message: 'Email and password required' });
+  }
+
+  // DEBUG (temporarily):
+  // console.log('[login] body:', req.body);
+
+  // Because password has select:false
+  const user = await Police.findOne({ email }).select('+password');
+
+
 
   if (!email || !password) {
     return res.status(400).json({ success: false, message: 'Email and password required' });
