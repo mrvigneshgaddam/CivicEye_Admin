@@ -1,15 +1,15 @@
 // Backend/routes/dashboardRoutes.js
 const express = require('express');
 const router = express.Router();
-const { auth } = require('../middlewares/auth');
+const auth = require('../middlewares/auth');
 const User = require('../models/User');
 const Message = require('../models/Message');
 const Notification = require('../models/Notification');
 const Emergency = require('../models/Emergency');
 const FIR = require('../models/firModel');
 const Conversation = require('../models/Conversation');
-// Remove or comment out this line since it's not being used:
-// const dashboardController = require('../controllers/dashboardController');
+const dashboardController = require('../controllers/dashboardController');
+
 
 // GET /api/dashboard/stats - Get comprehensive dashboard statistics
 router.get('/stats', auth, async (req, res) => {
