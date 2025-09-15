@@ -1,3 +1,4 @@
+
 // Backend/controllers/settingsController.js
 const Settings = require('../models/Settings');
 const Police = require('../models/Police');
