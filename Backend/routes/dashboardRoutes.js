@@ -8,8 +8,8 @@ const Notification = require('../models/Notification');
 const Emergency = require('../models/Emergency');
 const FIR = require('../models/firModel');
 const Conversation = require('../models/Conversation');
-const dashboardController = require('../controllers/dashboardController');
-
+// Remove or comment out this line since it's not being used:
+// const dashboardController = require('../controllers/dashboardController');
 
 // GET /api/dashboard/stats - Get comprehensive dashboard statistics
 router.get('/stats', auth, async (req, res) => {

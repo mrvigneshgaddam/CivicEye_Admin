@@ -186,4 +186,10 @@ router.post('/reset', authenticateToken, async (req, res) => {
 });
 
 // Export the router
+
 module.exports = router;
+
+module.exports = router;
+
+
+
