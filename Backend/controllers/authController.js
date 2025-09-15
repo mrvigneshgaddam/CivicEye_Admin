@@ -1,9 +1,21 @@
+
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcryptjs");
 const Police = require("../models/Police");
 
 const JWT_SECRET = process.env.JWT_SECRET || "dev-secret";
 const JWT_EXPIRES = process.env.JWT_EXPIRES || "1d";
+
+const jwt = require('jsonwebtoken');
+const bcrypt = require('bcryptjs');
+
+const { sendAdminEmail } = require('../utils/sendAdminEmail');
+
+const Police = require('../models/Police');
+
+
+const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret';
+const JWT_EXPIRES = process.env.JWT_EXPIRES || '1d';
 
 function cookieOpts() {
   const isProd = process.env.NODE_ENV === "production";
@@ -21,6 +33,19 @@ exports.login = async (req, res) => {
   const rawEmail = (req.body?.email || "").trim();
   const email = rawEmail.toLowerCase();
   const password = req.body?.password || "";
+
+
+  if (!email || !password) {
+    return res.status(400).json({ success: false, message: 'Email and password required' });
+  }
+
+  // DEBUG (temporarily):
+  // console.log('[login] body:', req.body);
+
+  // Because password has select:false
+  const user = await Police.findOne({ email }).select('+password');
+
+
 
   if (!email || !password) {
     return res
@@ -90,14 +115,24 @@ exports.verify = async (req, res) => {
     const decoded = jwt.verify(token, JWT_SECRET);
     const user = await Police.findById(decoded.id).lean();
     if (!user) {
+
       return res
         .status(404)
         .json({ success: false, message: "User not found" });
+
+      return res.status(404).json({ success: false, message: 'User not found' });
+
     }
     delete user.password;
 
     res.json({ success: true, user });
   } catch (error) {
+
     res.status(401).json({ success: false, message: "Invalid token" });
   }
 };
+
+    res.status(401).json({ success: false, message: 'Invalid token' });
+  }
+};
+

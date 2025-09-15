@@ -19,3 +19,6 @@ router.get('/me', auth, authController.me);
 router.post('/verify', authController.verify);
 
 module.exports = router;
+
+module.exports = router;
+
