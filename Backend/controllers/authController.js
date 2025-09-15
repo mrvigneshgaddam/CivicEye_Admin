@@ -1,9 +1,10 @@
-// Backend/controllers/authController.js
-const Police = require('../models/Police');
-const Settings = require('../models/Settings');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
+
 const { sendAdminEmail } = require('../utils/sendAdminEmail');
+
+const Police = require('../models/Police');
+
 
 const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret';
 const JWT_EXPIRES = process.env.JWT_EXPIRES || '1d';
@@ -17,6 +18,19 @@ exports.login = async (req, res) => {
   const rawEmail = (req.body?.email || '').trim();
   const email = rawEmail.toLowerCase();
   const password = req.body?.password || '';
+
+
+  if (!email || !password) {
+    return res.status(400).json({ success: false, message: 'Email and password required' });
+  }
+
+  // DEBUG (temporarily):
+  // console.log('[login] body:', req.body);
+
+  // Because password has select:false
+  const user = await Police.findOne({ email }).select('+password');
+
+
 
   if (!email || !password) {
     return res.status(400).json({ success: false, message: 'Email and password required' });
@@ -75,45 +89,16 @@ exports.verify = async (req, res) => {
     if (!token) {
       return res.status(401).json({ success: false, message: 'No token provided' });
     }
-  },
 
-  // ✅ Unlock account (admin)
-  unlockAccount: async (req, res) => {
-    try {
-      const { policeId } = req.body;
-      const currentPolice = await Police.findById(req.policeId);
-      if (!currentPolice.isAdmin) return res.status(403).json({ error: 'Admin access required' });
-
-      const settings = await Settings.findOne({ policeId });
-      if (!settings) return res.status(404).json({ error: 'Settings not found' });
-
-      settings.security.failedLoginAttempts = 0;
-      settings.security.lockedUntil = null;
-      await settings.save();
-
-      res.json({ success: true, message: 'Account unlocked successfully' });
-    } catch (error) {
-      res.status(500).json({ error: error.message });
+    const decoded = jwt.verify(token, JWT_SECRET);
+    const user = await Police.findById(decoded.id).lean();
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
     }
-  },
+    delete user.password;
 
-  // ✅ Check lock status
-  checkAccountLock: async (req, res) => {
-    try {
-      const { policeId } = req.params;
-      const settings = await Settings.findOne({ policeId });
-      if (!settings) return res.json({ locked: false });
-
-      const isLocked = settings.security.lockedUntil && settings.security.lockedUntil > new Date();
-      res.json({
-        locked: isLocked,
-        lockedUntil: settings.security.lockedUntil,
-        attempts: settings.security.failedLoginAttempts
-      });
-    } catch (error) {
-      res.status(500).json({ error: error.message });
-    }
+    res.json({ success: true, user });
+  } catch (error) {
+    res.status(401).json({ success: false, message: 'Invalid token' });
   }
 };
-
-module.exports = authController;
