@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>CivicEye - Admin Settings</title>
+    <title>CivicEye - Admin Settings</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="setting.css">
      <script type="module" src ="/FrontEnd/Profile/profile.js"></script>
@@ -24,6 +25,7 @@
                 <li><a href="/FrontEnd/FirManagement/FirManagement.html"><i class="fas fa-file-alt"></i><span>FIR Management</span></a></li>
                 <li><a href="/FrontEnd/OfficerManagement/OfficerManagement.html"><i class="fas fa-users"></i><span>Officer Management</span></a></li>
                 <li><a href="/FrontEnd/MyCases/MyCases.html"><i class="fas fa-exclamation-triangle"></i><span>MyCases</span></a></li>
+                <li><a href="/FrontEnd/MyCases/MyCases.html"><i class="fas fa-exclamation-triangle"></i><span>MyCases</span></a></li>
                 <li><a href="/FrontEnd/Profile/profile.html"><i class="fas fa-user-circle"></i><span>Profile</span></a></li>
                 <li><a href="/FrontEnd/Setting/setting.html" class="active"><i class="fas fa-cog"></i><span>Settings</span></a></li>
             </ul>
@@ -34,6 +36,7 @@
             <!-- Header -->
             <header class="header">
                 <div class="header-left">
+                    <h2>Admin Settings</h2>
                     <h2>Admin Settings</h2>
                 </div>
                 <div class="header-right">
@@ -60,6 +63,7 @@
             <div class="content">
                 <div class="page-title">
                     <h1>Admin Settings</h1>
+                    <h1>Admin Settings</h1>
                     <div class="breadcrumb">
                         <a href="/FrontEnd/Dashboard/dashboard.html">Home</a>
                         <i class="fas fa-chevron-right"></i>
@@ -73,7 +77,16 @@
                         <button class="nav-btn active" data-section="security">
                             <i class="fas fa-shield-alt"></i>
                             <span>Security</span>
+                <!-- Vertical Settings Navigation -->
+                <div class="settings-layout">
+                    <div class="settings-nav">
+                        <button class="nav-btn active" data-section="security">
+                            <i class="fas fa-shield-alt"></i>
+                            <span>Security</span>
                         </button>
+                        <button class="nav-btn" data-section="alerts">
+                            <i class="fas fa-bell"></i>
+                            <span>Alerts</span>
                         <button class="nav-btn" data-section="alerts">
                             <i class="fas fa-bell"></i>
                             <span>Alerts</span>
@@ -81,7 +94,13 @@
                         <button class="nav-btn" data-section="system">
                             <i class="fas fa-cogs"></i>
                             <span>System</span>
+                        <button class="nav-btn" data-section="system">
+                            <i class="fas fa-cogs"></i>
+                            <span>System</span>
                         </button>
+                        <button class="nav-btn" data-section="access">
+                            <i class="fas fa-user-lock"></i>
+                            <span>Access Control</span>
                         <button class="nav-btn" data-section="access">
                             <i class="fas fa-user-lock"></i>
                             <span>Access Control</span>
@@ -89,6 +108,15 @@
                     </div>
 
                     <div class="settings-content">
+                        <!-- Security Settings Section -->
+                        <div class="settings-section active" id="security-section">
+                            <h2><i class="fas fa-shield-alt"></i> Security Settings</h2>
+                            <div class="settings-card">
+                                <h3>Authentication Policies</h3>
+                                <div class="setting-item">
+                                    <div class="setting-info">
+                                        <h4>Two-Factor Authentication</h4>
+                                        <p>Require 2FA for all admin accounts</p>
                         <!-- Security Settings Section -->
                         <div class="settings-section active" id="security-section">
                             <h2><i class="fas fa-shield-alt"></i> Security Settings</h2>
@@ -108,7 +136,25 @@
                                     <div class="setting-info">
                                         <h4>Password Policy</h4>
                                         <p>Enforce strong password requirements</p>
+                                    <label class="switch">
+                                        <input type="checkbox" id="require2FA">
+                                        <span class="slider round"></span>
+                                    </label>
+                                </div>
+                                <div class="setting-item">
+                                    <div class="setting-info">
+                                        <h4>Password Policy</h4>
+                                        <p>Enforce strong password requirements</p>
                                     </div>
+                                    <label class="switch">
+                                        <input type="checkbox" id="strongPasswords" checked>
+                                        <span class="slider round"></span>
+                                    </label>
+                                </div>
+                                <div class="setting-item">
+                                    <div class="setting-info">
+                                        <h4>Session Timeout</h4>
+                                        <p>Auto-logout after period of inactivity</p>
                                     <label class="switch">
                                         <input type="checkbox" id="strongPasswords" checked>
                                         <span class="slider round"></span>
@@ -126,10 +172,24 @@
                                             <option value="60">60 minutes</option>
                                             <option value="120">2 hours</option>
                                         </select>
+                                    <div class="select-wrapper">
+                                        <select id="session-timeout">
+                                            <option value="15">15 minutes</option>
+                                            <option value="30" selected>30 minutes</option>
+                                            <option value="60">60 minutes</option>
+                                            <option value="120">2 hours</option>
+                                        </select>
                                     </div>
+                                </div>
                                 </div>
                             </div>
 
+                            <div class="settings-card">
+                                <h3>Login Security</h3>
+                                <div class="setting-item">
+                                    <div class="setting-info">
+                                        <h4>Failed Login Attempts</h4>
+                                        <p>Lock account after multiple failed attempts</p>
                             <div class="settings-card">
                                 <h3>Login Security</h3>
                                 <div class="setting-item">
@@ -142,6 +202,11 @@
                                             <option value="3">3 attempts</option>
                                             <option value="5" selected>5 attempts</option>
                                             <option value="10">10 attempts</option>
+                                    <div class="select-wrapper">
+                                        <select id="login-attempts">
+                                            <option value="3">3 attempts</option>
+                                            <option value="5" selected>5 attempts</option>
+                                            <option value="10">10 attempts</option>
                                         </select>
                                     </div>
                                 </div>
@@ -149,7 +214,22 @@
                                     <div class="setting-info">
                                         <h4>IP Whitelisting</h4>
                                         <p>Restrict admin access to specific IP ranges</p>
+                                </div>
+                                <div class="setting-item">
+                                    <div class="setting-info">
+                                        <h4>IP Whitelisting</h4>
+                                        <p>Restrict admin access to specific IP ranges</p>
                                     </div>
+                                    <label class="switch">
+                                        <input type="checkbox" id="ipWhitelisting">
+                                        <span class="slider round"></span>
+                                    </label>
+                                </div>
+                            </div>
+
+                            <div class="form-actions">
+                                <button type="button" class="btn btn-secondary" id="cancelSecurity">Discard Changes</button>
+                                <button type="button" class="btn btn-primary" id="saveSecurity">Save Security Settings</button>
                                     <label class="switch">
                                         <input type="checkbox" id="ipWhitelisting">
                                         <span class="slider round"></span>
@@ -172,8 +252,18 @@
                                     <div class="setting-info">
                                         <h4>Emergency Alerts</h4>
                                         <p>Receive critical emergency notifications</p>
+                        <!-- Alert Settings Section -->
+                        <div class="settings-section" id="alerts-section">
+                            <h2><i class="fas fa-bell"></i> Alert Preferences</h2>
+                            <div class="settings-card">
+                                <h3>Notification Channels</h3>
+                                <div class="setting-item">
+                                    <div class="setting-info">
+                                        <h4>Emergency Alerts</h4>
+                                        <p>Receive critical emergency notifications</p>
                                     </div>
                                     <label class="switch">
+                                        <input type="checkbox" id="emergencyAlerts" checked>
                                         <input type="checkbox" id="emergencyAlerts" checked>
                                         <span class="slider round"></span>
                                     </label>
@@ -182,8 +272,13 @@
                                     <div class="setting-info">
                                         <h4>FIR Updates</h4>
                                         <p>Notifications for new FIR submissions</p>
+                                <div class="setting-item">
+                                    <div class="setting-info">
+                                        <h4>FIR Updates</h4>
+                                        <p>Notifications for new FIR submissions</p>
                                     </div>
                                     <label class="switch">
+                                        <input type="checkbox" id="firUpdates" checked>
                                         <input type="checkbox" id="firUpdates" checked>
                                         <span class="slider round"></span>
                                     </label>
@@ -192,7 +287,17 @@
                                     <div class="setting-info">
                                         <h4>Officer Activities</h4>
                                         <p>Notifications for officer check-ins and reports</p>
+                                <div class="setting-item">
+                                    <div class="setting-info">
+                                        <h4>Officer Activities</h4>
+                                        <p>Notifications for officer check-ins and reports</p>
                                     </div>
+                                    <label class="switch">
+                                        <input type="checkbox" id="officerActivities">
+                                        <span class="slider round"></span>
+                                    </label>
+                                </div>
+                            </div>
                                     <label class="switch">
                                         <input type="checkbox" id="officerActivities">
                                         <span class="slider round"></span>
@@ -232,14 +337,58 @@
                                         <span class="slider round"></span>
                                     </label>
                                 </div>
+                            <div class="settings-card">
+                                <h3>Alert Methods</h3>
+                                <div class="setting-item">
+                                    <div class="setting-info">
+                                        <h4>Email Notifications</h4>
+                                        <p>Receive alerts via email</p>
+                                    </div>
+                                    <label class="switch">
+                                        <input type="checkbox" id="emailAlerts" checked>
+                                        <span class="slider round"></span>
+                                    </label>
+                                </div>
+                                <div class="setting-item">
+                                    <div class="setting-info">
+                                        <h4>SMS Alerts</h4>
+                                        <p>Receive critical alerts via SMS</p>
+                                    </div>
+                                    <label class="switch">
+                                        <input type="checkbox" id="smsAlerts">
+                                        <span class="slider round"></span>
+                                    </label>
+                                </div>
+                                <div class="setting-item">
+                                    <div class="setting-info">
+                                        <h4>Push Notifications</h4>
+                                        <p>Receive alerts on mobile devices</p>
+                                    </div>
+                                    <label class="switch">
+                                        <input type="checkbox" id="pushAlerts" checked>
+                                        <span class="slider round"></span>
+                                    </label>
+                                </div>
                             </div>
 
+                            <div class="form-actions">
+                                <button type="button" class="btn btn-secondary" id="cancelAlerts">Discard Changes</button>
+                                <button type="button" class="btn btn-primary" id="saveAlerts">Save Alert Preferences</button>
                             <div class="form-actions">
                                 <button type="button" class="btn btn-secondary" id="cancelAlerts">Discard Changes</button>
                                 <button type="button" class="btn btn-primary" id="saveAlerts">Save Alert Preferences</button>
                             </div>
                         </div>
 
+                        <!-- System Settings Section -->
+                        <div class="settings-section" id="system-section">
+                            <h2><i class="fas fa-cogs"></i> System Settings</h2>
+                            <div class="settings-card">
+                                <h3>Data Management</h3>
+                                <div class="setting-item">
+                                    <div class="setting-info">
+                                        <h4>Backup Frequency</h4>
+                                        <p>How often to backup system data</p>
                         <!-- System Settings Section -->
                         <div class="settings-section" id="system-section">
                             <h2><i class="fas fa-cogs"></i> System Settings</h2>
@@ -256,7 +405,18 @@
                                             <option value="weekly" selected>Weekly</option>
                                             <option value="monthly">Monthly</option>
                                         </select>
+                                    <div class="select-wrapper">
+                                        <select id="backup-frequency">
+                                            <option value="daily">Daily</option>
+                                            <option value="weekly" selected>Weekly</option>
+                                            <option value="monthly">Monthly</option>
+                                        </select>
                                     </div>
+                                </div>
+                                <div class="setting-item">
+                                    <div class="setting-info">
+                                        <h4>Log Retention</h4>
+                                        <p>How long to keep system logs</p>
                                 </div>
                                 <div class="setting-item">
                                     <div class="setting-info">
@@ -270,10 +430,34 @@
                                             <option value="180">180 days</option>
                                             <option value="365">1 year</option>
                                         </select>
+                                    <div class="select-wrapper">
+                                        <select id="log-retention">
+                                            <option value="30">30 days</option>
+                                            <option value="90" selected>90 days</option>
+                                            <option value="180">180 days</option>
+                                            <option value="365">1 year</option>
+                                        </select>
                                     </div>
+                                </div>
                                 </div>
                             </div>
 
+                            <div class="settings-card">
+                                <h3>System Maintenance</h3>
+                                <div class="setting-item">
+                                    <div class="setting-info">
+                                        <h4>Auto Updates</h4>
+                                        <p>Automatically install security updates</p>
+                                    </div>
+                                    <label class="switch">
+                                        <input type="checkbox" id="autoUpdates" checked>
+                                        <span class="slider round"></span>
+                                    </label>
+                                </div>
+                                <div class="setting-item">
+                                    <div class="setting-info">
+                                        <h4>Maintenance Window</h4>
+                                        <p>Schedule system maintenance times</p>
                             <div class="settings-card">
                                 <h3>System Maintenance</h3>
                                 <div class="setting-item">
@@ -297,7 +481,19 @@
                                             <option value="02:00-06:00" selected>2 AM - 6 AM</option>
                                             <option value="04:00-08:00">4 AM - 8 AM</option>
                                         </select>
+                                    <div class="select-wrapper">
+                                        <select id="maintenance-window">
+                                            <option value="00:00-04:00">12 AM - 4 AM</option>
+                                            <option value="02:00-06:00" selected>2 AM - 6 AM</option>
+                                            <option value="04:00-08:00">4 AM - 8 AM</option>
+                                        </select>
                                     </div>
+                                </div>
+                            </div>
+
+                            <div class="form-actions">
+                                <button type="button" class="btn btn-secondary" id="cancelSystem">Discard Changes</button>
+                                <button type="button" class="btn btn-primary" id="saveSystem">Save System Settings</button>
                                 </div>
                             </div>
 
@@ -316,7 +512,22 @@
                                     <div class="setting-info">
                                         <h4>Admin Privileges</h4>
                                         <p>Control access to sensitive administrative functions</p>
+                        <!-- Access Control Section -->
+                        <div class="settings-section" id="access-section">
+                            <h2><i class="fas fa-user-lock"></i> Access Control</h2>
+                            <div class="settings-card">
+                                <h3>Role Permissions</h3>
+                                <div class="setting-item">
+                                    <div class="setting-info">
+                                        <h4>Admin Privileges</h4>
+                                        <p>Control access to sensitive administrative functions</p>
                                     </div>
+                                    <div class="select-wrapper">
+                                        <select id="admin-privileges">
+                                            <option value="restricted">Restricted</option>
+                                            <option value="standard" selected>Standard</option>
+                                            <option value="elevated">Elevated</option>
+                                        </select>
                                     <div class="select-wrapper">
                                         <select id="admin-privileges">
                                             <option value="restricted">Restricted</option>
@@ -329,7 +540,17 @@
                                     <div class="setting-info">
                                         <h4>Data Export Permissions</h4>
                                         <p>Control who can export sensitive data</p>
+                                </div>
+                                <div class="setting-item">
+                                    <div class="setting-info">
+                                        <h4>Data Export Permissions</h4>
+                                        <p>Control who can export sensitive data</p>
                                     </div>
+                                    <label class="switch">
+                                        <input type="checkbox" id="exportPermissions" checked>
+                                        <span class="slider round"></span>
+                                    </label>
+                                </div>
                                     <label class="switch">
                                         <input type="checkbox" id="exportPermissions" checked>
                                         <span class="slider round"></span>
@@ -353,7 +574,33 @@
                                     <div class="setting-info">
                                         <h4>Login Auditing</h4>
                                         <p>Record all login attempts</p>
+                            <div class="settings-card">
+                                <h3>Audit Logging</h3>
+                                <div class="setting-item">
+                                    <div class="setting-info">
+                                        <h4>Activity Monitoring</h4>
+                                        <p>Log all administrative activities</p>
                                     </div>
+                                    <label class="switch">
+                                        <input type="checkbox" id="activityMonitoring" checked>
+                                        <span class="slider round"></span>
+                                    </label>
+                                </div>
+                                <div class="setting-item">
+                                    <div class="setting-info">
+                                        <h4>Login Auditing</h4>
+                                        <p>Record all login attempts</p>
+                                    </div>
+                                    <label class="switch">
+                                        <input type="checkbox" id="loginAuditing" checked>
+                                        <span class="slider round"></span>
+                                    </label>
+                                </div>
+                            </div>
+
+                            <div class="form-actions">
+                                <button type="button" class="btn btn-secondary" id="cancelAccess">Discard Changes</button>
+                                <button type="button" class="btn btn-primary" id="saveAccess">Save Access Settings</button>
                                     <label class="switch">
                                         <input type="checkbox" id="loginAuditing" checked>
                                         <span class="slider round"></span>
