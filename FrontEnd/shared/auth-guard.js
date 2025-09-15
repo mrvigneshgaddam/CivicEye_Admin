@@ -1,49 +1,25 @@
-// FrontEnd/shared/auth-guard.js
-(function () {
-  const API_BASE = (typeof window !== 'undefined' && window.API_BASE)
-    ? window.API_BASE
-    : 'http://localhost:5000';
-
-  const isLoginPage =
-    document.documentElement.getAttribute('data-page') === 'login' ||
-    /(^\/$|\/index\.html$)/i.test(location.pathname);
-
-  // Check if we have a token in localStorage first
-  function hasLocalToken() {
-    return !!localStorage.getItem('authToken');
-  }
-
-  async function isAuthed() {
-    // First check localStorage to avoid unnecessary API calls
-    if (!hasLocalToken()) return false;
+// Fixed auth-guard.js
+function checkAuth() {
+    const authToken = sessionStorage.getItem('authToken');
+    const userData = sessionStorage.getItem('user');
+    
+    if (!authToken || !userData) {
+        // Redirect to index.html at root level
+        window.location.href = '/index.html';
+        return null;
+    }
     
     try {
-      const res = await fetch(API_BASE + '/api/auth/verify', {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('authToken')}`
-        }
-      });
-      return res.ok;
-    } catch { 
-      return false; 
+        return JSON.parse(userData);
+    } catch (error) {
+        console.error('Error parsing user data:', error);
+        logout();
+        return null;
     }
-  }
+}
 
-  (async () => {
-    // Add a small delay to ensure proper page load
-    await new Promise(resolve => setTimeout(resolve, 100));
-    
-    if (isLoginPage) {
-      if (await isAuthed()) {
-        location.replace('/FrontEnd/Dashboard/dashboard.html');
-      }
-      return;
-    }
-    
-    if (!(await isAuthed())) {
-      localStorage.removeItem('authToken');
-      localStorage.removeItem('user');
-      location.replace('/index.html');
-    }
-  })();
-})();
+function logout() {
+    sessionStorage.removeItem('authToken');
+    sessionStorage.removeItem('user');
+    window.location.href = '/index.html';
+}

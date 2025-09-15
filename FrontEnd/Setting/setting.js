@@ -2,58 +2,107 @@
 document.addEventListener('DOMContentLoaded', async function() {
     const API_BASE_URL = 'http://localhost:5000/api';
     
-    let authToken = localStorage.getItem('authToken');
-    let currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
+    let authToken = sessionStorage.getItem('authToken');
+    let currentUser = JSON.parse(sessionStorage.getItem('currentUser') || '{}');
     
     console.log('Auth Token exists:', !!authToken);
     console.log('Current User:', currentUser);
 
     // ✅ Enhanced authentication with backend validation
-    async function isAuthenticated() {
-        const token = localStorage.getItem('authToken');
+    // async function isAuthenticated() {
+    //     const token = sessionStorage.getItem('authToken');
 
-        if (!token || token === 'null' || token === 'undefined') {
-            return false;
-        }
+    //     if (!token || token === 'null' || token === 'undefined') {
+    //         return false;
+    //     }
 
-        // Basic JWT format check
-        const tokenParts = token.split('.');
-        if (tokenParts.length !== 3) {
-            return false;
-        }
+    //     // Basic JWT format check
+    //     const tokenParts = token.split('.');
+    //     if (tokenParts.length !== 3) {
+    //         return false;
+    //     }
 
-        try {
-            const res = await fetch(`${API_BASE_URL}/auth/me`, {
-                headers: {
-                    "Authorization": `Bearer ${token}`,
-                    "Content-Type": "application/json"
-                }
-            });
+    //     try {
+    //         const res = await fetch(`${API_BASE_URL}/auth/me`, {
+    //             headers: {
+    //                 "Authorization": `Bearer ${token}`,
+    //                 "Content-Type": "application/json"
+    //             }
+    //         });
 
-            if (!res.ok) {
-                console.warn("Token invalid or expired");
-                localStorage.removeItem("authToken");
-                localStorage.removeItem("currentUser");
-                return false;
-            }
+    //         if (!res.ok) {
+    //             console.warn("Token invalid or expired");
+    //             sessionStorage.removeItem("authToken");
+    //             sessionStorage.removeItem("currentUser");
+    //             return false;
+    //         }
 
-            const data = await res.json();
+    //         const data = await res.json();
 
-            if (data.success && data.police) {
-                localStorage.setItem("currentUser", JSON.stringify(data.police));
-                currentUser = data.police;
-                return true;
-            } else {
-                console.warn("User data missing, clearing token");
-                localStorage.removeItem("authToken");
-                localStorage.removeItem("currentUser");
-                return false;
-            }
-        } catch (err) {
-            console.error("Auth check failed:", err);
-            return false;
-        }
+    //         if (data.success && data.police) {
+    //             sessionStorage.setItem("currentUser", JSON.stringify(data.police));
+    //             currentUser = data.police;
+    //             return true;
+    //         } else {
+    //             console.warn("User data missing, clearing token");
+    //             sessionStorage.removeItem("authToken");
+    //             sessionStorage.removeItem("currentUser");
+    //             return false;
+    //         }
+    //     } catch (err) {
+    //         console.error("Auth check failed:", err);
+    //         return false;
+    //     }
+    // }
+async function isAuthenticated() {
+    const token = sessionStorage.getItem('authToken');
+
+    if (!token || token === 'null' || token === 'undefined') {
+        return false;
     }
+
+    // Basic JWT format check
+    const tokenParts = token.split('.');
+    if (tokenParts.length !== 3) {
+        return false;
+    }
+
+    try {
+        const res = await fetch(`${API_BASE_URL}/auth/me`, {
+            headers: {
+                "Authorization": `Bearer ${token}`,
+                "Content-Type": "application/json"
+            }
+        });
+
+        if (!res.ok) {
+            console.warn("Token invalid or expired");
+            sessionStorage.removeItem("authToken");
+            sessionStorage.removeItem("currentUser");
+            return false;
+        }
+
+        const data = await res.json();
+        console.log('Auth /me response:', data);   // <— helps debugging
+
+        // ✅ Accept data.police OR data.user OR data.currentUser, etc.
+        const userData = data.police || data.user || data.currentUser || data;
+
+        if (data.success && userData) {
+            sessionStorage.setItem("currentUser", JSON.stringify(userData));
+            currentUser = userData;
+            return true;
+        } else {
+            console.warn("User data missing, clearing token");
+            sessionStorage.removeItem("authToken");
+            sessionStorage.removeItem("currentUser");
+            return false;
+        }
+    } catch (err) {
+        console.error("Auth check failed:", err);
+        return false;
+    }
+}
 
     // ✅ Run authentication check on page load
     const loggedIn = await isAuthenticated();
@@ -88,6 +137,16 @@ document.addEventListener('DOMContentLoaded', async function() {
         }
     }
     
+    // Handle authentication errors
+    function handleAuthError() {
+        alert('Your session has expired. Please login again.');
+        // Clear stored auth data
+        sessionStorage.removeItem('authToken');
+        sessionStorage.removeItem('currentUser');
+        // Redirect to login page with correct path
+        window.location.href = '/index.html';
+    }
+    
     // Navigation functionality
     const navButtons = document.querySelectorAll('.nav-btn');
     const settingsSections = document.querySelectorAll('.settings-section');
@@ -102,65 +161,24 @@ document.addEventListener('DOMContentLoaded', async function() {
             
             // Add active class to clicked button and corresponding section
             this.classList.add('active');
-            document.getElementById(`${sectionId}-section`).classList.add('active');
+            const targetSection = document.getElementById(`${sectionId}-section`);
+            if (targetSection) {
+                targetSection.classList.add('active');
+            }
         });
     });
     
-    // Save button functionality
-    const saveButtons = {
-        security: document.getElementById('saveSecurity'),
-        alerts: document.getElementById('saveAlerts'),
-        system: document.getElementById('saveSystem'),
-        access: document.getElementById('saveAccess')
-    };
-    
-    Object.keys(saveButtons).forEach(section => {
-        if (saveButtons[section]) {
-            saveButtons[section].addEventListener('click', function() {
-                // Show loading state
-                const originalText = this.innerHTML;
-                this.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
-                this.disabled = true;
-                
-                saveSettings(section).then(success => {
-                    // Restore button state
-                    this.innerHTML = originalText;
-                    this.disabled = false;
-                    
-                    if (success) {
-                        alert(`${section.charAt(0).toUpperCase() + section.slice(1)} settings saved successfully!`);
-                    }
-                });
-            });
-        }
-    });
-    
-    // Cancel button functionality
-    const cancelButtons = {
-        security: document.getElementById('cancelSecurity'),
-        alerts: document.getElementById('cancelAlerts'),
-        system: document.getElementById('cancelSystem'),
-        access: document.getElementById('cancelAccess')
-    };
-    
-    Object.keys(cancelButtons).forEach(section => {
-        if (cancelButtons[section]) {
-            cancelButtons[section].addEventListener('click', function() {
-                loadSettings(section);
-                alert('Changes discarded');
-            });
-        }
-    });
-    
-    // Load settings from backend or localStorage
+    // Load settings function - FIXED: moved before it's used
     async function loadSettings(section = 'all') {
+        console.log('Loading settings for section:', section);
+        
         try {
             // Test API connection first
             const apiAvailable = await testAPIConnection();
             
             if (!apiAvailable) {
-                console.warn('API not available, using localStorage');
-                loadSettingsFromLocalStorage(section);
+                console.warn('API not available, using sessionStorage');
+                loadSettingsFromSessionStorage(section);
                 return;
             }
             
@@ -188,141 +206,131 @@ document.addEventListener('DOMContentLoaded', async function() {
             
             // If we get a 404, the endpoint might not exist yet
             if (response.status === 404) {
-                console.warn('Settings endpoint not found, using localStorage');
-                loadSettingsFromLocalStorage(section);
+                console.warn('Settings endpoint not found, using sessionStorage');
+                loadSettingsFromSessionStorage(section);
                 return;
             }
             
             throw new Error(`Failed to fetch settings: ${response.status}`);
             
         } catch (error) {
-            console.warn('Error loading settings, falling back to localStorage:', error);
-            // Fallback to localStorage if API fails
-            loadSettingsFromLocalStorage(section);
+            console.warn('Error loading settings, falling back to sessionStorage:', error);
+            // Fallback to sessionStorage if API fails
+            loadSettingsFromSessionStorage(section);
         }
     }
     
-    // Handle authentication errors
-    function handleAuthError() {
-        alert('Your session has expired. Please login again.');
-        // Clear stored auth data
-        localStorage.removeItem('authToken');
-        localStorage.removeItem('currentUser');
-        // Redirect to login page with correct path
-        window.location.href = '/index.html';
-    }
-    
-    // Load settings from localStorage
-    function loadSettingsFromLocalStorage(section = 'all') {
-        console.log('Loading settings from localStorage for section:', section);
+    // Load settings from sessionStorage
+    function loadSettingsFromSessionStorage(section = 'all') {
+        console.log('Loading settings from sessionStorage for section:', section);
         
         const sections = section === 'all' ? ['security', 'alerts', 'system', 'access'] : [section];
         
         sections.forEach(sec => {
             // Security settings
             if (sec === 'security' || sec === 'all') {
-                if (localStorage.getItem('require2FA') !== null) {
-                    document.getElementById('require2FA').checked = 
-                        localStorage.getItem('require2FA') === 'true';
+                const require2FAElement = document.getElementById('require2FA');
+                if (require2FAElement && sessionStorage.getItem('require2FA') !== null) {
+                    require2FAElement.checked = sessionStorage.getItem('require2FA') === 'true';
                 }
                 
-                if (localStorage.getItem('strongPasswords') !== null) {
-                    document.getElementById('strongPasswords').checked = 
-                        localStorage.getItem('strongPasswords') === 'true';
+                const strongPasswordsElement = document.getElementById('strongPasswords');
+                if (strongPasswordsElement && sessionStorage.getItem('strongPasswords') !== null) {
+                    strongPasswordsElement.checked = sessionStorage.getItem('strongPasswords') === 'true';
                 }
                 
-                if (localStorage.getItem('sessionTimeout') !== null) {
-                    document.getElementById('session-timeout').value = 
-                        localStorage.getItem('sessionTimeout');
+                const sessionTimeoutElement = document.getElementById('session-timeout');
+                if (sessionTimeoutElement && sessionStorage.getItem('sessionTimeout') !== null) {
+                    sessionTimeoutElement.value = sessionStorage.getItem('sessionTimeout');
                 }
                 
-                if (localStorage.getItem('loginAttempts') !== null) {
-                    document.getElementById('login-attempts').value = 
-                        localStorage.getItem('loginAttempts');
+                const loginAttemptsElement = document.getElementById('login-attempts');
+                if (loginAttemptsElement && sessionStorage.getItem('loginAttempts') !== null) {
+                    loginAttemptsElement.value = sessionStorage.getItem('loginAttempts');
                 }
                 
-                if (localStorage.getItem('ipWhitelisting') !== null) {
-                    document.getElementById('ipWhitelisting').checked = 
-                        localStorage.getItem('ipWhitelisting') === 'true';
+                const ipWhitelistingElement = document.getElementById('ipWhitelisting');
+                if (ipWhitelistingElement && sessionStorage.getItem('ipWhitelisting') !== null) {
+                    ipWhitelistingElement.checked = sessionStorage.getItem('ipWhitelisting') === 'true';
                 }
             }
             
             // Alert settings
             if (sec === 'alerts' || sec === 'all') {
-                if (localStorage.getItem('emergencyAlerts') !== null) {
-                    document.getElementById('emergencyAlerts').checked = 
-                        localStorage.getItem('emergencyAlerts') === 'true';
+                const emergencyAlertsElement = document.getElementById('emergencyAlerts');
+                if (emergencyAlertsElement && sessionStorage.getItem('emergencyAlerts') !== null) {
+                    emergencyAlertsElement.checked = sessionStorage.getItem('emergencyAlerts') === 'true';
                 }
                 
-                if (localStorage.getItem('firUpdates') !== null) {
-                    document.getElementById('firUpdates').checked = 
-                        localStorage.getItem('firUpdates') === 'true';
+                const firUpdatesElement = document.getElementById('firUpdates');
+                if (firUpdatesElement && sessionStorage.getItem('firUpdates') !== null) {
+                    firUpdatesElement.checked = sessionStorage.getItem('firUpdates') === 'true';
                 }
                 
-                if (localStorage.getItem('officerActivities') !== null) {
-                    document.getElementById('officerActivities').checked = 
-                        localStorage.getItem('officerActivities') === 'true';
+                const officerActivitiesElement = document.getElementById('officerActivities');
+                if (officerActivitiesElement && sessionStorage.getItem('officerActivities') !== null) {
+                    officerActivitiesElement.checked = sessionStorage.getItem('officerActivities') === 'true';
                 }
                 
-                if (localStorage.getItem('emailAlerts') !== null) {
-                    document.getElementById('emailAlerts').checked = 
-                        localStorage.getItem('emailAlerts') === 'true';
+                const emailAlertsElement = document.getElementById('emailAlerts');
+                if (emailAlertsElement && sessionStorage.getItem('emailAlerts') !== null) {
+                    emailAlertsElement.checked = sessionStorage.getItem('emailAlerts') === 'true';
                 }
                 
-                if (localStorage.getItem('smsAlerts') !== null) {
-                    document.getElementById('smsAlerts').checked = 
-                        localStorage.getItem('smsAlerts') === 'true';
+                const smsAlertsElement = document.getElementById('smsAlerts');
+                if (smsAlertsElement && sessionStorage.getItem('smsAlerts') !== null) {
+                    smsAlertsElement.checked = sessionStorage.getItem('smsAlerts') === 'true';
                 }
                 
-                if (localStorage.getItem('pushAlerts') !== null) {
-                    document.getElementById('pushAlerts').checked = 
-                        localStorage.getItem('pushAlerts') === 'true';
+                const pushAlertsElement = document.getElementById('pushAlerts');
+                if (pushAlertsElement && sessionStorage.getItem('pushAlerts') !== null) {
+                    pushAlertsElement.checked = sessionStorage.getItem('pushAlerts') === 'true';
                 }
             }
             
             // System settings
             if (sec === 'system' || sec === 'all') {
-                if (localStorage.getItem('backupFrequency') !== null) {
-                    document.getElementById('backup-frequency').value = 
-                        localStorage.getItem('backupFrequency');
+                const backupFrequencyElement = document.getElementById('backup-frequency');
+                if (backupFrequencyElement && sessionStorage.getItem('backupFrequency') !== null) {
+                    backupFrequencyElement.value = sessionStorage.getItem('backupFrequency');
                 }
                 
-                if (localStorage.getItem('logRetention') !== null) {
-                    document.getElementById('log-retention').value = 
-                        localStorage.getItem('logRetention');
+                const logRetentionElement = document.getElementById('log-retention');
+                if (logRetentionElement && sessionStorage.getItem('logRetention') !== null) {
+                    logRetentionElement.value = sessionStorage.getItem('logRetention');
                 }
                 
-                if (localStorage.getItem('autoUpdates') !== null) {
-                    document.getElementById('autoUpdates').checked = 
-                        localStorage.getItem('autoUpdates') === 'true';
+                const autoUpdatesElement = document.getElementById('autoUpdates');
+                if (autoUpdatesElement && sessionStorage.getItem('autoUpdates') !== null) {
+                    autoUpdatesElement.checked = sessionStorage.getItem('autoUpdates') === 'true';
                 }
                 
-                if (localStorage.getItem('maintenanceWindow') !== null) {
-                    document.getElementById('maintenance-window').value = 
-                        localStorage.getItem('maintenanceWindow');
+                const maintenanceWindowElement = document.getElementById('maintenance-window');
+                if (maintenanceWindowElement && sessionStorage.getItem('maintenanceWindow') !== null) {
+                    maintenanceWindowElement.value = sessionStorage.getItem('maintenanceWindow');
                 }
             }
             
             // Access control settings
             if (sec === 'access' || sec === 'all') {
-                if (localStorage.getItem('adminPrivileges') !== null) {
-                    document.getElementById('admin-privileges').value = 
-                        localStorage.getItem('adminPrivileges');
+                const adminPrivilegesElement = document.getElementById('admin-privileges');
+                if (adminPrivilegesElement && sessionStorage.getItem('adminPrivileges') !== null) {
+                    adminPrivilegesElement.value = sessionStorage.getItem('adminPrivileges');
                 }
                 
-                if (localStorage.getItem('exportPermissions') !== null) {
-                    document.getElementById('exportPermissions').checked = 
-                        localStorage.getItem('exportPermissions') === 'true';
+                const exportPermissionsElement = document.getElementById('exportPermissions');
+                if (exportPermissionsElement && sessionStorage.getItem('exportPermissions') !== null) {
+                    exportPermissionsElement.checked = sessionStorage.getItem('exportPermissions') === 'true';
                 }
                 
-                if (localStorage.getItem('activityMonitoring') !== null) {
-                    document.getElementById('activityMonitoring').checked = 
-                        localStorage.getItem('activityMonitoring') === 'true';
+                const activityMonitoringElement = document.getElementById('activityMonitoring');
+                if (activityMonitoringElement && sessionStorage.getItem('activityMonitoring') !== null) {
+                    activityMonitoringElement.checked = sessionStorage.getItem('activityMonitoring') === 'true';
                 }
                 
-                if (localStorage.getItem('loginAuditing') !== null) {
-                    document.getElementById('loginAuditing').checked = 
-                        localStorage.getItem('loginAuditing') === 'true';
+                const loginAuditingElement = document.getElementById('loginAuditing');
+                if (loginAuditingElement && sessionStorage.getItem('loginAuditing') !== null) {
+                    loginAuditingElement.checked = sessionStorage.getItem('loginAuditing') === 'true';
                 }
             }
         });
@@ -337,46 +345,177 @@ document.addEventListener('DOMContentLoaded', async function() {
         sections.forEach(sec => {
             if (sec === 'security' || sec === 'all') {
                 if (settings.security) {
-                    document.getElementById('require2FA').checked = settings.security.require2FA || false;
-                    document.getElementById('strongPasswords').checked = settings.security.strongPasswords || true;
-                    document.getElementById('session-timeout').value = settings.security.sessionTimeout || '30';
-                    document.getElementById('login-attempts').value = settings.security.loginAttempts || '5';
-                    document.getElementById('ipWhitelisting').checked = settings.security.ipWhitelisting || false;
+                    const require2FAElement = document.getElementById('require2FA');
+                    if (require2FAElement) require2FAElement.checked = settings.security.require2FA || false;
+                    
+                    const strongPasswordsElement = document.getElementById('strongPasswords');
+                    if (strongPasswordsElement) strongPasswordsElement.checked = settings.security.strongPasswords || true;
+                    
+                    const sessionTimeoutElement = document.getElementById('session-timeout');
+                    if (sessionTimeoutElement) sessionTimeoutElement.value = settings.security.sessionTimeout || '30';
+                    
+                    const loginAttemptsElement = document.getElementById('login-attempts');
+                    if (loginAttemptsElement) loginAttemptsElement.value = settings.security.loginAttempts || '5';
+                    
+                    const ipWhitelistingElement = document.getElementById('ipWhitelisting');
+                    if (ipWhitelistingElement) ipWhitelistingElement.checked = settings.security.ipWhitelisting || false;
                 }
             }
             
             if (sec === 'alerts' || sec === 'all') {
                 if (settings.alerts) {
-                    document.getElementById('emergencyAlerts').checked = settings.alerts.emergencyAlerts || true;
-                    document.getElementById('firUpdates').checked = settings.alerts.firUpdates || true;
-                    document.getElementById('officerActivities').checked = settings.alerts.officerActivities || false;
-                    document.getElementById('emailAlerts').checked = settings.alerts.emailAlerts || true;
-                    document.getElementById('smsAlerts').checked = settings.alerts.smsAlerts || false;
-                    document.getElementById('pushAlerts').checked = settings.alerts.pushAlerts || true;
+                    const emergencyAlertsElement = document.getElementById('emergencyAlerts');
+                    if (emergencyAlertsElement) emergencyAlertsElement.checked = settings.alerts.emergencyAlerts || true;
+                    
+                    const firUpdatesElement = document.getElementById('firUpdates');
+                    if (firUpdatesElement) firUpdatesElement.checked = settings.alerts.firUpdates || true;
+                    
+                    const officerActivitiesElement = document.getElementById('officerActivities');
+                    if (officerActivitiesElement) officerActivitiesElement.checked = settings.alerts.officerActivities || false;
+                    
+                    const emailAlertsElement = document.getElementById('emailAlerts');
+                    if (emailAlertsElement) emailAlertsElement.checked = settings.alerts.emailAlerts || true;
+                    
+                    const smsAlertsElement = document.getElementById('smsAlerts');
+                    if (smsAlertsElement) smsAlertsElement.checked = settings.alerts.smsAlerts || false;
+                    
+                    const pushAlertsElement = document.getElementById('pushAlerts');
+                    if (pushAlertsElement) pushAlertsElement.checked = settings.alerts.pushAlerts || true;
                 }
             }
             
             if (sec === 'system' || sec === 'all') {
                 if (settings.system) {
-                    document.getElementById('backup-frequency').value = settings.system.backupFrequency || 'weekly';
-                    document.getElementById('log-retention').value = settings.system.logRetention || '90';
-                    document.getElementById('autoUpdates').checked = settings.system.autoUpdates || true;
-                    document.getElementById('maintenance-window').value = settings.system.maintenanceWindow || '02:00-06:00';
+                    const backupFrequencyElement = document.getElementById('backup-frequency');
+                    if (backupFrequencyElement) backupFrequencyElement.value = settings.system.backupFrequency || 'weekly';
+                    
+                    const logRetentionElement = document.getElementById('log-retention');
+                    if (logRetentionElement) logRetentionElement.value = settings.system.logRetention || '90';
+                    
+                    const autoUpdatesElement = document.getElementById('autoUpdates');
+                    if (autoUpdatesElement) autoUpdatesElement.checked = settings.system.autoUpdates || true;
+                    
+                    const maintenanceWindowElement = document.getElementById('maintenance-window');
+                    if (maintenanceWindowElement) maintenanceWindowElement.value = settings.system.maintenanceWindow || '02:00-06:00';
                 }
             }
             
             if (sec === 'access' || sec === 'all') {
                 if (settings.access) {
-                    document.getElementById('admin-privileges').value = settings.access.adminPrivileges || 'standard';
-                    document.getElementById('exportPermissions').checked = settings.access.exportPermissions || true;
-                    document.getElementById('activityMonitoring').checked = settings.access.activityMonitoring || true;
-                    document.getElementById('loginAuditing').checked = settings.access.loginAuditing || true;
+                    const adminPrivilegesElement = document.getElementById('admin-privileges');
+                    if (adminPrivilegesElement) adminPrivilegesElement.value = settings.access.adminPrivileges || 'standard';
+                    
+                    const exportPermissionsElement = document.getElementById('exportPermissions');
+                    if (exportPermissionsElement) exportPermissionsElement.checked = settings.access.exportPermissions || true;
+                    
+                    const activityMonitoringElement = document.getElementById('activityMonitoring');
+                    if (activityMonitoringElement) activityMonitoringElement.checked = settings.access.activityMonitoring || true;
+                    
+                    const loginAuditingElement = document.getElementById('loginAuditing');
+                    if (loginAuditingElement) loginAuditingElement.checked = settings.access.loginAuditing || true;
                 }
             }
         });
     }
     
-    // Save settings to backend or localStorage
+    // Collect data from a section
+    function collectSectionData(section) {
+        const data = {};
+        
+        if (section === 'security') {
+            const require2FAElement = document.getElementById('require2FA');
+            const strongPasswordsElement = document.getElementById('strongPasswords');
+            const sessionTimeoutElement = document.getElementById('session-timeout');
+            const loginAttemptsElement = document.getElementById('login-attempts');
+            const ipWhitelistingElement = document.getElementById('ipWhitelisting');
+            
+            data.require2FA = require2FAElement ? require2FAElement.checked : false;
+            data.strongPasswords = strongPasswordsElement ? strongPasswordsElement.checked : true;
+            data.sessionTimeout = sessionTimeoutElement ? sessionTimeoutElement.value : '30';
+            data.loginAttempts = loginAttemptsElement ? loginAttemptsElement.value : '5';
+            data.ipWhitelisting = ipWhitelistingElement ? ipWhitelistingElement.checked : false;
+        }
+        
+        if (section === 'alerts') {
+            const emergencyAlertsElement = document.getElementById('emergencyAlerts');
+            const firUpdatesElement = document.getElementById('firUpdates');
+            const officerActivitiesElement = document.getElementById('officerActivities');
+            const emailAlertsElement = document.getElementById('emailAlerts');
+            const smsAlertsElement = document.getElementById('smsAlerts');
+            const pushAlertsElement = document.getElementById('pushAlerts');
+            
+            data.emergencyAlerts = emergencyAlertsElement ? emergencyAlertsElement.checked : true;
+            data.firUpdates = firUpdatesElement ? firUpdatesElement.checked : true;
+            data.officerActivities = officerActivitiesElement ? officerActivitiesElement.checked : false;
+            data.emailAlerts = emailAlertsElement ? emailAlertsElement.checked : true;
+            data.smsAlerts = smsAlertsElement ? smsAlertsElement.checked : false;
+            data.pushAlerts = pushAlertsElement ? pushAlertsElement.checked : true;
+        }
+        
+        if (section === 'system') {
+            const backupFrequencyElement = document.getElementById('backup-frequency');
+            const logRetentionElement = document.getElementById('log-retention');
+            const autoUpdatesElement = document.getElementById('autoUpdates');
+            const maintenanceWindowElement = document.getElementById('maintenance-window');
+            
+            data.backupFrequency = backupFrequencyElement ? backupFrequencyElement.value : 'weekly';
+            data.logRetention = logRetentionElement ? logRetentionElement.value : '90';
+            data.autoUpdates = autoUpdatesElement ? autoUpdatesElement.checked : true;
+            data.maintenanceWindow = maintenanceWindowElement ? maintenanceWindowElement.value : '02:00-06:00';
+        }
+        
+        if (section === 'access') {
+            const adminPrivilegesElement = document.getElementById('admin-privileges');
+            const exportPermissionsElement = document.getElementById('exportPermissions');
+            const activityMonitoringElement = document.getElementById('activityMonitoring');
+            const loginAuditingElement = document.getElementById('loginAuditing');
+            
+            data.adminPrivileges = adminPrivilegesElement ? adminPrivilegesElement.value : 'standard';
+            data.exportPermissions = exportPermissionsElement ? exportPermissionsElement.checked : true;
+            data.activityMonitoring = activityMonitoringElement ? activityMonitoringElement.checked : true;
+            data.loginAuditing = loginAuditingElement ? loginAuditingElement.checked : true;
+        }
+        
+        return data;
+    }
+    
+    // Save settings to sessionStorage
+    function saveToSessionStorage(section, data) {
+        if (section === 'security') {
+            sessionStorage.setItem('require2FA', data.require2FA);
+            sessionStorage.setItem('strongPasswords', data.strongPasswords);
+            sessionStorage.setItem('sessionTimeout', data.sessionTimeout);
+            sessionStorage.setItem('loginAttempts', data.loginAttempts);
+            sessionStorage.setItem('ipWhitelisting', data.ipWhitelisting);
+        }
+        
+        if (section === 'alerts') {
+            sessionStorage.setItem('emergencyAlerts', data.emergencyAlerts);
+            sessionStorage.setItem('firUpdates', data.firUpdates);
+            sessionStorage.setItem('officerActivities', data.officerActivities);
+            sessionStorage.setItem('emailAlerts', data.emailAlerts);
+            sessionStorage.setItem('smsAlerts', data.smsAlerts);
+            sessionStorage.setItem('pushAlerts', data.pushAlerts);
+        }
+        
+        if (section === 'system') {
+            sessionStorage.setItem('backupFrequency', data.backupFrequency);
+            sessionStorage.setItem('logRetention', data.logRetention);
+            sessionStorage.setItem('autoUpdates', data.autoUpdates);
+            sessionStorage.setItem('maintenanceWindow', data.maintenanceWindow);
+        }
+        
+        if (section === 'access') {
+            sessionStorage.setItem('adminPrivileges', data.adminPrivileges);
+            sessionStorage.setItem('exportPermissions', data.exportPermissions);
+            sessionStorage.setItem('activityMonitoring', data.activityMonitoring);
+            sessionStorage.setItem('loginAuditing', data.loginAuditing);
+        }
+        
+        console.log(`Settings for ${section} saved to sessionStorage`);
+    }
+    
+    // Save settings to backend or sessionStorage
     async function saveSettings(section) {
         const data = collectSectionData(section);
         
@@ -385,8 +524,8 @@ document.addEventListener('DOMContentLoaded', async function() {
             const apiAvailable = await testAPIConnection();
             
             if (!apiAvailable) {
-                console.warn('API not available, saving to localStorage only');
-                saveToLocalStorage(section, data);
+                console.warn('API not available, saving to sessionStorage only');
+                saveToSessionStorage(section, data);
                 return true;
             }
             
@@ -407,102 +546,91 @@ document.addEventListener('DOMContentLoaded', async function() {
             }
             
             if (response.ok) {
-                // Also save to localStorage as fallback
-                saveToLocalStorage(section, data);
-                return true;
+                const result = await response.json();
+                console.log('Settings saved to API:', result);
+                
+                if (result.success) {
+                    // Also save to sessionStorage as fallback
+                    saveToSessionStorage(section, data);
+                    return true;
+                } else {
+                    console.warn('API returned unsuccessful response:', result);
+                    saveToSessionStorage(section, data);
+                    return true;
+                }
             }
             
-            // If API endpoint doesn't exist, just save to localStorage
+            // If API endpoint doesn't exist, just save to sessionStorage
             if (response.status === 404) {
-                console.warn('Settings API endpoint not found, saving to localStorage only');
-                saveToLocalStorage(section, data);
+                console.warn('Settings API endpoint not found, saving to sessionStorage only');
+                saveToSessionStorage(section, data);
                 return true;
             }
             
+            const errorText = await response.text();
+            console.error('API returned error:', response.status, errorText);
             throw new Error('API returned error: ' + response.status);
             
         } catch (error) {
-            console.warn('API not available, saving to localStorage:', error);
-            // Fallback to localStorage
-            saveToLocalStorage(section, data);
+            console.warn('API not available, saving to sessionStorage:', error);
+            // Fallback to sessionStorage
+            saveToSessionStorage(section, data);
             return true;
         }
     }
     
-    // Collect data from a section
-    function collectSectionData(section) {
-        const data = {};
-        
-        if (section === 'security') {
-            data.require2FA = document.getElementById('require2FA').checked;
-            data.strongPasswords = document.getElementById('strongPasswords').checked;
-            data.sessionTimeout = document.getElementById('session-timeout').value;
-            data.loginAttempts = document.getElementById('login-attempts').value;
-            data.ipWhitelisting = document.getElementById('ipWhitelisting').checked;
-        }
-        
-        if (section === 'alerts') {
-            data.emergencyAlerts = document.getElementById('emergencyAlerts').checked;
-            data.firUpdates = document.getElementById('firUpdates').checked;
-            data.officerActivities = document.getElementById('officerActivities').checked;
-            data.emailAlerts = document.getElementById('emailAlerts').checked;
-            data.smsAlerts = document.getElementById('smsAlerts').checked;
-            data.pushAlerts = document.getElementById('pushAlerts').checked;
-        }
-        
-        if (section === 'system') {
-            data.backupFrequency = document.getElementById('backup-frequency').value;
-            data.logRetention = document.getElementById('log-retention').value;
-            data.autoUpdates = document.getElementById('autoUpdates').checked;
-            data.maintenanceWindow = document.getElementById('maintenance-window').value;
-        }
-        
-        if (section === 'access') {
-            data.adminPrivileges = document.getElementById('admin-privileges').value;
-            data.exportPermissions = document.getElementById('exportPermissions').checked;
-            data.activityMonitoring = document.getElementById('activityMonitoring').checked;
-            data.loginAuditing = document.getElementById('loginAuditing').checked;
-        }
-        
-        return data;
-    }
+    // Save button functionality
+    const saveButtons = {
+        security: document.getElementById('saveSecurity'),
+        alerts: document.getElementById('saveAlerts'),
+        system: document.getElementById('saveSystem'),
+        access: document.getElementById('saveAccess')
+    };
     
-    // Save settings to localStorage
-    function saveToLocalStorage(section, data) {
-        if (section === 'security') {
-            localStorage.setItem('require2FA', data.require2FA);
-            localStorage.setItem('strongPasswords', data.strongPasswords);
-            localStorage.setItem('sessionTimeout', data.sessionTimeout);
-            localStorage.setItem('loginAttempts', data.loginAttempts);
-            localStorage.setItem('ipWhitelisting', data.ipWhitelisting);
+    Object.keys(saveButtons).forEach(section => {
+        if (saveButtons[section]) {
+            saveButtons[section].addEventListener('click', function() {
+                // Show loading state
+                const originalText = this.innerHTML;
+                this.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
+                this.disabled = true;
+                
+                saveSettings(section).then(success => {
+                    // Restore button state
+                    this.innerHTML = originalText;
+                    this.disabled = false;
+                    
+                    if (success) {
+                        alert(`${section.charAt(0).toUpperCase() + section.slice(1)} settings saved successfully!`);
+                    }
+                }).catch(error => {
+                    // Restore button state on error
+                    this.innerHTML = originalText;
+                    this.disabled = false;
+                    console.error('Error saving settings:', error);
+                    alert('Error saving settings. Please try again.');
+                });
+            });
         }
-        
-        if (section === 'alerts') {
-            localStorage.setItem('emergencyAlerts', data.emergencyAlerts);
-            localStorage.setItem('firUpdates', data.firUpdates);
-            localStorage.setItem('officerActivities', data.officerActivities);
-            localStorage.setItem('emailAlerts', data.emailAlerts);
-            localStorage.setItem('smsAlerts', data.smsAlerts);
-            localStorage.setItem('pushAlerts', data.pushAlerts);
+    });
+    
+    // Cancel button functionality
+    const cancelButtons = {
+        security: document.getElementById('cancelSecurity'),
+        alerts: document.getElementById('cancelAlerts'),
+        system: document.getElementById('cancelSystem'),
+        access: document.getElementById('cancelAccess')
+    };
+    
+    Object.keys(cancelButtons).forEach(section => {
+        if (cancelButtons[section]) {
+            cancelButtons[section].addEventListener('click', function() {
+                loadSettings(section);
+                alert('Changes discarded');
+            });
         }
-        
-        if (section === 'system') {
-            localStorage.setItem('backupFrequency', data.backupFrequency);
-            localStorage.setItem('logRetention', data.logRetention);
-            localStorage.setItem('autoUpdates', data.autoUpdates);
-            localStorage.setItem('maintenanceWindow', data.maintenanceWindow);
-        }
-        
-        if (section === 'access') {
-            localStorage.setItem('adminPrivileges', data.adminPrivileges);
-            localStorage.setItem('exportPermissions', data.exportPermissions);
-            localStorage.setItem('activityMonitoring', data.activityMonitoring);
-            localStorage.setItem('loginAuditing', data.loginAuditing);
-        }
-        
-        console.log(`Settings for ${section} saved to localStorage`);
-    }
+    });
     
     // Load settings when page loads
-    loadSettings('all');
+    await loadSettings('all');
 });

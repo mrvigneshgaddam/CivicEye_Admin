@@ -1,4 +1,3 @@
-// Backend/server.js
 require('dotenv').config();
 const express = require('express');
 const mongoose = require('mongoose');
@@ -10,8 +9,6 @@ const rateLimit = require('express-rate-limit');
 const hpp = require('hpp');
 const mongoSanitize = require('express-mongo-sanitize');
 const cookieParser = require('cookie-parser');
-
-
 
 // DB bootstrap
 const { connectDB, initializeFirebase } = require('./config/db');
@@ -69,19 +66,30 @@ app.disable('x-powered-by');
 /* ------------------------ Rate limiting ------------------------ */
 const skipOptions = req => req.method === 'OPTIONS';
 const generalLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, max: 1000, skip: skipOptions,
+  windowMs: 15 * 60 * 1000, 
+  max: 1000, 
+  skip: skipOptions,
   message: { error: 'Too many requests, please try again later.' },
-  standardHeaders: true, legacyHeaders: false
+  standardHeaders: true, 
+  legacyHeaders: false
 });
+
 const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, max: 1000, skip: skipOptions,
+  windowMs: 15 * 60 * 1000, 
+  max: 100, // Reduced for auth endpoints
+  skip: skipOptions,
   message: { error: 'Too many authentication attempts, please try again later.' },
-  standardHeaders: true, legacyHeaders: false
+  standardHeaders: true, 
+  legacyHeaders: false
 });
+
 const dashboardLimiter = rateLimit({
-  windowMs: 60 * 1000, max: 60, skip: skipOptions,
+  windowMs: 60 * 1000, 
+  max: 60, 
+  skip: skipOptions,
   message: { error: 'Too many dashboard requests.' },
-  standardHeaders: true, legacyHeaders: false
+  standardHeaders: true, 
+  legacyHeaders: false
 });
 
 app.use('/api', generalLimiter);
@@ -98,24 +106,40 @@ const mongoUri = process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/civiceye';
 initializeFirebase();
 connectDB();
 
+/* ------------------------ Logging Middleware ------------------- */
+app.use((req, res, next) => {
+    console.log(`${req.method} ${req.path} - ${new Date().toISOString()}`);
+    next();
+});
+
 /* ---------------------------- Routes --------------------------- */
-// Routes
-const authRoutes = require('./routes/authRoutes');
-const chatRoutes = require('./routes/chatRoutes');
-const dashboardRoutes = require('./routes/dashboardRoutes');
-const emergencyRoutes = require('./routes/emergencyRoutes');
-const firRoutes = require('./routes/firRoutes');
-const officerRoutes = require('./routes/officerRoutes');
-const profileRoutes = require('./routes/profileRoutes');
-const settingsRoutes = require('./routes/settingsRoutes');
-app.use('/api/auth', authRoutes);
-app.use('/api/chat', chatRoutes);
-app.use('/api/dashboard', dashboardRoutes);
-app.use('/api/emergency', emergencyRoutes);
-app.use('/api/fir', firRoutes);          // <-- FIR endpoints live here
-app.use('/api/officers', officerRoutes);
-app.use('/api/profile', profileRoutes);
-app.use('/api/settings', settingsRoutes);
+// Import routes with error handling
+try {
+  const authRoutes = require('./routes/authRoutes');
+  const chatRoutes = require('./routes/chatRoutes');
+  const dashboardRoutes = require('./routes/dashboardRoutes');
+  const emergencyRoutes = require('./routes/emergencyRoutes');
+  const firRoutes = require('./routes/firRoutes');
+  const officerRoutes = require('./routes/officerRoutes');
+  const profileRoutes = require('./routes/profileRoutes');
+  const settingRoutes = require('./routes/settingRoutes');
+
+  // Mount routes
+  app.use('/api/auth', authRoutes);
+  app.use('/api/chat', chatRoutes);
+  app.use('/api/dashboard', dashboardRoutes);
+  app.use('/api/emergency', emergencyRoutes);
+  app.use('/api/fir', firRoutes);
+  app.use('/api/officers', officerRoutes);
+  app.use('/api/profile', profileRoutes);
+  app.use('/api/settings', settingRoutes); // Fixed: was 'api/health' should be '/api/settings'
+  
+  console.log('✅ All routes loaded successfully');
+} catch (error) {
+  console.error('❌ Error loading routes:', error.message);
+  console.error('Stack:', error.stack);
+  process.exit(1);
+}
 
 /* -------------------------- Static files ----------------------- */
 app.use(express.static(path.join(__dirname, 'public')));
@@ -148,15 +172,24 @@ app.get('/api', (req, res) => {
       fir: '/api/fir',
       officers: '/api/officers',
       profile: '/api/profile',
+      settings: '/api/settings',
       health: '/api/health'
     }
   });
 });
-app.get('/api/fir/ping',(req,res) => res.json({ ok:true}));
+
+// Test endpoint
+app.get('/api/fir/ping', (req, res) => {
+  res.json({ ok: true, message: 'FIR API is working' });
+});
+
 /* -------------------------- SPA fallback ----------------------- */
 app.get('*', (req, res, next) => {
+  // If the request is for API, skip
   if (req.path.startsWith('/api/')) return next();
-  res.sendFile(path.join(__dirname, '../FrontEnd/index.html'));
+
+  // Send your main frontend file
+  res.sendFile(path.join(__dirname, '../index.html'));
 });
 
 /* ------------------------- 404 for /api ------------------------ */
@@ -165,7 +198,18 @@ app.use('/api/*', (req, res) => {
     success: false,
     error: 'API endpoint not found',
     path: req.originalUrl,
-    message: 'The requested API endpoint does not exist'
+    message: 'The requested API endpoint does not exist',
+    availableEndpoints: [
+      '/api/auth',
+      '/api/chat', 
+      '/api/dashboard',
+      '/api/emergency',
+      '/api/fir',
+      '/api/officers',
+      '/api/profile',
+      '/api/settings',
+      '/api/health'
+    ]
   });
 });
 
@@ -191,14 +235,28 @@ app.use((err, req, res, next) => {
   }
 
   if (err.name === 'JsonWebTokenError') {
-    return res.status(401).json({ success: false, error: 'Invalid token', message: 'Please provide a valid authentication token' });
+    return res.status(401).json({ 
+      success: false, 
+      error: 'Invalid token', 
+      message: 'Please provide a valid authentication token' 
+    });
   }
+  
   if (err.name === 'TokenExpiredError') {
-    return res.status(401).json({ success: false, error: 'Token expired', message: 'Your session has expired. Please login again.' });
+    return res.status(401).json({ 
+      success: false, 
+      error: 'Token expired', 
+      message: 'Your session has expired. Please login again.' 
+    });
   }
+  
   if (err.code === 11000) {
     const field = Object.keys(err.keyValue)[0];
-    return res.status(409).json({ success: false, error: 'Duplicate entry', message: `${field} already exists `});
+    return res.status(409).json({ 
+      success: false, 
+      error: 'Duplicate entry', 
+      message: `${field} already exists` 
+    });
   }
 
   const statusCode = err.status || 500;
@@ -214,18 +272,20 @@ const PORT = process.env.PORT || 5000;
 
 server.on('error', (error) => {
   if (error.code === 'EADDRINUSE') {
-    console.error('Port ' + PORT + ' is already in use');
+    console.error(`❌ Port ${PORT} is already in use`);
     process.exit(1);
   } else {
-    console.error('Server error:', error);
+    console.error('❌ Server error:', error);
   }
 });
 
 server.listen(PORT, '0.0.0.0', () => {
-  console.log('CivicEye Server Started');
-  console.log('Local:   http://localhost:' + PORT);
-  console.log('Health:  http://localhost:' + PORT + '/api/health');
-  console.log('FIR API: http://localhost:' + PORT + '/api/fir');
-  console.log('Env:     ' + (process.env.NODE_ENV || 'development'));
-  console.log('DB:      ' + (mongoUri.includes('localhost') ? 'Local MongoDB' : 'Remote MongoDB'));
+  console.log('🚀 CivicEye Server Started');
+  console.log(`📍 Local:   http://localhost:${PORT}`);
+  console.log(`❤️  Health:  http://localhost:${PORT}/api/health`);
+  console.log(`📋 FIR API: http://localhost:${PORT}/api/fir`);
+  console.log(`⚙️  Settings: http://localhost:${PORT}/api/settings`);
+  console.log(`🌍 Env:     ${process.env.NODE_ENV || 'development'}`);
+  console.log(`🗄️  DB:      ${mongoUri.includes('localhost') ? 'Local MongoDB' : 'Remote MongoDB'}`);
+  console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
 });
