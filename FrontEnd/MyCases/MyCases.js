@@ -85,8 +85,33 @@ async function loadCases(search = '') {
     const res = await fetch(url, { headers, credentials: 'include' });
     const payload = await res.json();
     if (!res.ok || !payload.success) throw new Error(payload.message || `HTTP ${res.status}`);
+    const allFetchedCases = Array.isArray(payload.data) ? payload.data : [];
 
-    allCases = Array.isArray(payload.data) ? payload.data : [];
+// ✅ Get logged-in officer info from sessionStorage
+let officerId = null;
+try {
+  const userData = sessionStorage.getItem("user");
+  if (userData) {
+    const user = JSON.parse(userData);
+    officerId = user.officerId || user.badgeId || null; // try officerId first, else badgeId
+    name = user.name || 'Officer';
+    console.log("Logged in officer details:", user);
+  }
+} catch (err) {
+  console.error("Error reading sessionStorage user:", err);
+}
+
+// ✅ Filter only cases for this officer
+if (officerId || name) {
+  allCases = allFetchedCases.filter(item => item.assignedOfficerId === officerId || item.assignedOfficer === name);
+} else {
+  console.warn("No officerId/badgeId found, showing no cases");
+  allCases = [];
+}
+
+filtered = [...allCases];
+currentPage = 1;
+
     filtered = [...allCases];
     currentPage = 1;
     

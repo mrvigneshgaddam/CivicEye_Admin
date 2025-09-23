@@ -114,6 +114,7 @@ router.put('/:id/assign', async (req, res) => {
 
     report.assignedOfficer = officer.name;
     report.assignedOfficerId = officer.officerId;
+    report.status = 'Officer Assigned';
     await report.save();
 
     // Add report to new officer's list
@@ -144,3 +145,5 @@ router.delete('/:id', async (req, res) => {
 });
 
 module.exports = router;
+
+
