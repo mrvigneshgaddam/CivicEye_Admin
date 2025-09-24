@@ -122,7 +122,7 @@ try {
   const firRoutes = require('./routes/firRoutes');
   const officerRoutes = require('./routes/officerRoutes');
   const profileRoutes = require('./routes/profileRoutes');
-  const settingRoutes = require('./routes/settingRoutes');
+  const settingsRoutes = require('./routes/settingsRoutes');
 
   // Mount routes
   app.use('/api/auth', authRoutes);
@@ -132,7 +132,7 @@ try {
   app.use('/api/fir', firRoutes);
   app.use('/api/officers', officerRoutes);
   app.use('/api/profile', profileRoutes);
-  app.use('/api/settings', settingRoutes); // Fixed: was 'api/health' should be '/api/settings'
+  app.use('/api/settings', settingsRoutes); // Fixed: was 'api/health' should be '/api/settings'
   
   console.log('✅ All routes loaded successfully');
 } catch (error) {
