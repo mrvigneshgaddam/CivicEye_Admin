@@ -16,7 +16,9 @@ const PoliceSchema = new mongoose.Schema({
   policeStation: { type: String, trim: true },
   password: { type: String, required: true, select: false }, // select:false -> must use .select('+password')
   isAdmin: { type: Boolean, default: false },
-  isActive: { type: Boolean, default: true } // for account activation/deactivation
+  isActive: { type: Boolean, default: true },// for account activation/deactivation
+  firebaseUid: { type: String, unique: true, sparse: true }, // Added for Firebase integration
+  profilePic: { type: String, default: '' } // Added for profile pictures
 }, { 
   timestamps: true,
   collection: 'polices' // specify collection name
