@@ -158,10 +158,10 @@ function renderTable() {
     tr.innerHTML = `
       <td>${safe(c.reportId || c._id)}</td>
       <td>${safe(c.title || c.complaint)}</td>
-      <td>${safe(c.incidentType)}</td>
+      <td>${safe(c.crimeType)}</td>
       <td>${safe(c.location)}</td>
       <td>${formatDateTime(c.assignedDate || c.createdAt)}</td>
-      <td><span class="status-badge status-${String(c.status || 'pending').toLowerCase().replace(' ', '_')}">${safe(c.status)}</span></td>
+      <td><span${String(c.status || 'pending').toLowerCase().replace(/\s+/g, '_')}">${safe(c.status || 'pending')}</span></td>
       <td>${safe(c.priority || 'Medium')}</td>
       <td>
         <div class="action-buttons">
@@ -170,6 +170,7 @@ function renderTable() {
           <button class="btn-icon small delete-btn" data-id="${c._id}"><i class="fas fa-trash"></i></button>
         </div>
       </td>`;
+      console.log("status value:", c.status, "after safe:", safe(c.status));
     tbody.appendChild(tr);
   }
 
@@ -226,6 +227,7 @@ function applyFilter(term) {
 /* ==================== ACTIONS ==================== */
 function viewCase(id) {
   const item = allCases.find(c => String(c._id) === String(id));
+  
   if (!item) return;
   const modal = $('#caseModal');
   const body = $('#caseDetailsContent');
@@ -235,9 +237,9 @@ function viewCase(id) {
     <h3>Case Details</h3>
     <p><strong>Case ID:</strong> ${safe(item.reportId)}</p>
     <p><strong>Title:</strong> ${safe(item.title || item.complaint)}</p>
-    <p><strong>Type:</strong> ${safe(item.incidentType)}</p>
+    <p><strong>Type:</strong> ${safe(item.crimeType)}</p>
     <p><strong>Location:</strong> ${safe(item.location)}</p>
-    <p><strong>Status:</strong> ${safe(item.status)}</p>
+    <p><strong>Status:</strong> ${safe(item.status )}</p>
     <p><strong>Priority:</strong> ${safe(item.priority)}</p>
     <p><strong>Description:</strong> ${safe(item.description)}</p>
     <p><strong>Assigned Date:</strong> ${formatDateTime(item.assignedDate || item.createdAt)}</p>
