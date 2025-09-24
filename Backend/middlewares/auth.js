@@ -49,6 +49,7 @@ const auth = async (req, res, next) => {
 
     // Attach user to request object
     req.user = user;
+    req.policeId = user._id.toString();
     next();
   } catch (error) {
     console.error('Auth middleware error:', error);
