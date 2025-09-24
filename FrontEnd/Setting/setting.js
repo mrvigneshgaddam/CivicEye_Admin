@@ -1,4 +1,3 @@
-// FrontEnd/Setting/setting.js
 document.addEventListener('DOMContentLoaded', async function() {
     const API_BASE_URL = 'http://localhost:5000/api';
     
@@ -9,100 +8,55 @@ document.addEventListener('DOMContentLoaded', async function() {
     console.log('Current User:', currentUser);
 
     // ✅ Enhanced authentication with backend validation
-    // async function isAuthenticated() {
-    //     const token = sessionStorage.getItem('authToken');
+    async function isAuthenticated() {
+        const token = sessionStorage.getItem('authToken');
 
-    //     if (!token || token === 'null' || token === 'undefined') {
-    //         return false;
-    //     }
+        if (!token || token === 'null' || token === 'undefined') {
+            return false;
+        }
 
-    //     // Basic JWT format check
-    //     const tokenParts = token.split('.');
-    //     if (tokenParts.length !== 3) {
-    //         return false;
-    //     }
+        // Basic JWT format check
+        const tokenParts = token.split('.');
+        if (tokenParts.length !== 3) {
+            return false;
+        }
 
-    //     try {
-    //         const res = await fetch(`${API_BASE_URL}/auth/me`, {
-    //             headers: {
-    //                 "Authorization": `Bearer ${token}`,
-    //                 "Content-Type": "application/json"
-    //             }
-    //         });
+        try {
+            const res = await fetch(`${API_BASE_URL}/auth/me`, {
+                headers: {
+                    "Authorization": `Bearer ${token}`,
+                    "Content-Type": "application/json"
+                }
+            });
 
-    //         if (!res.ok) {
-    //             console.warn("Token invalid or expired");
-    //             sessionStorage.removeItem("authToken");
-    //             sessionStorage.removeItem("currentUser");
-    //             return false;
-    //         }
-
-    //         const data = await res.json();
-
-    //         if (data.success && data.police) {
-    //             sessionStorage.setItem("currentUser", JSON.stringify(data.police));
-    //             currentUser = data.police;
-    //             return true;
-    //         } else {
-    //             console.warn("User data missing, clearing token");
-    //             sessionStorage.removeItem("authToken");
-    //             sessionStorage.removeItem("currentUser");
-    //             return false;
-    //         }
-    //     } catch (err) {
-    //         console.error("Auth check failed:", err);
-    //         return false;
-    //     }
-    // }
-async function isAuthenticated() {
-    const token = sessionStorage.getItem('authToken');
-
-    if (!token || token === 'null' || token === 'undefined') {
-        return false;
-    }
-
-    // Basic JWT format check
-    const tokenParts = token.split('.');
-    if (tokenParts.length !== 3) {
-        return false;
-    }
-
-    try {
-        const res = await fetch(`${API_BASE_URL}/auth/me`, {
-            headers: {
-                "Authorization": `Bearer ${token}`,
-                "Content-Type": "application/json"
+            if (!res.ok) {
+                console.warn("Token invalid or expired");
+                sessionStorage.removeItem("authToken");
+                sessionStorage.removeItem("currentUser");
+                return false;
             }
-        });
 
-        if (!res.ok) {
-            console.warn("Token invalid or expired");
-            sessionStorage.removeItem("authToken");
-            sessionStorage.removeItem("currentUser");
+            const data = await res.json();
+            console.log('Auth /me response:', data);   // <— helps debugging
+
+            // ✅ Accept data.police OR data.user OR data.currentUser, etc.
+            const userData = data.police || data.user || data.currentUser || data;
+
+            if (data.success && userData) {
+                sessionStorage.setItem("currentUser", JSON.stringify(userData));
+                currentUser = userData;
+                return true;
+            } else {
+                console.warn("User data missing, clearing token");
+                sessionStorage.removeItem("authToken");
+                sessionStorage.removeItem("currentUser");
+                return false;
+            }
+        } catch (err) {
+            console.error("Auth check failed:", err);
             return false;
         }
-
-        const data = await res.json();
-        console.log('Auth /me response:', data);   // <— helps debugging
-
-        // ✅ Accept data.police OR data.user OR data.currentUser, etc.
-        const userData = data.police || data.user || data.currentUser || data;
-
-        if (data.success && userData) {
-            sessionStorage.setItem("currentUser", JSON.stringify(userData));
-            currentUser = userData;
-            return true;
-        } else {
-            console.warn("User data missing, clearing token");
-            sessionStorage.removeItem("authToken");
-            sessionStorage.removeItem("currentUser");
-            return false;
-        }
-    } catch (err) {
-        console.error("Auth check failed:", err);
-        return false;
     }
-}
 
     // ✅ Run authentication check on page load
     const loggedIn = await isAuthenticated();
