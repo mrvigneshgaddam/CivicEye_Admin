@@ -9,9 +9,10 @@ const rateLimit = require('express-rate-limit');
 const hpp = require('hpp');
 const mongoSanitize = require('express-mongo-sanitize');
 const cookieParser = require('cookie-parser');
+const admin = require('./config/firebase'); 
 
 // DB bootstrap
-const { connectDB, initializeFirebase } = require('./config/db');
+const { connectDB } = require('./config/db');
 
 const app = express();
 const server = http.createServer(app);
@@ -103,7 +104,7 @@ app.use(cookieParser());
 
 /* ----------------------- DB connections ------------------------ */
 const mongoUri = process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/civiceye';
-initializeFirebase();
+// initializeFirebase();
 connectDB();
 
 /* ------------------------ Logging Middleware ------------------- */
@@ -289,3 +290,5 @@ server.listen(PORT, '0.0.0.0', () => {
   console.log(`🗄️  DB:      ${mongoUri.includes('localhost') ? 'Local MongoDB' : 'Remote MongoDB'}`);
   console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
 });
+
+module.exports = admin;

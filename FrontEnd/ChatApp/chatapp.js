@@ -1,7 +1,12 @@
-// chatapp.js - Complete WhatsApp-style chat with MongoDB user data + Firebase chat/presence
+// chatapp.js - Fixed WhatsApp-style chat with MongoDB user data + Firebase chat/presence
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
-import { getAuth, onAuthStateChanged, signInAnonymously, signOut } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
+import { 
+  getAuth, 
+  onAuthStateChanged, 
+  signInWithCustomToken, 
+  signOut 
+} from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
 import { 
   getFirestore,
   doc, updateDoc, setDoc, serverTimestamp,
@@ -40,14 +45,12 @@ const state = {
 
 let currentVerificationData = null;
 
-function showError(msg) {
-  alert(msg);
-}
+// ==================== IMPROVED SESSION STORAGE UTILITIES ====================
 
-// Session Storage Utilities
 function getSessionData(key) {
   try {
     const data = sessionStorage.getItem(key);
+    console.log(`🔍 SessionStorage get ${key}:`, data ? 'Exists' : 'Null');
     return data ? JSON.parse(data) : null;
   } catch (error) {
     console.error('Error getting session data:', error);
@@ -58,32 +61,176 @@ function getSessionData(key) {
 function setSessionData(key, value) {
   try {
     sessionStorage.setItem(key, JSON.stringify(value));
+    console.log(`💾 SessionStorage set ${key}:`, value ? 'Success' : 'Null');
   } catch (error) {
     console.error('Error setting session data:', error);
   }
 }
 
+// ==================== IMPROVED AUTHENTICATION HELPER FUNCTIONS ====================
+
+async function getJWTToken() {
+  try {
+    const token = sessionStorage.getItem('token') || 
+                  sessionStorage.getItem('jwtToken') || 
+                  sessionStorage.getItem('authToken');
+    
+    console.log('🔑 JWT Token retrieval:', token ? 'Found' : 'Not found');
+    return token;
+  } catch (error) {
+    console.error('Error getting JWT token:', error);
+    return null;
+  }
+}
+
+async function getCurrentUserData() {
+  try {
+    // Comprehensive user data retrieval from multiple possible keys
+    let userData = getSessionData('user') || 
+                   getSessionData('currentUser') || 
+                   getSessionData('userData');
+    
+    if (!userData) {
+      // Try to parse from sessionStorage directly with different keys
+      const userString = sessionStorage.getItem('user') || 
+                         sessionStorage.getItem('currentUser') ||
+                         sessionStorage.getItem('userData');
+      if (userString) {
+        try {
+          userData = JSON.parse(userString);
+        } catch (e) {
+          console.warn('Failed to parse user data from sessionStorage');
+        }
+      }
+    }
+    
+    if (userData) {
+      console.log('✅ User data loaded successfully:', {
+        id: userData.id || userData._id,
+        name: userData.name,
+        email: userData.email,
+        firebaseUid: userData.firebaseUid
+      });
+    } else {
+      console.warn('⚠️ No user data found in sessionStorage');
+    }
+    
+    return userData;
+  } catch (error) {
+    console.error('Error getting current user data:', error);
+    return null;
+  }
+}
+
+async function ensureFirebaseAuth() {
+  try {
+    if (auth.currentUser) {
+      console.log('✅ Firebase user already authenticated');
+      return auth.currentUser;
+    }
+
+    const token = await getJWTToken();
+    const userData = await getCurrentUserData();
+
+    console.log('🔄 Firebase auth check:', {
+      hasToken: !!token,
+      hasUserData: !!userData,
+      userData: userData
+    });
+
+    if (!token || !userData) {
+      console.warn('❌ No JWT token or user data found');
+      return null;
+    }
+
+    const res = await fetch(`${BACKEND_URL}/api/auth/get-firebase-token`, {
+      method: 'POST',
+      headers: { 
+        'Content-Type': 'application/json', 
+        'Authorization': `Bearer ${token}` 
+      },
+      body: JSON.stringify({ 
+        email: userData.email,
+        firebaseUid: userData.firebaseUid 
+      })
+    });
+
+    if (!res.ok) {
+      throw new Error(`HTTP error! status: ${res.status}`);
+    }
+
+    const data = await res.json();
+    console.log('🔑 Firebase token response:', data);
+
+    if (!data.success || !data.firebaseToken) {
+      throw new Error('Failed to get Firebase token from server');
+    }
+
+    const userCredential = await signInWithCustomToken(auth, data.firebaseToken);
+    console.log('✅ Firebase auth successful:', userCredential.user.uid);
+    return userCredential.user;
+
+  } catch (error) {
+    console.error('❌ Firebase auth error:', error);
+    return null;
+  }
+}
+
+async function initializeChatWithFirebase() {
+  try {
+    console.log('🔄 Starting Firebase authentication...');
+    
+    const firebaseUser = await ensureFirebaseAuth();
+    
+    if (firebaseUser) {
+      state.user = firebaseUser;
+      console.log('✅ Firebase chat initialized successfully');
+      return true;
+    } else {
+      console.warn('⚠️ Firebase auth failed, continuing with limited functionality');
+      return false;
+    }
+  } catch (error) {
+    console.error('❌ Firebase chat initialization failed:', error);
+    return false;
+  }
+}
+
+// ==================== STORAGE UTILITIES ====================
+
 function storePrivateKey(uid, privateKey) {
-  setSessionData(`priv-${uid}`, privateKey);
+  try {
+    localStorage.setItem(`priv-${uid}`, privateKey);
+    console.log(`💾 Private key stored in localStorage for ${uid}`);
+  } catch (error) {
+    console.error('Error storing private key:', error);
+  }
 }
 
 function getPrivateKey(uid) {
-  return getSessionData(`priv-${uid}`);
+  const key = localStorage.getItem(`priv-${uid}`);
+  console.log(`🔑 Private key retrieval for ${uid}:`, key ? 'Found' : 'Not found');
+  return key;
 }
+
 function storeCurrentUserInfo(userInfo) {
+  if (!userInfo) return;
+  
   const data = {
-    uid: userInfo.firebaseUid || userInfo.uid,   // Firebase UID
-    mongoId: userInfo._id || userInfo.mongoId,   // MongoDB _id
-    name: userInfo.name,
+    uid: userInfo.firebaseUid || userInfo.uid,
+    mongoId: userInfo._id || userInfo.id || userInfo.mongoId,
+    name: userInfo.name || 'Anonymous User',
+    email: userInfo.email,
     profilePic: userInfo.profilePic || ''
   };
-  setSessionData("currentUser", data);  // ✅ consistent
+  setSessionData("currentUser", data);
+  console.log('💾 Current user info stored in sessionStorage:', data);
 }
 
-
-
 function getCurrentUserInfo() {
-  return getSessionData('currentUser');
+  const userInfo = getSessionData('currentUser');
+  console.log('👤 Current user info retrieved from sessionStorage:', userInfo);
+  return userInfo;
 }
 
 function addVerifiedPartner(partnerId) {
@@ -94,22 +241,41 @@ function addVerifiedPartner(partnerId) {
   }
 }
 
-// Crypto Utilities
+// ==================== FIXED CRYPTO UTILITIES ====================
+
 async function generateKeys() {
   return crypto.subtle.generateKey(
-    { name: "RSA-OAEP", modulusLength: 2048, publicExponent: new Uint8Array([1, 0, 1]), hash: "SHA-256" },
+    { name: "RSA-OAEP", modulusLength: 2048, publicExponent: new Uint8Array([1,0,1]), hash: "SHA-256" },
     true,
-    ["encrypt", "decrypt"]
+    ["encrypt","decrypt"]
   );
 }
 
 async function exportKey(key) {
-  return btoa(String.fromCharCode(...new Uint8Array(await crypto.subtle.exportKey("spki", key))));
+  const spki = await crypto.subtle.exportKey("spki", key);
+  return btoa(String.fromCharCode(...new Uint8Array(spki)));
 }
 
-async function importPublicKey(spki) {
-  const bin = Uint8Array.from(atob(spki), c => c.charCodeAt(0));
-  return crypto.subtle.importKey("spki", bin.buffer, { name: "RSA-OAEP", hash: "SHA-256" }, true, ["encrypt"]);
+async function importPublicKey(base64OrPem) {
+  try {
+    // Strip PEM headers if present
+    let clean = base64OrPem
+      .replace(/-----BEGIN PUBLIC KEY-----/g, '')
+      .replace(/-----END PUBLIC KEY-----/g, '')
+      .replace(/\s+/g, ''); // remove all whitespace
+
+    const binary = Uint8Array.from(atob(clean), c => c.charCodeAt(0));
+    return await crypto.subtle.importKey(
+      "spki",
+      binary.buffer,
+      { name: "RSA-OAEP", hash: "SHA-256" },
+      true,
+      ["encrypt"]
+    );
+  } catch (error) {
+    console.error("Error importing public key:", error);
+    throw error;
+  }
 }
 
 async function encryptMessage(pubKey, text) {
@@ -118,193 +284,253 @@ async function encryptMessage(pubKey, text) {
   return btoa(String.fromCharCode(...new Uint8Array(buf)));
 }
 
+// FIXED DECRYPTION FUNCTION WITH PROPER ERROR HANDLING
 async function decryptMessage(privKey, b64) {
-  const bin = Uint8Array.from(atob(b64), c => c.charCodeAt(0));
-  const dec = await crypto.subtle.decrypt({ name: "RSA-OAEP" }, privKey, bin);
-  return new TextDecoder().decode(dec);
+  try {
+    if (!b64 || !privKey) {
+      throw new Error('Missing decryption data');
+    }
+    
+    const bin = Uint8Array.from(atob(b64), c => c.charCodeAt(0));
+    const dec = await crypto.subtle.decrypt({ name: "RSA-OAEP" }, privKey, bin);
+    return new TextDecoder().decode(dec);
+  } catch (error) {
+    console.error("Decryption error:", error);
+    throw error;
+  }
+}
+
+// SAFE DECRYPTION WITH FALLBACK
+async function decryptMessageSafe(encryptedData, messageId) {
+  if (!encryptedData) {
+    return '[Empty message]';
+  }
+
+  if (!state.userKeys || !state.userKeys.privateKey) {
+    return '[Waiting for decryption keys...]';
+  }
+
+  try {
+    const decrypted = await decryptMessage(state.userKeys.privateKey, encryptedData);
+    console.log(`✅ Message ${messageId} decrypted successfully`);
+    return decrypted;
+  } catch (error) {
+    console.warn(`⚠️ Decryption failed for message ${messageId}:`, error.name);
+    
+    // Return user-friendly message instead of throwing error
+    if (error.name === 'OperationError') {
+      return '[Encrypted message - key mismatch]';
+    }
+    
+    return '[Encrypted message - decryption error]';
+  }
 }
 
 async function generateFingerprint(publicKeyBase64) {
   try {
-    const publicKey = await importPublicKey(publicKeyBase64);
-    const spkiBuffer = await crypto.subtle.exportKey("spki", publicKey);
-    const spkiBytes = new Uint8Array(spkiBuffer);
-    const hashBuffer = await crypto.subtle.digest('SHA-256', spkiBytes);
+    const key = await importPublicKey(publicKeyBase64);
+    const spkiBuffer = await crypto.subtle.exportKey("spki", key);
+    const hashBuffer = await crypto.subtle.digest("SHA-256", spkiBuffer);
+
+    // Convert hash to spaced hex
     const hashArray = Array.from(new Uint8Array(hashBuffer));
-    const hexString = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-    
-    let formattedFingerprint = '';
-    for (let i = 0; i < hexString.length; i += 4) {
-      if (i > 0) formattedFingerprint += ' ';
-      formattedFingerprint += hexString.substring(i, i + 4);
-    }
-    
-    return formattedFingerprint.toUpperCase();
+    const hex = hashArray.map(b => b.toString(16).padStart(2, "0")).join("");
+    const formatted = hex.match(/.{1,4}/g).join(" "); // group 4 chars
+    return formatted.toUpperCase();
   } catch (error) {
     console.error("Error generating fingerprint:", error);
-    return "Error generating fingerprint";
+    return "ERROR";
   }
 }
 
 function compareFingerprints() {
   const enteredFingerprint = $("#compare-fingerprint").value.trim().toUpperCase();
-  const actualFingerprint = currentVerificationData.fingerprint;
+  const actualPartnerFingerprint = currentVerificationData.partnerFingerprint;
   const resultElement = $("#comparison-result");
   
   if (!enteredFingerprint) {
-    resultElement.innerHTML = "<p class='verification-warning'>Please enter a fingerprint to compare</p>";
+    resultElement.innerHTML = "<p class='verification-warning'>Please enter fingerprint</p>";
     return;
   }
   
   const normalizedEntered = enteredFingerprint.replace(/\s/g, '').toUpperCase();
-  const normalizedActual = actualFingerprint.replace(/\s/g, '').toUpperCase();
+  const normalizedActual = actualPartnerFingerprint.replace(/\s/g, '').toUpperCase();
   
   if (normalizedEntered === normalizedActual) {
-    resultElement.innerHTML = "<p class='verification-success'>✅ Fingerprints match! Connection is secure.</p>";
+    resultElement.innerHTML = `<p class='verification-success'>✅ Match! Secure connection.</p>`;
     addVerifiedPartner(currentVerificationData.partnerId);
   } else {
-    resultElement.innerHTML = "<p class='verification-error'>❌ Fingerprints don't match! Security warning.</p>";
+    resultElement.innerHTML = `<p class='verification-error'>❌ No match! Security warning.</p>`;
   }
 }
 
-// MongoDB Integration Functions
-// Line ~180
-async function registerUserInMongoDB(user) {
-  if (!user || !user.uid) {
-    console.error("Cannot register user: missing Firebase UID", user);
-    return null;
-  }
+// Utility function to copy fingerprint to clipboard
+function copyToClipboard(text) {
+  navigator.clipboard.writeText(text).then(() => {
+    showTemporaryMessage("Fingerprint copied to clipboard!");
+  }).catch(err => {
+    console.error('Failed to copy: ', err);
+  });
+}
 
-  // Use email if available, fallback to uid-based placeholder
-  const email = user.email || `${user.uid}@anon.civiceye`;
+function showTemporaryMessage(message) {
+  const msg = document.createElement('div');
+  msg.style.cssText = `
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    background: #4CAF50;
+    color: white;
+    padding: 10px 20px;
+    border-radius: 4px;
+    z-index: 10000;
+    font-size: 14px;
+  `;
+  msg.textContent = message;
+  document.body.appendChild(msg);
+  
+  setTimeout(() => {
+    if (msg.parentNode) {
+      document.body.removeChild(msg);
+    }
+  }, 2000);
+}
 
+// ==================== MONGODB INTEGRATION ====================
+
+async function getUsersFromMongoDB() {
   try {
-    const res = await fetch(`${BACKEND_URL}/api/officers/assign-firebase-uid`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        email: email,
-        firebaseUid: user.uid,
-        name: user.displayName || user.name || `Officer-${user.uid.substring(0,6)}`,
-        profilePic: user.photoURL || user.profilePic || ""
-      }),
-    });
-
-    const data = await res.json();
-
-    if (!data.success) {
-      console.error("MongoDB registration failed:", data.message);
-      return null;
+    const token = await getJWTToken();
+    console.log('🔑 Token for MongoDB request:', token ? 'Exists' : 'Missing');
+    
+    if (!token) {
+      throw new Error("JWT token missing - cannot fetch users");
     }
 
-    console.log("MongoDB registration result:", data);
-    return data;
-  } catch (err) {
-    console.error("Error registering user in MongoDB:", err);
-    return null;
-  }
-}
+    const res = await fetch(`${BACKEND_URL}/api/officers/chat`, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${token}`
+      }
+    });
 
+    if (!res.ok) {
+      throw new Error(`HTTP error! status: ${res.status}`);
+    }
 
-
-async function getUsersFromMongoDB(currentUid) {
-  try {
-    const res = await fetch(`${BACKEND_URL}/api/officers/chat?exclude=${currentUid}`);
     const data = await res.json();
+    console.log('👥 Users API response:', data);
 
-    if (!res.ok || !data.success) {
+    if (!data.success) {
       console.error("Failed to fetch users:", data.message || data);
       return [];
     }
 
-    console.log("Users fetched from MongoDB:", data.users);
-    return data.users; // array of { name, email, profilePic, firebaseUid }
+    console.log("✅ Users fetched from MongoDB:", data.users?.length || 0);
+    return data.users || [];
+
   } catch (err) {
-    console.error("Error fetching users:", err);
+    console.error("❌ Error fetching users:", err);
     return [];
   }
 }
 
+async function fetchUserProfile(firebaseUid) {
+  if (!firebaseUid) return null;
 
-
-async function getUserProfileFromMongoDB(firebaseUid) {
-  try {
-    const response = await fetch(`${BACKEND_URL}/api/officers/chat/${firebaseUid}`);
-    const data = await response.json();
-    return data.success ? data.user : null;
-  } catch (error) {
-    console.error("Error fetching user profile by Firebase UID:", error);
-    return null;
+  const cachedProfiles = getSessionData('userProfiles') || {};
+  if (cachedProfiles[firebaseUid]) {
+    console.log('👤 User profile from cache:', firebaseUid);
+    return cachedProfiles[firebaseUid];
   }
-}
 
-async function getUserProfileFromMongoDBById(mongoId) {
   try {
-    const response = await fetch(`/api/officers/profile/${mongoId}`);
-    const data = await response.json();
-    return data.success ? data.user : null;
-  } catch (error) {
-    console.error('Error fetching user profile by MongoDB ID:', error);
-    return null;
-  }
-}
+    const token = await getJWTToken();
+    if (!token) {
+      console.warn('No token available for profile fetch');
+      return null;
+    }
 
-async function updateUserProfileInMongoDB(firebaseUid, updates) {
-  try {
-    const response = await fetch(`/api/officers/profile/${firebaseUid}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(updates)
+    const res = await fetch(`${BACKEND_URL}/api/officers/chat/${firebaseUid}`, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${token}`
+      }
     });
-    
-    const data = await response.json();
-    return data;
-  } catch (error) {
-    console.error('Error updating user profile:', error);
-    return null;
+
+    if (res.ok) {
+      const data = await res.json();
+      if (data.success && data.user) {
+        cachedProfiles[firebaseUid] = data.user;
+        setSessionData('userProfiles', cachedProfiles);
+        console.log('✅ User profile fetched:', data.user.name);
+        return data.user;
+      }
+    }
+  } catch (err) {
+    console.error("Error fetching user profile:", err);
   }
+
+  return null;
 }
 
-// User Profile Functions
-async function ensureUserProfile() {
-  let userInfo = getCurrentUserInfo();
+// ==================== FIXED USER PROFILE MANAGEMENT ====================
 
-  if (userInfo) {
+async function ensureUserProfile() {
+  console.log('🔄 Ensuring user profile...');
+  
+  // First try to get current user info from sessionStorage
+  let userInfo = getCurrentUserInfo();
+  
+  if (userInfo && userInfo.name && userInfo.name !== 'Anonymous User') {
+    console.log('✅ User info from session storage:', userInfo);
     updateUIWithUserInfo(userInfo);
     state.currentUserMongoId = userInfo.mongoId;
     return userInfo.name;
   }
 
-  // Create default display name if missing
-  const displayName = state.user.displayName || `Officer-${state.user.uid.substring(0, 8)}`;
-  const registrationResult = await registerUserInMongoDB(state.user);
-
-  if (registrationResult && registrationResult.user) {
+  // If not found or anonymous, try to get from sessionStorage with different keys
+  const userData = await getCurrentUserData();
+  
+  if (userData && userData.name) {
     userInfo = {
-      uid: state.user.uid,
-      mongoId: registrationResult.user._id,
-      name: registrationResult.user.name,
-      profilePic: registrationResult.user.profilePic || ''
+      uid: userData.firebaseUid || userData.uid,
+      mongoId: userData._id || userData.id,
+      name: userData.name,
+      email: userData.email,
+      profilePic: userData.profilePic || ''
     };
-
+    
     storeCurrentUserInfo(userInfo);
-    state.currentUserMongoId = registrationResult.user._id;
+    state.currentUserMongoId = userInfo.mongoId;
     updateUIWithUserInfo(userInfo);
+    console.log('✅ User profile created from session data');
     return userInfo.name;
   }
 
-  // Fallback for anonymous user
+  // Final fallback - try to get name from Firebase auth
+  let displayName = 'Anonymous User';
+  if (state.user && state.user.displayName) {
+    displayName = state.user.displayName;
+  } else if (state.user) {
+    displayName = `Officer-${state.user.uid.substring(0, 8)}`;
+  }
+  
   userInfo = {
-    uid: state.user.uid,
+    uid: state.user ? state.user.uid : 'anonymous',
     mongoId: null,
     name: displayName,
-    profilePic: ''
+    email: state.user ? state.user.email : '',
+    profilePic: state.user ? state.user.photoURL : ''
   };
+  
   storeCurrentUserInfo(userInfo);
   updateUIWithUserInfo(userInfo);
+  console.log('⚠️ Using fallback profile:', displayName);
   return displayName;
 }
-
 
 function updateUIWithUserInfo(userInfo) {
   if ($("#current-user-name")) {
@@ -325,41 +551,23 @@ function updateUIWithUserInfo(userInfo) {
   }
 }
 
-// Fetch full user profile by MongoDB ID or Firebase UID, with session caching
-async function fetchUserProfile(firebaseUid) {
-  const cachedProfiles = getSessionData('userProfiles') || {};
-  if (cachedProfiles[firebaseUid]) return cachedProfiles[firebaseUid];
-
-  try {
-    const res = await fetch(`${BACKEND_URL}/api/officers/chat/${firebaseUid}`);
-    const data = await res.json();
-    if (data.success && data.user) {
-      cachedProfiles[firebaseUid] = data.user;
-      setSessionData('userProfiles', cachedProfiles);
-      return data.user;
-    }
-  } catch (err) { console.error(err); }
-  return null;
-}
-
-
 async function getUserDisplayName(mongoId) {
   if (!mongoId) return "Unknown User";
 
   const currentUser = getCurrentUserInfo();
-
-  // ✅ If it's the logged-in user's mongoId, return their stored name
   if (currentUser && mongoId === currentUser.mongoId) {
     return currentUser.name || "You";
   }
 
-  const firebaseUid = await getFirebaseUidFromMongoId(mongoId);
-  if (!firebaseUid) return `User-${mongoId.substring(0,6)}`;
+  const cachedProfiles = getSessionData('userProfiles') || {};
+  for (const key in cachedProfiles) {
+    if (cachedProfiles[key]._id === mongoId) {
+      return cachedProfiles[key].name;
+    }
+  }
 
-  const user = await fetchUserProfile(firebaseUid);
-  return user ? user.name : `User-${mongoId.substring(0,6)}`;
+  return `User-${mongoId.substring(0,6)}`;
 }
-
 
 async function getUserProfilePic(mongoId) {
   if (!mongoId) return '';
@@ -369,21 +577,18 @@ async function getUserProfilePic(mongoId) {
     return currentUser.profilePic || '';
   }
 
-  const firebaseUid = await getFirebaseUidFromMongoId(mongoId);
-  if (!firebaseUid) return '';
-  const user = await fetchUserProfile(firebaseUid);
-  return user ? (user.profilePic || '') : '';
+  const cachedProfiles = getSessionData('userProfiles') || {};
+  for (const key in cachedProfiles) {
+    if (cachedProfiles[key]._id === mongoId) {
+      return cachedProfiles[key].profilePic || '';
+    }
+  }
+
+  return '';
 }
 
+// ==================== PROFILE DROPDOWN ====================
 
-
-async function getFirebaseUidFromMongoId(mongoId) {
-  if (!mongoId) return null;
-  const user = await fetchUserProfile(mongoId);
-  return user ? user.firebaseUid : null;
-}
-
-// Profile Dropdown
 function setupProfileDropdown() {
   const profileDropdown = $(".profile-dropdown");
   const dropdownContent = $(".dropdown-content");
@@ -406,7 +611,7 @@ function setupProfileDropdown() {
     try {
       await signOut(auth);
       sessionStorage.clear();
-      window.location.reload();
+      window.location.href = '/login.html';
     } catch (error) {
       console.error("Logout error:", error);
       showError("Failed to logout. Please try again.");
@@ -414,237 +619,268 @@ function setupProfileDropdown() {
   });
 }
 
-// Encryption Keys
-async function ensureUserKeys() {
-  const priv = getPrivateKey(state.user.uid);
+// ==================== FIXED ENCRYPTION KEYS MANAGEMENT ====================
 
-  if (priv) {
+async function ensureUserKeys(uid) {
+  if (!uid) return console.warn('No UID provided for key generation');
+
+  // Try to load existing private key from localStorage
+  const existingPriv = getPrivateKey(uid);
+
+  if (existingPriv) {
     try {
-      state.userKeys = {
-        privateKey: await crypto.subtle.importKey(
-          "pkcs8",
-          Uint8Array.from(atob(priv), c => c.charCodeAt(0)).buffer,
-          { name: "RSA-OAEP", hash: "SHA-256" },
-          true,
-          ["decrypt"]
-        ),
-        publicKey: null
-      };
+      console.log('🔄 Loading existing private key from localStorage...');
+      
+      const privateKey = await crypto.subtle.importKey(
+        "pkcs8",
+        Uint8Array.from(atob(existingPriv), c => c.charCodeAt(0)).buffer,
+        { name: "RSA-OAEP", hash:"SHA-256" },
+        true,
+        ["decrypt"]
+      );
 
-      const userRef = doc(db, "users", state.user.uid);
-      const snap = await getDoc(userRef);
-
-      if (snap.exists() && snap.data().publicKey) {
-        state.userKeys.publicKey = await importPublicKey(snap.data().publicKey);
-        return;
+      // Load public key from Firestore
+      const userSnap = await getDoc(doc(db, "users", uid));
+      let pubKey = null;
+      if (userSnap.exists() && userSnap.data().publicKey) {
+        pubKey = await importPublicKey(userSnap.data().publicKey);
+        console.log('✅ Public key loaded from Firestore');
+      } else {
+        console.warn('⚠️ No public key found in Firestore');
       }
+
+      state.userKeys = { privateKey, publicKey: pubKey };
+      console.log('✅ Existing encryption keys loaded from localStorage');
+      return;
+
     } catch (error) {
-      console.error("Error importing existing keys:", error);
+      console.error('❌ Error loading existing keys from localStorage:', error);
+      // Continue to generate new keys
     }
   }
 
+  // Generate new keys if existing ones fail or don't exist
   try {
+    console.log('🔄 Generating new encryption keys...');
     const keys = await generateKeys();
     const pub = await exportKey(keys.publicKey);
     const privExported = await crypto.subtle.exportKey("pkcs8", keys.privateKey);
     const privBase64 = btoa(String.fromCharCode(...new Uint8Array(privExported)));
+    
+    // Store in localStorage for persistence across sessions
+    storePrivateKey(uid, privBase64);
 
-    storePrivateKey(state.user.uid, privBase64);
-
-    const userRef = doc(db, "users", state.user.uid);
-
-    // ✅ Use setDoc with merge to create if not exists
+    // Save public key in Firestore
+    const userRef = doc(db, "users", uid);
     await setDoc(userRef, { 
-      publicKey: pub,
-      lastUpdated: serverTimestamp()
+      publicKey: pub, 
+      lastUpdated: serverTimestamp() 
     }, { merge: true });
 
-    state.userKeys = keys;
+    state.userKeys = { privateKey: keys.privateKey, publicKey: keys.publicKey };
+    console.log('✅ New encryption keys generated and stored in localStorage');
+
   } catch (error) {
-    console.error("Error generating new keys:", error);
-    throw new Error("Failed to generate encryption keys");
+    console.error('❌ Error generating new keys:', error);
   }
 }
 
-
-// Auth & Presence
-async function ensureUserAuth() {
-  return new Promise((resolve, reject) => {
-    onAuthStateChanged(auth, async (user) => {
-      try {
-        if (!user) {
-          try {
-            await signInAnonymously(auth);
-            return;
-          } catch (authError) {
-            console.error("Authentication error:", authError);
-            showError("Authentication failed. Please refresh the page.");
-            reject(authError);
-            return;
-          }
-        }
-        state.user = user;
-        if ($('#current-user-id')) $('#current-user-id').textContent = user.uid;
-        resolve(user);
-      } catch (e) { 
-        console.error("Auth state error:", e);
-        reject(e); 
-      }
-    });
-  });
-}
+// ==================== USER PRESENCE ====================
 
 function setupUserPresence() {
-  const userStatusRef = ref(rtdb, `status/${state.user.uid}`);
-  onDisconnect(userStatusRef).set({ state: "offline", lastChanged: Date.now() });
-  set(userStatusRef, { state: "online", lastChanged: Date.now() });
+  if (!state.user) {
+    console.warn('No user for presence setup');
+    return;
+  }
+  
+  const statusRef = ref(rtdb, `status/${state.user.uid}`);
+  onDisconnect(statusRef).set({ state: "offline", lastChanged: Date.now() });
+  set(statusRef, { state: "online", lastChanged: Date.now() });
+  console.log('✅ User presence setup completed');
 }
 
-// Conversations
+// ==================== FIXED CONVERSATIONS WITH PROPER DECRYPTION ====================
+
 async function listConversations() {
-  try {
-    const q = query(
-      collection(db, "conversations"),
-      where("participants", "array-contains", state.user.uid)
-    );
+  if (!state.user) {
+    console.warn('No user for conversation listing');
+    return;
+  }
+  
+  const q = query(collection(db, "conversations"), where("participants", "array-contains", state.user.uid));
+  const unsubscribe = onSnapshot(q, async snap => {
+    const container = $("#contacts-list");
+    if (!container) return;
+    
+    container.innerHTML = "";
+    if (snap.empty) { 
+      container.innerHTML = `<p class="no-conversations">No conversations yet. Start a new chat!</p>`; 
+      return; 
+    }
 
-    const unsubscribe = onSnapshot(q, async (snap) => {
-      const container = $("#contacts-list");
-      container.innerHTML = "";
-
-      if (snap.empty) {
-        container.innerHTML = `<p class="no-contacts-msg">No conversations. Start a new one!</p>`;
-        return;
-      }
-
-      for (const docSnap of snap.docs) {
-        const data = docSnap.data();
-        const partnerFirebaseUid = data.participants.find(p => p !== state.user.uid);
-
-        // fetch profile
-        const partnerProfile = await fetchUserProfile(partnerFirebaseUid);
-        const partnerName = partnerProfile ? partnerProfile.name : `User-${partnerFirebaseUid.substring(0,6)}`;
-        const partnerPic = partnerProfile ? partnerProfile.profilePic : '';
+    for (const docSnap of snap.docs) {
+      const data = docSnap.data();
+      const partnerUid = data.participants.find(p => p !== state.user.uid);
+      
+      try {
+        const partnerProfile = await fetchUserProfile(partnerUid);
+        let partnerName, partnerPic;
+        
+        if (partnerProfile) {
+          partnerName = partnerProfile.name;
+          partnerPic = partnerProfile.profilePic;
+        } else {
+          partnerName = `Officer-${partnerUid.substring(0, 6)}`;
+          partnerPic = '';
+          console.warn('⚠️ Using fallback for partner UID:', partnerUid);
+        }
 
         const el = document.createElement("div");
         el.classList.add("contact-item");
-
-        const avatar = document.createElement("div");
-        avatar.classList.add("contact-avatar");
-        avatar.textContent = partnerPic ? '' : partnerName.substring(0,2).toUpperCase();
-        if (partnerPic) avatar.innerHTML = `<img src="${partnerPic}" />`;
-
-        const details = document.createElement("div");
-        details.classList.add("contact-details");
-        details.innerHTML = `<h4>${partnerName}</h4><p>${data.lastMessage || "No messages yet"}</p>`;
-
-        el.appendChild(avatar);
-        el.appendChild(details);
-
+        el.innerHTML = `<div class="contact-avatar">${partnerPic ? `<img src="${partnerPic}" />` : partnerName.substring(0,2)}</div>
+                        <div class="contact-details"><h4>${partnerName}</h4><p>${data.lastMessage||'No messages yet'}</p></div>`;
         el.onclick = () => openConversation(docSnap.id, data);
         container.appendChild(el);
+      } catch (error) {
+        console.error('Error loading conversation:', error);
       }
-
-    });
-
-    state.listeners.push(unsubscribe);
-  } catch (error) {
-    console.error("Error listing conversations:", error);
-    showError("Failed to load conversations.");
-  }
+    }
+  });
+  
+  state.listeners.push(unsubscribe);
+  console.log('✅ Conversation listener setup');
 }
 
+// FIXED MESSAGE PROCESSING FUNCTION
+async function processMessageContent(msg, messageId) {
+  if (!msg.content) {
+    return '[No message content]';
+  }
+
+  // If it's our own message, show plain text
+  if (msg.sender === state.user.uid) {
+    return msg.plainText || '[Your message]';
+  }
+
+  // For partner's messages, try to decrypt safely
+  return await decryptMessageSafe(msg.content, messageId);
+}
 
 async function openConversation(convId, data) {
-  // Cleanup old listeners
-  state.listeners.forEach(unsub => { if (typeof unsub === 'function') unsub(); });
+  if (!state.user || !state.userKeys?.privateKey) {
+    console.warn('Cannot open conversation: user or keys missing');
+    return;
+  }
+
+  state.listeners.forEach(u => u()); 
   state.listeners = [];
 
   state.currentConversation = convId;
   $("#chat-area").classList.remove("hidden");
   $("#no-chat-selected").classList.add("hidden");
-
-  const partnerFirebaseUid = data.participants.find(p => p !== state.user.uid);
-  const partnerProfile = await fetchUserProfile(partnerFirebaseUid);
-  const partnerMongoId = partnerProfile ? partnerProfile._id : null;
-
-  const partnerName = await getUserDisplayName(partnerMongoId);
-  const partnerPic = await getUserProfilePic(partnerMongoId);
-
-  $("#partner-name").textContent = partnerName;
-  const partnerAvatar = $("#partner-avatar");
-  partnerAvatar.innerHTML = partnerPic ? `<img src="${partnerPic}" />` : partnerName.substring(0,2).toUpperCase();
-
-  updatePresenceStatus(partnerFirebaseUid);
   $("#message-container").innerHTML = "";
 
-  const messagesQuery = query(
-    collection(db, `conversations/${convId}/messages`),
-    orderBy("createdAt")
-  );
+  const partnerUid = data.participants.find(p => p !== state.user.uid);
+  const partnerProfile = await fetchUserProfile(partnerUid);
+  const partnerName = partnerProfile ? partnerProfile.name : `User-${partnerUid.substring(0,6)}`;
+  const partnerPic = partnerProfile ? partnerProfile.profilePic : '';
 
-  const unsubscribe = onSnapshot(messagesQuery, async (snap) => {
+  $("#partner-name").textContent = partnerName;
+  $("#partner-avatar").innerHTML = partnerPic ? `<img src="${partnerPic}" />` : partnerName.substring(0,2);
+
+  updatePresenceStatus(partnerUid);
+
+  const messagesQuery = query(collection(db, `conversations/${convId}/messages`), orderBy("createdAt"));
+  
+  const unsubscribe = onSnapshot(messagesQuery, async snap => {
     const container = $("#message-container");
+    if (!container) return;
+    
     container.innerHTML = "";
-
-    for (const docSnap of snap.docs) {
+    
+    for(const docSnap of snap.docs) {
       const msg = docSnap.data();
       const div = document.createElement("div");
       div.classList.add("message", msg.sender === state.user.uid ? "sent" : "received");
 
-      const msgContent = document.createElement("div");
-      msgContent.classList.add("message-content");
+      const content = document.createElement("div"); 
+      content.classList.add("message-content");
 
+      // Use the fixed message processing function
+      content.textContent = await processMessageContent(msg, docSnap.id);
+      
+      // Add message status indicators for sent messages
       if (msg.sender === state.user.uid) {
-        msgContent.textContent = msg.plainText || "[Your message]";
-      } else {
-        try {
-          const text = await decryptMessage(state.userKeys.privateKey, msg.content);
-          msgContent.textContent = text;
-        } catch {
-          msgContent.textContent = "[Encrypted message]";
+        const status = document.createElement("div");
+        status.classList.add("message-status");
+        
+        if (msg.readBy && msg.readBy.length > 0) {
+          status.innerHTML = "✓✓"; // Read
+          status.title = "Read";
+        } else if (msg.deliveredTo && msg.readBy && msg.deliveredTo.length > msg.readBy.length) {
+          status.innerHTML = "✓"; // Delivered but not read
+          status.title = "Delivered";
+        } else {
+          status.innerHTML = "🕒"; // Sending
+          status.title = "Sending...";
         }
+        
+        div.appendChild(status);
       }
 
-      const time = document.createElement("div");
+      const time = document.createElement("div"); 
       time.classList.add("message-time");
       time.textContent = msg.createdAt ? new Date(msg.createdAt.toDate()).toLocaleTimeString() : "Sending...";
-
-      div.appendChild(msgContent);
+      div.appendChild(content); 
       div.appendChild(time);
       container.appendChild(div);
     }
-
     container.scrollTop = container.scrollHeight;
   });
-
+  
   state.listeners.push(unsubscribe);
 }
 
-
-// Start a new chat with a selected user (MongoDB ID)
 async function startNewChat(partnerMongoId) {
-  if (!partnerMongoId) return;
+  if (!partnerMongoId || !state.user) {
+    showError("Cannot start chat: missing partner or user data");
+    return;
+  }
 
-  const partnerFirebaseUid = await getFirebaseUidFromMongoId(partnerMongoId);
-  if (!partnerFirebaseUid) return showError("Failed to get partner info");
+  const cachedProfiles = getSessionData('userProfiles') || {};
+  let partnerFirebaseUid = null;
+  let partnerProfile = null;
 
-  // Check existing conversation
+  for (const key in cachedProfiles) {
+    if (cachedProfiles[key]._id === partnerMongoId) {
+      partnerProfile = cachedProfiles[key];
+      partnerFirebaseUid = partnerProfile.firebaseUid;
+      break;
+    }
+  }
+
+  if (!partnerFirebaseUid) {
+    showError("Failed to get partner information. Please try again.");
+    return;
+  }
+
+  // Check if conversation already exists
   const q = query(collection(db, "conversations"), where("participants", "array-contains", state.user.uid));
   const querySnapshot = await getDocs(q);
 
   let existingConv = null;
   querySnapshot.forEach(doc => {
     const d = doc.data();
-    if (d.participants.includes(partnerFirebaseUid)) existingConv = { id: doc.id, data: d };
+    if (d.participants.includes(partnerFirebaseUid)) {
+      existingConv = { id: doc.id, data: d };
+    }
   });
-
 
   if (existingConv) {
     return openConversation(existingConv.id, existingConv.data);
   }
 
-  const partnerName = await getUserDisplayName(partnerMongoId);
+  const partnerName = partnerProfile ? partnerProfile.name : `User-${partnerFirebaseUid.substring(0,6)}`;
   const currentUserInfo = getCurrentUserInfo();
   const userName = currentUserInfo ? currentUserInfo.name : "You";
 
@@ -656,93 +892,344 @@ async function startNewChat(partnerMongoId) {
     name: `Chat with ${partnerName}`
   };
 
-  const convRef = await addDoc(collection(db, "conversations"), convData);
-  openConversation(convRef.id, convData);
+  try {
+    const convRef = await addDoc(collection(db, "conversations"), convData);
+    openConversation(convRef.id, convData);
+    console.log('✅ New chat started with:', partnerName);
+  } catch (error) {
+    console.error('Error creating new conversation:', error);
+    showError("Failed to create new chat. Please try again.");
+  }
+}
+
+// ==================== TYPING INDICATORS ====================
+
+function setupTypingIndicator(conversationId, partnerUid) {
+  const messageInput = $("#message-input");
+  const typingRef = ref(rtdb, `typing/${conversationId}/${state.user.uid}`);
+  let typingTimer;
+  
+  messageInput.addEventListener('input', () => {
+    // Set typing status
+    set(typingRef, true);
+    
+    // Clear previous timer
+    clearTimeout(typingTimer);
+    
+    // Set timer to clear typing status
+    typingTimer = setTimeout(() => {
+      set(typingRef, false);
+    }, 1000);
+  });
+  
+  // Listen for partner's typing
+  const partnerTypingRef = ref(rtdb, `typing/${conversationId}/${partnerUid}`);
+  onValue(partnerTypingRef, (snapshot) => {
+    const indicator = $("#typing-indicator");
+    if (snapshot.val()) {
+      indicator.style.display = "block";
+    } else {
+      indicator.style.display = "none";
+    }
+  });
 }
 
 function updatePresenceStatus(firebaseUid) {
+  if (!firebaseUid) return;
+
   const userStatusRef = ref(rtdb, `status/${firebaseUid}`);
   onValue(userStatusRef, (snapshot) => {
     const status = snapshot.val();
     const dot = $("#presence-dot");
     const text = $("#status-text");
+    
     if (status?.state === "online") {
-      dot?.classList.add("online"); dot?.classList.remove("offline");
+      dot?.classList.add("online"); 
+      dot?.classList.remove("offline");
       if (text) text.textContent = "Online";
     } else {
-      dot?.classList.add("offline"); dot?.classList.remove("online");
+      dot?.classList.add("offline"); 
+      dot?.classList.remove("online");
       if (text) text.textContent = "Offline";
     }
   });
 }
 
+// ==================== FIXED SEND MESSAGE FUNCTION ====================
 
 async function sendMessage() {
-  const input = $("#message-input");
-  const text = input.value.trim();
-  
-  if (!text || !state.currentConversation) return;
-  
-  input.disabled = true;
-  $("#send-btn").disabled = true;
-  
-  try {
-    input.value = "";
+  if(!state.user || !state.currentConversation) return showError("Cannot send message: not in a conversation");
 
+  const input = $("#message-input"); 
+  const text = input.value.trim(); 
+  if(!text) return;
+
+  input.disabled = true; 
+  $("#send-btn").disabled = true; 
+  input.value = "";
+
+  try {
     const convRef = doc(db, "conversations", state.currentConversation);
-    const convSnap = await getDoc(convRef);
-    
-    if (!convSnap.exists()) {
-      showError("Conversation not found");
-      return;
-    }
-    
+    const convSnap = await getDoc(convRef); 
+    if(!convSnap.exists()) return showError("Conversation not found");
+
     const convData = convSnap.data();
+    const partnerUid = convData.participants.find(p => p !== state.user.uid);
+    if (!partnerUid) return showError("No partner found in conversation");
+
+    const partnerUserSnap = await getDoc(doc(db, "users", partnerUid));
+    if (!partnerUserSnap.exists() || !partnerUserSnap.data().publicKey) {
+      return showError("Cannot send message: partner's encryption key not available");
+    }
+
+    const partnerPublicKey = await importPublicKey(partnerUserSnap.data().publicKey);
+    const encryptedContent = await encryptMessage(partnerPublicKey, text);
+
     const messageData = {
       sender: state.user.uid,
       plainText: text,
-      createdAt: serverTimestamp()
+      content: encryptedContent,
+      createdAt: serverTimestamp(),
+      recipients: [partnerUid]
     };
-    
-    const encryptionPromises = convData.participants
-      .filter(p => p !== state.user.uid)
-      .map(async (participantId) => {
-        try {
-          const userSnap = await getDoc(doc(db, "users", participantId));
-          if (!userSnap.exists()) return null;
-          
-          const pubKey = await importPublicKey(userSnap.data().publicKey);
-          return await encryptMessage(pubKey, text);
-        } catch (error) {
-          console.error("Error encrypting for participant:", participantId, error);
-          return null;
-        }
-      });
-    
-    const encryptedMessages = await Promise.all(encryptionPromises);
-    const validEncryptedMessages = encryptedMessages.filter(msg => msg !== null);
-    
-    if (validEncryptedMessages.length > 0) {
-      messageData.content = validEncryptedMessages[0];
-    }
-    
+
     await addDoc(collection(db, `conversations/${state.currentConversation}/messages`), messageData);
-    await updateDoc(convRef, {
-      lastMessage: text,
-      lastUpdated: serverTimestamp()
-    });
-    
-  } catch (error) {
-    console.error("Error sending message:", error);
-    showError("Failed to send message. Please try again.");
-  } finally {
-    input.disabled = false;
-    $("#send-btn").disabled = false;
-    input.focus();
+    await updateDoc(convRef, { lastMessage: text, lastUpdated: serverTimestamp() });
+
+    console.log('✅ Message sent successfully');
+
+  } catch (error) { 
+    console.error("Send message error:", error); 
+    showError("Failed to send message"); 
+  } finally { 
+    input.disabled = false; 
+    $("#send-btn").disabled = false; 
+    input.focus(); 
   }
 }
 
-// File Upload
+// ==================== FIXED VERIFICATION FUNCTION ====================
+
+async function setupVerification() {
+  const verifyBtn = $("#verify-btn");
+  if (!verifyBtn) return;
+
+  verifyBtn.addEventListener("click", async () => {
+    if (!state.currentConversation) {
+      showError("Please select a conversation first");
+      return;
+    }
+    
+    try {
+      const convRef = doc(db, "conversations", state.currentConversation);
+      const convSnap = await getDoc(convRef);
+      if (!convSnap.exists()) {
+        showError("Conversation not found");
+        return;
+      }
+      
+      const convData = convSnap.data();
+      const partnerId = convData.participants.find(p => p !== state.user.uid);
+      
+      if (!partnerId) {
+        showError("No partner found in conversation");
+        return;
+      }
+      
+      // Get PARTNER'S public key
+      const partnerUserRef = doc(db, "users", partnerId);
+      const partnerUserSnap = await getDoc(partnerUserRef);
+      
+      if (!partnerUserSnap.exists() || !partnerUserSnap.data().publicKey) {
+        showError("Cannot verify: Partner's public key not available");
+        return;
+      }
+      
+      // Also get CURRENT USER'S public key for comparison
+      const currentUserRef = doc(db, "users", state.user.uid);
+      const currentUserSnap = await getDoc(currentUserRef);
+      
+      if (!currentUserSnap.exists() || !currentUserSnap.data().publicKey) {
+        showError("Cannot verify: Your public key is not available");
+        return;
+      }
+      
+      const partnerPublicKey = partnerUserSnap.data().publicKey;
+      const currentUserPublicKey = currentUserSnap.data().publicKey;
+      
+      // Generate fingerprints for BOTH users
+      const partnerFingerprint = await generateFingerprint(partnerPublicKey);
+      const currentUserFingerprint = await generateFingerprint(currentUserPublicKey);
+      
+      // Store both fingerprints for comparison
+      currentVerificationData = { 
+        partnerId, 
+        partnerFingerprint, 
+        currentUserFingerprint,
+        conversationId: state.currentConversation 
+      };
+      
+      // Update verification modal content with CLEAR instructions - COMPACT VERSION
+      const modalBody = $("#verification-modal .modal-body");
+      if (modalBody) {
+        modalBody.innerHTML = `
+          <div class="verification-instructions compact">
+            <h4>Identity Verification</h4>
+            
+            <div class="fingerprint-section">
+              <p class="verification-label">📱 Your Fingerprint (Share this):</p>
+              <div class="fingerprint-display compact" id="your-fingerprint">${currentUserFingerprint}</div>
+              <button class="copy-btn compact" onclick="copyToClipboard('${currentUserFingerprint}')">Copy</button>
+            </div>
+            
+            <div class="fingerprint-section">
+              <p class="verification-label">👥 Partner's Fingerprint (Expected):</p>
+              <div class="fingerprint-display compact" id="partner-fingerprint">${partnerFingerprint}</div>
+            </div>
+            
+            <div class="verification-comparison compact">
+              <p class="verification-label">✅ Verification:</p>
+              <textarea id="compare-fingerprint" placeholder="Paste partner's fingerprint here..." rows="2"></textarea>
+              <button id="compare-btn" class="verify-button compact">Compare</button>
+              <div id="comparison-result" class="compact-result"></div>
+            </div>
+          </div>
+        `;
+        
+        // Re-bind the compare button
+        setTimeout(() => {
+          const compareBtn = $("#compare-btn");
+          if (compareBtn) {
+            compareBtn.onclick = compareFingerprints;
+          }
+        }, 100);
+      }
+      
+      $("#verification-modal").style.display = "block";
+      
+    } catch (error) {
+      console.error("Error in verification:", error);
+      showError("Failed to generate verification code");
+    }
+  });
+}
+
+// Define copyToClipboard in global scope
+window.copyToClipboard = function(text) {
+  navigator.clipboard.writeText(text).then(() => {
+    showTemporaryMessage("Fingerprint copied to clipboard!");
+  }).catch(err => {
+    console.error('Failed to copy: ', err);
+    // Fallback for older browsers
+    const textArea = document.createElement('textarea');
+    textArea.value = text;
+    document.body.appendChild(textArea);
+    textArea.select();
+    document.execCommand('copy');
+    document.body.removeChild(textArea);
+    showTemporaryMessage("Fingerprint copied to clipboard!");
+  });
+};
+
+// ==================== IMPROVED INITIALIZATION ====================
+
+document.addEventListener("DOMContentLoaded", async () => {
+  try {
+    console.log('🚀 Starting chat application initialization...');
+    
+    // Step 1: Initialize Firebase authentication first
+    const firebaseAuthSuccess = await initializeChatWithFirebase();
+    
+    // Step 2: Ensure user profile is loaded
+    await ensureUserProfile();
+    
+    if (!firebaseAuthSuccess) {
+      showError("Chat authentication failed. Some features may not work.");
+    }
+
+    // Step 3: Setup UI components
+    setupProfileDropdown();
+    setupVerification();
+    
+    // Step 4: Initialize encryption keys (only if Firebase auth succeeded)
+    if (firebaseAuthSuccess && state.user) {
+      await ensureUserKeys(state.user.uid);
+      setupUserPresence();
+      await listConversations();
+    }
+
+    // Step 5: Setup event listeners
+    $("#send-btn").onclick = sendMessage;
+    $("#message-input").addEventListener("keypress", (e) => {
+      if (e.key === "Enter") sendMessage();
+    });
+
+    setupFileUpload();
+
+    // New Chat Modal setup
+    const newChatBtn = $("#new-chat-btn");
+    const newChatModal = $("#new-chat-modal");
+    const userList = $("#user-selection-list");
+    const startBtn = $("#start-chat-btn");
+
+    newChatBtn?.addEventListener("click", async () => {
+      newChatModal.style.display = "block";
+      await loadUsersForNewChat();
+    });
+
+    // Close modal handlers
+    document.querySelectorAll(".close-modal").forEach(btn => {
+      btn.addEventListener("click", (e) => {
+        e.preventDefault();
+        const modal = btn.closest(".modal");
+        if (modal) modal.style.display = "none";
+      });
+    });
+
+    window.addEventListener("click", (e) => {
+      if (e.target.classList.contains("modal")) {
+        e.target.style.display = "none";
+      }
+    });
+
+    startBtn?.addEventListener("click", async () => {
+      const partnerMongoId = userList.value;
+      if (!partnerMongoId) {
+        showError("Please select a user first");
+        return;
+      }
+
+      startBtn.disabled = true;
+      startBtn.textContent = "Starting chat...";
+
+      try {
+        await startNewChat(partnerMongoId);
+        $("#new-chat-modal").style.display = "none";
+      } catch (error) {
+        console.error("Error starting chat:", error);
+        showError("Failed to start chat. Please check your authentication.");
+      } finally {
+        startBtn.disabled = false;
+        startBtn.textContent = "Start Secure Chat";
+      }
+    });
+
+    console.log("✅ Chat application initialized successfully");
+
+  } catch (err) {
+    console.error("❌ Boot error:", err);
+    showError("Chat failed to load. Please refresh the page or check console for details.");
+  }
+});
+
+// ==================== UTILITY FUNCTIONS ====================
+
+function showError(msg) {
+  console.error('Error:', msg);
+  // You can replace this with a better notification system
+  alert(msg);
+}
+
 function setupFileUpload() {
   const uploadBtn = $("#upload-btn");
   const fileInput = $("#file-input");
@@ -756,216 +1243,54 @@ function setupFileUpload() {
   });
 }
 
-// Verification
-async function setupVerification() {
-  $("#verify-btn")?.addEventListener("click", async () => {
-    if (!state.currentConversation) return;
-    
-    try {
-      const convRef = doc(db, "conversations", state.currentConversation);
-      const convSnap = await getDoc(convRef);
-      if (!convSnap.exists()) return;
-      
-      const convData = convSnap.data();
-      const partnerId = convData.participants.find(p => p !== state.user.uid);
-      
-      const partnerUserRef = doc(db, "users", partnerId);
-      const partnerUserSnap = await getDoc(partnerUserRef);
-      
-      if (!partnerUserSnap.exists() || !partnerUserSnap.data().publicKey) {
-        showError("Cannot verify: Partner's public key not available");
-        return;
-      }
-      
-      const publicKey = partnerUserSnap.data().publicKey;
-      const fingerprint = await generateFingerprint(publicKey);
-      
-      currentVerificationData = { partnerId, fingerprint, conversationId: state.currentConversation };
-      
-      const modalBody = $(".modal-body");
-      if (modalBody) {
-        modalBody.innerHTML = `
-          <p>Verify this fingerprint with your contact via a trusted channel.</p>
-          <p class="verification-instruction">Your Contact's Fingerprint:</p>
-          <div class="fingerprint-display" id="verification-fingerprint">${fingerprint}</div>
-          <div class="verification-comparison">
-            <p class="verification-instruction">Enter the fingerprint from your other device:</p>
-            <textarea id="compare-fingerprint" placeholder="Paste fingerprint here..." rows="3"></textarea>
-            <button id="compare-btn">Compare Fingerprints</button>
-            <div id="comparison-result"></div>
-          </div>
-        `;
-        
-        $("#compare-btn").onclick = compareFingerprints;
-      }
-      
-      $("#verification-modal").style.display = "block";
-      
-    } catch (error) {
-      console.error("Error in verification:", error);
-      showError("Failed to generate verification code");
-    }
-  });
-}
-
-// Profile Modal
-function setupProfileModal() {
-  const profileModal = $("#profile-modal");
-  const closeBtn = $(".close-modal[data-modal-id='profile-modal']");
-  const saveProfileBtn = $("#save-profile-btn");
-
-  if (!profileModal || !closeBtn || !saveProfileBtn) return;
-
-  closeBtn.addEventListener("click", () => {
-    profileModal.style.display = "none";
-  });
-
-  window.addEventListener("click", (e) => {
-    if (e.target === profileModal) {
-      profileModal.style.display = "none";
-    }
-  });
-
-  saveProfileBtn.addEventListener("click", async () => {
-    const name = $("#profile-name")?.value.trim();
-    const profilePic = $("#profile-pic-url")?.value.trim();
-
-    if (!name) {
-      showError("Name is required");
-      return;
-    }
-
-    try {
-      const result = await updateUserProfileInMongoDB(state.user.uid, { name, profilePic });
-
-      if (result && result.success) {
-        const userInfo = getCurrentUserInfo();
-        if (userInfo) {
-          userInfo.name = name;
-          userInfo.profilePic = profilePic;
-          storeCurrentUserInfo(userInfo);
-          updateUIWithUserInfo(userInfo);
-        }
-
-        profileModal.style.display = "none";
-        showError("Profile updated successfully!");
-      } else {
-        showError("Failed to update profile");
-      }
-    } catch (error) {
-      console.error("Error updating profile:", error);
-      showError("Failed to update profile");
-    }
-  });
-}
-
-// Load users for new chat
 async function loadUsersForNewChat() {
   const userList = $("#user-selection-list");
   if (!userList) return;
-  
+
   userList.innerHTML = `<option value="">Loading users...</option>`;
-  
+
   try {
-    const users = await getUsersFromMongoDB(state.user.uid);
+    const users = await getUsersFromMongoDB();
     userList.innerHTML = "";
-    
+
     const defaultOption = document.createElement("option");
     defaultOption.value = "";
     defaultOption.textContent = "Select a user";
     defaultOption.disabled = true;
     defaultOption.selected = true;
     userList.appendChild(defaultOption);
-    
-    if (users.length === 0) {
-      userList.innerHTML = `<option value="" disabled>No other users found</option>`;
-    } else {
-      const cachedProfiles = getSessionData('userProfiles') || {};
-      
-      users.forEach(user => {
-        const opt = document.createElement("option");
-        opt.value = user._id; // Store MongoDB ID
-        opt.textContent = user.name;
-        userList.appendChild(opt);
-        
-        cachedProfiles[user._id] = user;
-      });
-      
-      setSessionData('userProfiles', cachedProfiles);
+
+    if (!users.length) {
+      const opt = document.createElement("option");
+      opt.value = "";
+      opt.textContent = "No other users found";
+      opt.disabled = true;
+      userList.appendChild(opt);
+      return;
     }
-  } catch (error) {
-    console.error("Error loading users from MongoDB:", error);
-    userList.innerHTML = `<option value="" disabled>Error loading users</option>`;
+
+    const cachedProfiles = getSessionData('userProfiles') || {};
+    const currentUser = getCurrentUserInfo();
+
+    users.forEach(user => {
+      // Don't show current user in the list
+      if (currentUser && user._id === currentUser.mongoId) return;
+      
+      const opt = document.createElement("option");
+      opt.value = user._id;
+      opt.textContent = user.name || `User-${user._id.substring(0,6)}`;
+      userList.appendChild(opt);
+
+      if (user.firebaseUid) {
+        cachedProfiles[user.firebaseUid] = user;
+      }
+    });
+
+    setSessionData('userProfiles', cachedProfiles);
+    console.log(`✅ Loaded ${users.length} users for new chat`);
+
+  } catch (err) {
+    console.error("Error loading users:", err);
+    userList.innerHTML = `<option value="" disabled>Error loading users. Please refresh.</option>`;
   }
 }
-
-// Boot function
-document.addEventListener("DOMContentLoaded", async () => {
-  try {
-    const user = await ensureUserAuth();
-    await ensureUserKeys();
-    setupUserPresence();
-    
-    setupProfileDropdown();
-    setupProfileModal();
-    setupVerification();
-    await ensureUserProfile();
-    await listConversations();
-
-    $("#send-btn").onclick = sendMessage;
-    $("#message-input").addEventListener("keypress", (e) => {
-      if (e.key === "Enter") sendMessage();
-    });
-
-    setupFileUpload();
-
-    // New Chat Modal
-    const newChatBtn = $("#new-chat-btn");
-    const newChatModal = $("#new-chat-modal");
-    const userList = $("#user-selection-list");
-    const startBtn = $("#start-chat-btn");
-
-    newChatBtn?.addEventListener("click", async () => {
-      newChatModal.style.display = "block";
-      await loadUsersForNewChat();
-    });
-
-    document.querySelectorAll(".close-modal").forEach(btn => {
-      btn.addEventListener("click", () => {
-        const modalId = btn.getAttribute("data-modal-id");
-        if (modalId) $(`#${modalId}`).style.display = "none";
-      });
-    });
-
-    window.addEventListener("click", (e) => {
-      if (e.target.classList.contains("modal")) {
-        e.target.style.display = "none";
-      }
-    });
-
-    startBtn?.addEventListener("click", async () => {
-      const partnerMongoId = userList.value;
-      if (!partnerMongoId) return alert("Select a user first");
-
-      startBtn.disabled = true;
-      startBtn.textContent = "Starting chat...";
-
-      try {
-        await startNewChat(partnerMongoId);
-        $("#new-chat-modal").style.display = "none";
-      } catch (error) {
-        console.error("Error starting chat:", error);
-        showError("Failed to start chat. Please check your Firebase permissions.");
-      } finally {
-        startBtn.disabled = false;
-        startBtn.textContent = "Start Secure Chat";
-      }
-    });
-
-
-    console.log("Chat initialized for:", user.uid);
-  } catch (err) {
-    console.error("Boot error:", err);
-    showError("Chat failed to load. Please check the console for details.");
-  }
-});
