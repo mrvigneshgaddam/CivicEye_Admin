@@ -469,3 +469,97 @@ window.addEventListener('resize', function() {
     if (incidentsChart) incidentsChart.resize();
     if (incidentTypesChart) incidentTypesChart.resize();
 });
+// Hover-triggered Notifications and Sync with Recent Activity
+document.addEventListener('DOMContentLoaded', () => {
+    const notificationBtn = document.querySelector('.notification-btn');
+    const notificationDropdown = document.querySelector('.notification-dropdown');
+    const notificationsList = document.getElementById('notificationsList');
+    const noNotifications = document.getElementById('noNotifications');
+    const clearNotifications = document.getElementById('clearNotifications');
+    const activityList = document.querySelector('.activity-list');
+
+    if (!notificationBtn || !notificationDropdown || !notificationsList || !activityList) return;
+
+    // Update notification badge
+    function updateNotificationBadge(count) {
+        const badge = document.querySelector('.notification-badge');
+        if (!badge) return;
+        badge.textContent = count > 9 ? '9+' : count;
+        badge.style.display = count > 0 ? 'flex' : 'none';
+    }
+
+    // Add notification
+    function addNotification(notification) {
+        const li = document.createElement('li');
+        li.innerHTML = `
+            <div class="notification-icon"><i class="fas ${notification.icon}"></i></div>
+            <div class="notification-content">
+                <p>${notification.message}</p>
+                <div class="notification-time">${formatTime(notification.timestamp)}</div>
+            </div>
+        `;
+        notificationsList.prepend(li);
+        noNotifications.style.display = 'none';
+        
+        const count = notificationsList.children.length;
+        updateNotificationBadge(count);
+
+        addToRecentActivity(notification);
+    }
+
+    // Add to Recent Activity
+    function addToRecentActivity(notification) {
+        const li = document.createElement('div');
+        li.className = 'activity-item';
+        li.innerHTML = `
+            <div class="activity-icon" style="${getActivityStyle(notification.type)}">
+                <i class="fas ${notification.icon}"></i>
+            </div>
+            <div class="activity-content">
+                <p>${notification.message}</p>
+                <span class="activity-time">${formatTime(notification.timestamp)}</span>
+            </div>
+        `;
+        activityList.prepend(li);
+    }
+
+    // Clear all notifications
+    if (clearNotifications) {
+        clearNotifications.addEventListener('click', () => {
+            notificationsList.innerHTML = '';
+            noNotifications.style.display = 'block';
+            updateNotificationBadge(0);
+        });
+    }
+
+    // Fetch notifications from backend API
+    async function fetchBackendNotifications() {
+        try {
+            const response = await fetch(`${SCRIPT_BASE}/mock_api/notifications.json`);
+            const data = await response.json();
+            return data.data || [];
+        } catch (err) {
+            console.error('❌ Error loading notifications from mock data:', err);
+            return [];
+        }
+    }
+    
+    // Load notifications initially and every minute
+    async function loadNotifications() {
+        const notifications = await fetchBackendNotifications();
+        notificationsList.innerHTML = '';
+        if (!notifications.length) {
+            noNotifications.style.display = 'block';
+            updateNotificationBadge(0);
+        } else {
+            noNotifications.style.display = 'none';
+            notifications.forEach(notification => addNotification(notification));
+        }
+    }
+
+    // Initial load
+    loadNotifications();
+
+    // Periodic refresh every 60 seconds
+    setInterval(loadNotifications, 60 * 1000);
+});

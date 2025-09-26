@@ -143,8 +143,13 @@
       <div class="modal-body">
         <p>Verify this fingerprint with your contact via a trusted channel.</p>
         <p class="verification-instruction">Your Contact's Fingerprint:</p>
-        <div class="fingerprint-display" id="verification-fingerprint"></div>
-        <p class="verification-instruction small">If the codes match, the connection is secure.</p>
+        <div class="fingerprint-display" id="verification-fingerprint">${fingerprint}</div>
+        <div class="verification-comparison">
+          <p class="verification-instruction">Enter the fingerprint from your other device:</p>
+          <textarea id="compare-fingerprint" placeholder="Paste fingerprint here..." rows="3"></textarea>
+          <button id="compare-btn">Compare Fingerprints</button>
+          <div id="comparison-result"></div>
+        </div>
       </div>
     </div>
   </div>

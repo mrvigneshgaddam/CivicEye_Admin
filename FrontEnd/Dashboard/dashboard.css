@@ -732,3 +732,103 @@ body {
     opacity: 1;
     visibility: visible;
 }
+/* Notification Dropdown */
+.notification-dropdown {
+    position: relative;
+}
+
+.notification-dropdown .dropdown-content-notifications {
+    position: absolute;
+    right: 0;
+    top: 50px;
+    width: 300px;
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(10px);
+    transition: all 0.3s ease;
+    z-index: 100;
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.notification-dropdown:hover .dropdown-content-notifications {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0);
+}
+
+.dropdown-content-notifications .notifications-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 15px;
+    border-bottom: 1px solid #e9ecef;
+}
+
+.dropdown-content-notifications .notifications-header h4 {
+    font-size: 1rem;
+    margin: 0;
+    color: var(--dark);
+}
+
+.dropdown-content-notifications .notifications-header button {
+    background: none;
+    border: none;
+    color: var(--primary);
+    cursor: pointer;
+    font-size: 0.85rem;
+    transition: all 0.2s ease;
+}
+
+.dropdown-content-notifications .notifications-header button:hover {
+    text-decoration: underline;
+}
+
+#notificationsList {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+#notificationsList li {
+    display: flex;
+    gap: 10px;
+    padding: 10px 15px;
+    border-bottom: 1px solid #f1f3f5;
+    transition: background 0.2s ease;
+}
+
+#notificationsList li:hover {
+    background: var(--primary-light);
+}
+
+.notification-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: var(--primary-light);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--primary);
+    font-size: 1rem;
+}
+
+
+.notification-content {
+    flex: 1;
+}
+
+.notification-content p {
+    margin: 0;
+    font-size: 0.9rem;
+    color: var(--dark);
+}
+
+.notification-time {
+    font-size: 0.75rem;
+    color: var(--gray);
+}
