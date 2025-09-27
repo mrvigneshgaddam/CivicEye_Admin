@@ -98,6 +98,7 @@
                 </div>
               </div>
               <div class="message-container" id="message-container"></div>
+              <div id="typing-container"></div>
               <div class="message-input-container" id="message-input-container">
                 <!-- File upload elements -->
                 <input type="file" class="file-input" id="file-input" accept="*/*">
@@ -134,6 +135,7 @@
     </div>
   </div>
 
+  <!-- Verification Modal -->
   <div class="modal" id="verification-modal">
     <div class="modal-content">
       <div class="modal-header">
@@ -141,21 +143,67 @@
         <button class="close-modal" data-modal-id="verification-modal">&times;</button>
       </div>
       <div class="modal-body">
-        <p>Verify this fingerprint with your contact via a trusted channel.</p>
-        <p class="verification-instruction">Your Contact's Fingerprint:</p>
-        <div class="fingerprint-display" id="verification-fingerprint">${fingerprint}</div>
-        <div class="verification-comparison">
-          <p class="verification-instruction">Enter the fingerprint from your other device:</p>
-          <textarea id="compare-fingerprint" placeholder="Paste fingerprint here..." rows="3"></textarea>
-          <button id="compare-btn">Compare Fingerprints</button>
-          <div id="comparison-result"></div>
+        <div class="verification-info">
+          <p>Verifying: <strong id="verification-partner-name">Partner</strong></p>
+          <div class="fingerprint-section">
+            <h4>Security Fingerprint:</h4>
+            <div id="verification-fingerprint" class="fingerprint-code">Loading...</div>
+            <p class="fingerprint-help">Compare this fingerprint with your partner's device to verify identity.</p>
+          </div>
+          <div class="verification-comparison">
+            <p>Enter fingerprint from partner's device:</p>
+            <textarea id="compare-fingerprint" placeholder="Paste fingerprint here..." rows="3"></textarea>
+            <button id="compare-btn" class="btn-primary">Compare Fingerprints</button>
+            <div id="comparison-result"></div>
+          </div>
+          <div class="verification-actions">
+            <button id="confirm-verification" class="btn-success">Confirm Verified</button>
+            <button id="cancel-verification" class="btn-secondary">Cancel</button>
+          </div>
         </div>
       </div>
     </div>
   </div>
 
+  <!-- File Upload Modal -->
+  <div class="modal" id="file-upload-modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>Upload File</h3>
+        <button class="close-modal" data-modal-id="file-upload-modal">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div id="file-upload-area">
+          <p>Select a file to send securely:</p>
+          <input type="file" id="modal-file-input" class="modal-input">
+          <div id="file-preview" class="hidden">
+            <p><strong>Selected file:</strong> <span id="file-name"></span> (<span id="file-size"></span>)</p>
+          </div>
+          <div class="modal-actions">
+            <button id="send-file-btn" class="btn-success">Send File</button>
+            <button id="cancel-file-btn" class="btn-secondary">Cancel</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- <div class="recovery-options" style="margin: 10px; text-align: center;">
+  <button onclick="recoverEncryptionKeys()" class="recovery-btn" 
+          style="background: #ff9800; color: white; border: none; padding: 5px 10px; border-radius: 4px; font-size: 12px;">
+    🔑 Recover Encryption
+  </button>
+  <button onclick="resetBothUsersKeys()" class="reset-btn" 
+          style="background: #f44336; color: white; border: none; padding: 5px 10px; border-radius: 4px; font-size: 12px; margin-left: 5px;">
+    🔄 Reset Both Keys
+  </button>
+</div> -->
+
+  <!-- Notification Container -->
+  <div id="notification-container"></div>
+
   <!-- Scripts -->
-    <script src="/FrontEnd/shared/auth-guard.js"></script>
+  <script src="/FrontEnd/shared/auth-guard.js"></script>
   <script type="module" src="chatapp.js"></script>
 </body>
 </html>
