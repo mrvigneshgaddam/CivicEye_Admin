@@ -9,10 +9,10 @@ import {
 } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
 import { 
   getFirestore,
-  doc, updateDoc, setDoc, serverTimestamp,
+  doc, updateDoc, setDoc, serverTimestamp,increment,
   collection, query, where, onSnapshot, orderBy, addDoc, getDoc, getDocs
 } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
-import { getDatabase, ref, set, onDisconnect, onValue } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-database.js";
+import { getDatabase, ref, set, onDisconnect, onValue, off } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-database.js";
 
 // Firebase Config
 const firebaseConfig = {
@@ -40,17 +40,450 @@ const state = {
   userKeys: null,
   currentConversation: null,
   listeners: [],
-  currentUserMongoId: null
+  currentUserMongoId: null,
+  typingTimeouts: {},
+  typingListeners: {},
+  partnerPublicKeys: {},
+  keyGenerationAttempts: 0,
+  maxKeyGenerationAttempts: 3
 };
 
 let currentVerificationData = null;
 
-// ==================== IMPROVED SESSION STORAGE UTILITIES ====================
+// ==================== IMPROVED TYPING INDICATORS ====================
+
+function setupTypingIndicator(conversationId, partnerUid) {
+  if (!conversationId || !partnerUid) return;
+  
+  console.log('🔔 Setting up typing indicator for:', conversationId, 'partner:', partnerUid);
+  
+  // Clean up previous listener for this conversation
+  if (state.typingListeners[conversationId]) {
+    try {
+      state.typingListeners[conversationId]();
+    } catch (error) {
+      console.warn('Error cleaning up previous typing listener:', error);
+    }
+    delete state.typingListeners[conversationId];
+  }
+  
+  // Clear existing typing indicator for this conversation
+  const existingIndicator = $(`#typing-indicator-${conversationId}`);
+  if (existingIndicator) {
+    existingIndicator.remove();
+  }
+  
+  // Listen for partner's typing status in Realtime Database
+  const typingRef = ref(rtdb, `typing/${conversationId}/${partnerUid}`);
+  
+  const typingListener = onValue(typingRef, (snapshot) => {
+    const isTyping = snapshot.val();
+    console.log('🔔 Typing status update:', isTyping ? 'Typing...' : 'Not typing');
+    
+    const typingContainer = $("#typing-container");
+    if (!typingContainer) {
+      console.warn('❌ Typing container not found');
+      return;
+    }
+    
+    const indicatorId = `typing-indicator-${conversationId}`;
+    let existingIndicator = $(`#${indicatorId}`);
+    
+    if (isTyping) {
+      if (!existingIndicator) {
+        console.log('🔔 Showing typing indicator');
+        const typingEl = document.createElement('div');
+        typingEl.id = indicatorId;
+        typingEl.className = 'typing-indicator';
+        typingEl.innerHTML = `
+          <div class="typing-dots">
+            <span></span>
+            <span></span>
+            <span></span>
+          </div>
+          <span class="typing-text">${$("#partner-name")?.textContent || 'Partner'} is typing...</span>
+        `;
+        typingContainer.appendChild(typingEl);
+        
+        // Auto-scroll to show typing indicator
+        const messageContainer = $("#message-container");
+        if (messageContainer) {
+          setTimeout(() => {
+            messageContainer.scrollTop = messageContainer.scrollHeight;
+          }, 100);
+        }
+      }
+    } else {
+      if (existingIndicator) {
+        console.log('🔔 Hiding typing indicator');
+        existingIndicator.remove();
+      }
+    }
+  });
+  
+  // Store the listener for cleanup
+  state.typingListeners[conversationId] = typingListener;
+}
+
+function handleUserTyping(conversationId) {
+  if (!conversationId || !state.user) {
+    console.warn('❌ Cannot handle typing: missing conversation or user');
+    return;
+  }
+  
+  const typingRef = ref(rtdb, `typing/${conversationId}/${state.user.uid}`);
+  
+  // Set typing status to true
+  set(typingRef, true);
+  console.log('🔔 User started typing in conversation:', conversationId);
+  
+  // Clear existing timeout
+  if (state.typingTimeouts[conversationId]) {
+    clearTimeout(state.typingTimeouts[conversationId]);
+  }
+  
+  // Set timeout to clear typing status after 2 seconds of inactivity
+  state.typingTimeouts[conversationId] = setTimeout(() => {
+    set(typingRef, false);
+    console.log('🔔 User stopped typing in conversation:', conversationId);
+  }, 2000);
+}
+
+function cleanupTypingIndicators() {
+  // Clear all typing timeouts
+  Object.values(state.typingTimeouts).forEach(timeout => {
+    if (timeout) clearTimeout(timeout);
+  });
+  state.typingTimeouts = {};
+  
+  // Remove all typing listeners safely
+  Object.entries(state.typingListeners).forEach(([conversationId, listenerRef]) => {
+    if (listenerRef && typeof listenerRef === 'function') {
+      try {
+        listenerRef();
+      } catch (error) {
+        console.warn(`Error removing typing listener for ${conversationId}:`, error);
+      }
+    }
+  });
+  state.typingListeners = {};
+  
+  // Clear all typing indicators from UI
+  const typingContainer = $("#typing-container");
+  if (typingContainer) {
+    typingContainer.innerHTML = '';
+  }
+}
+
+// ==================== IMPROVED MESSAGE STATUS (READ/DELIVERED RECEIPTS) ====================
+
+async function updateMessageStatus(conversationId, messageId, status) {
+  if (!conversationId || !messageId) return;
+  
+  try {
+    const messageRef = doc(db, `conversations/${conversationId}/messages`, messageId);
+    
+    // Check if user has permission to update this message
+    const messageSnap = await getDoc(messageRef);
+    if (!messageSnap.exists()) {
+      console.warn('Message not found for status update');
+      return;
+    }
+    
+    await updateDoc(messageRef, {
+      status: status,
+      statusUpdatedAt: serverTimestamp()
+    });
+    console.log(`✅ Message ${messageId} status updated to: ${status}`);
+  } catch (error) {
+    if (error.code === 'permission-denied') {
+      console.warn('⚠️ Permission denied for message status update');
+    } else {
+      console.error('❌ Error updating message status:', error);
+    }
+  }
+}
+
+async function markMessagesAsRead(conversationId) {
+  if (!conversationId || !state.user) return;
+
+  try {
+    console.log("📖 Marking messages as read in conversation:", conversationId);
+
+    const messagesQuery = query(
+      collection(db, `conversations/${conversationId}/messages`),
+      orderBy("createdAt")
+    );
+
+    const querySnapshot = await getDocs(messagesQuery);
+    const batchUpdates = [];
+
+    querySnapshot.forEach((docSnap) => {
+      const msg = docSnap.data();
+
+      // ✅ FIXED: Use senderId consistently
+      if (
+        msg.senderId !== state.user.uid &&
+        (msg.status === "sent" || msg.status === "delivered")
+      ) {
+        batchUpdates.push(
+          updateMessageStatus(conversationId, docSnap.id, "read").catch((error) => {
+            if (error.code === "permission-denied") {
+              console.warn("⚠️ Permission denied updating message:", docSnap.id);
+            } else {
+              console.error("❌ Error updating message:", error);
+            }
+          })
+        );
+      }
+    });
+
+    if (batchUpdates.length > 0) {
+      await Promise.all(batchUpdates);
+      console.log(`✅ Marked ${batchUpdates.length} messages as read`);
+    }
+  } catch (error) {
+    console.error("❌ Error marking messages as read:", error);
+  }
+}
+
+
+function getStatusIcon(status, isOwnMessage) {
+  if (!isOwnMessage) return '';
+  
+  switch (status) {
+    case 'sent':
+      return '<span class="status-sent">✓</span>';
+    case 'delivered':
+      return '<span class="status-delivered">✓✓</span>';
+    case 'read':
+      return '<span class="status-read">✓✓ <span class="status-blue">●</span></span>';
+    default:
+      return '<span class="status-pending">🕒</span>';
+  }
+}
+
+// ==================== STYLING ====================
+
+function addChatStyles() {
+  if ($('#chat-styles')) return;
+  
+  const style = document.createElement('style');
+  style.id = 'chat-styles';
+  style.textContent = `
+    /* Typing Indicators */
+    .typing-indicator {
+      padding: 8px 16px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-style: italic;
+      color: #999;
+      font-size: 14px;
+      background: #f0f0f0;
+      border-radius: 18px;
+      margin: 5px 60px 5px 10px;
+      width: fit-content;
+      animation: fadeIn 0.3s ease;
+    }
+    
+    .typing-dots {
+      display: flex;
+      gap: 3px;
+    }
+    
+    .typing-dots span {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: #999;
+      animation: typingBounce 1.4s infinite ease-in-out;
+    }
+    
+    .typing-dots span:nth-child(1) { animation-delay: -0.32s; }
+    .typing-dots span:nth-child(2) { animation-delay: -0.16s; }
+    
+    @keyframes typingBounce {
+      0%, 80%, 100% { transform: scale(0.8); opacity: 0.5; }
+      40% { transform: scale(1); opacity: 1; }
+    }
+    
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(-10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    
+    /* Message Status Icons */
+    .message-status {
+      font-size: 12px;
+      margin-left: 8px;
+      opacity: 0.7;
+      display: inline-flex;
+      align-items: center;
+      gap: 2px;
+    }
+    
+    .status-sent { color: #999; }
+    .status-delivered { color: #999; }
+    .status-read { color: #34B7F1; }
+    .status-blue { color: #34B7F1; }
+    .status-pending { color: #FFA000; }
+    
+    /* Professional message bubbles */
+    .message {
+      margin: 8px 0;
+      display: flex;
+      align-items: flex-end;
+      gap: 8px;
+      max-width: 70%;
+    }
+    
+    .message.sent {
+      align-self: flex-end;
+      margin-left: auto;
+      flex-direction: row-reverse;
+    }
+    
+    .message.received {
+      align-self: flex-start;
+    }
+    
+    .message-content {
+      padding: 12px 16px;
+      border-radius: 18px;
+      font-size: 14px;
+      line-height: 1.4;
+      word-wrap: break-word;
+      max-width: 100%;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+    }
+    
+    .message.sent .message-content {
+      background: #DCF8C6;
+      color: #000;
+      border-bottom-right-radius: 4px;
+    }
+    
+    .message.received .message-content {
+      background: #FFFFFF;
+      color: #000;
+      border-bottom-left-radius: 4px;
+      border: 1px solid #f0f0f0;
+    }
+    
+    .message-time {
+      font-size: 11px;
+      color: #999;
+      margin-top: 4px;
+      white-space: nowrap;
+    }
+    
+    .message.sent .message-time {
+      text-align: right;
+    }
+    
+    /* Modal styles */
+    .modal {
+      display: none;
+      position: fixed;
+      z-index: 1000;
+      left: 0;
+      top: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0,0,0,0.5);
+    }
+    
+    .modal-content {
+      background-color: #fefefe;
+      margin: 5% auto;
+      padding: 20px;
+      border-radius: 10px;
+      width: 80%;
+      max-width: 500px;
+    }
+    
+    .close-modal {
+      color: #aaa;
+      float: right;
+      font-size: 28px;
+      font-weight: bold;
+      cursor: pointer;
+    }
+    
+    .close-modal:hover {
+      color: black;
+    }
+    
+    /* Contact list styles */
+    .contact-item {
+      display: flex;
+      align-items: center;
+      padding: 10px;
+      border-bottom: 1px solid #eee;
+      cursor: pointer;
+    }
+    
+    .contact-item:hover {
+      background-color: #f5f5f5;
+    }
+    
+    .contact-avatar {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      background: #25D366;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-weight: bold;
+      margin-right: 10px;
+    }
+    
+    .contact-avatar img {
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      object-fit: cover;
+    }
+    
+    .hidden {
+      display: none !important;
+    }
+  `;
+  document.head.appendChild(style);
+}
+
+// ==================== SESSION STORAGE UTILITIES ====================
+
+function arrayBufferToBase64(buffer) {
+  const bytes = new Uint8Array(buffer);
+  let binary = '';
+  for (let i = 0; i < bytes.byteLength; i++) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+  return btoa(binary);
+}
+
+
+function base64ToArrayBuffer(base64) {
+  try {
+    const binaryString = atob(base64);
+    const bytes = new Uint8Array(binaryString.length);
+    for (let i = 0; i < binaryString.length; i++) {
+      bytes[i] = binaryString.charCodeAt(i);
+    }
+    return bytes.buffer;
+  } catch (error) {
+    console.error("Base64 to ArrayBuffer conversion error:", error);
+    throw new Error("Invalid base64 string");
+  }
+}
 
 function getSessionData(key) {
   try {
     const data = sessionStorage.getItem(key);
-    console.log(`🔍 SessionStorage get ${key}:`, data ? 'Exists' : 'Null');
     return data ? JSON.parse(data) : null;
   } catch (error) {
     console.error('Error getting session data:', error);
@@ -61,22 +494,18 @@ function getSessionData(key) {
 function setSessionData(key, value) {
   try {
     sessionStorage.setItem(key, JSON.stringify(value));
-    console.log(`💾 SessionStorage set ${key}:`, value ? 'Success' : 'Null');
   } catch (error) {
     console.error('Error setting session data:', error);
   }
 }
 
-// ==================== IMPROVED AUTHENTICATION HELPER FUNCTIONS ====================
+// ==================== AUTHENTICATION HELPER FUNCTIONS ====================
 
 async function getJWTToken() {
   try {
-    const token = sessionStorage.getItem('token') || 
-                  sessionStorage.getItem('jwtToken') || 
-                  sessionStorage.getItem('authToken');
-    
-    console.log('🔑 JWT Token retrieval:', token ? 'Found' : 'Not found');
-    return token;
+    return sessionStorage.getItem('token') || 
+           sessionStorage.getItem('jwtToken') || 
+           sessionStorage.getItem('authToken');
   } catch (error) {
     console.error('Error getting JWT token:', error);
     return null;
@@ -85,13 +514,11 @@ async function getJWTToken() {
 
 async function getCurrentUserData() {
   try {
-    // Comprehensive user data retrieval from multiple possible keys
     let userData = getSessionData('user') || 
                    getSessionData('currentUser') || 
                    getSessionData('userData');
     
     if (!userData) {
-      // Try to parse from sessionStorage directly with different keys
       const userString = sessionStorage.getItem('user') || 
                          sessionStorage.getItem('currentUser') ||
                          sessionStorage.getItem('userData');
@@ -104,17 +531,6 @@ async function getCurrentUserData() {
       }
     }
     
-    if (userData) {
-      console.log('✅ User data loaded successfully:', {
-        id: userData.id || userData._id,
-        name: userData.name,
-        email: userData.email,
-        firebaseUid: userData.firebaseUid
-      });
-    } else {
-      console.warn('⚠️ No user data found in sessionStorage');
-    }
-    
     return userData;
   } catch (error) {
     console.error('Error getting current user data:', error);
@@ -125,21 +541,14 @@ async function getCurrentUserData() {
 async function ensureFirebaseAuth() {
   try {
     if (auth.currentUser) {
-      console.log('✅ Firebase user already authenticated');
       return auth.currentUser;
     }
 
     const token = await getJWTToken();
     const userData = await getCurrentUserData();
 
-    console.log('🔄 Firebase auth check:', {
-      hasToken: !!token,
-      hasUserData: !!userData,
-      userData: userData
-    });
-
     if (!token || !userData) {
-      console.warn('❌ No JWT token or user data found');
+      console.warn('No token or user data available');
       return null;
     }
 
@@ -160,57 +569,87 @@ async function ensureFirebaseAuth() {
     }
 
     const data = await res.json();
-    console.log('🔑 Firebase token response:', data);
 
     if (!data.success || !data.firebaseToken) {
       throw new Error('Failed to get Firebase token from server');
     }
 
     const userCredential = await signInWithCustomToken(auth, data.firebaseToken);
-    console.log('✅ Firebase auth successful:', userCredential.user.uid);
     return userCredential.user;
 
   } catch (error) {
-    console.error('❌ Firebase auth error:', error);
+    console.error('Firebase auth error:', error);
     return null;
   }
 }
 
 async function initializeChatWithFirebase() {
   try {
-    console.log('🔄 Starting Firebase authentication...');
-    
     const firebaseUser = await ensureFirebaseAuth();
     
     if (firebaseUser) {
       state.user = firebaseUser;
-      console.log('✅ Firebase chat initialized successfully');
+      console.log('✅ Firebase user authenticated:', firebaseUser.uid);
       return true;
     } else {
-      console.warn('⚠️ Firebase auth failed, continuing with limited functionality');
+      console.warn('❌ Firebase authentication failed');
       return false;
     }
   } catch (error) {
-    console.error('❌ Firebase chat initialization failed:', error);
+    console.error('Firebase chat initialization failed:', error);
     return false;
   }
 }
 
 // ==================== STORAGE UTILITIES ====================
 
-function storePrivateKey(uid, privateKey) {
+function storePrivateKey(uid, privateKeyBase64, publicKeyBase64) {
   try {
-    localStorage.setItem(`priv-${uid}`, privateKey);
-    console.log(`💾 Private key stored in localStorage for ${uid}`);
+    if (!uid || !privateKeyBase64) return;
+    
+    // ✅ FIXED: Use more specific storage keys to avoid conflicts
+    const storageKey = `chat-keys-${uid}`;
+    const keyData = {
+      privateKey: privateKeyBase64,
+      publicKey: publicKeyBase64,
+      timestamp: Date.now(),
+      uid: uid
+    };
+    
+    localStorage.setItem(storageKey, JSON.stringify(keyData));
+    console.log("✅ Keys stored successfully for user:", uid);
   } catch (error) {
-    console.error('Error storing private key:', error);
+    console.error('Error storing keys:', error);
   }
 }
 
 function getPrivateKey(uid) {
-  const key = localStorage.getItem(`priv-${uid}`);
-  console.log(`🔑 Private key retrieval for ${uid}:`, key ? 'Found' : 'Not found');
-  return key;
+  try {
+    const storageKey = `chat-keys-${uid}`;
+    const keyData = localStorage.getItem(storageKey);
+    
+    if (!keyData) {
+      return { priv: null, pub: null };
+    }
+    
+    const parsed = JSON.parse(keyData);
+    return { 
+      priv: parsed.privateKey, 
+      pub: parsed.publicKey 
+    };
+  } catch (error) {
+    console.error('Error reading keys from localStorage:', error);
+    return { priv: null, pub: null };
+  }
+}
+
+function isValidBase64(str) {
+  if (typeof str !== 'string') return false;
+  try {
+    return btoa(atob(str)) === str;
+  } catch (err) {
+    return false;
+  }
 }
 
 function storeCurrentUserInfo(userInfo) {
@@ -224,184 +663,342 @@ function storeCurrentUserInfo(userInfo) {
     profilePic: userInfo.profilePic || ''
   };
   setSessionData("currentUser", data);
-  console.log('💾 Current user info stored in sessionStorage:', data);
 }
 
 function getCurrentUserInfo() {
-  const userInfo = getSessionData('currentUser');
-  console.log('👤 Current user info retrieved from sessionStorage:', userInfo);
-  return userInfo;
+  return getSessionData('currentUser');
 }
 
-function addVerifiedPartner(partnerId) {
-  const verifiedPartners = getSessionData('verifiedPartners') || [];
-  if (!verifiedPartners.includes(partnerId)) {
-    verifiedPartners.push(partnerId);
-    setSessionData('verifiedPartners', verifiedPartners);
+// ==================== CRYPTO UTILITIES ====================
+
+async function generateKeys() {
+  try {
+    const keyPair = await crypto.subtle.generateKey(
+      {
+        name: "RSA-OAEP",
+        modulusLength: 2048,
+        publicExponent: new Uint8Array([1, 0, 1]),
+        hash: "SHA-256"
+      },
+      true,
+      ["encrypt", "decrypt"]
+    );
+    return keyPair;
+  } catch (error) {
+    console.error("Key generation error:", error);
+    throw error;
   }
 }
 
-// ==================== FIXED CRYPTO UTILITIES ====================
-
-async function generateKeys() {
-  return crypto.subtle.generateKey(
-    { name: "RSA-OAEP", modulusLength: 2048, publicExponent: new Uint8Array([1,0,1]), hash: "SHA-256" },
-    true,
-    ["encrypt","decrypt"]
-  );
-}
-
-async function exportKey(key) {
-  const spki = await crypto.subtle.exportKey("spki", key);
-  return btoa(String.fromCharCode(...new Uint8Array(spki)));
-}
-
-async function importPublicKey(base64OrPem) {
+async function exportKey(key, format = "spki") {
   try {
-    // Strip PEM headers if present
-    let clean = base64OrPem
+    const exported = await crypto.subtle.exportKey(format, key);
+    return arrayBufferToBase64(exported);
+  } catch (error) {
+    console.error("Key export error:", error);
+    throw error;
+  }
+}
+
+async function importPublicKey(base64Key) {
+  try {
+    if (!base64Key || typeof base64Key !== 'string') {
+      throw new Error("Invalid public key format");
+    }
+    
+    // Clean the key - remove any PEM headers/footers and whitespace
+    let cleanKey = base64Key
       .replace(/-----BEGIN PUBLIC KEY-----/g, '')
       .replace(/-----END PUBLIC KEY-----/g, '')
-      .replace(/\s+/g, ''); // remove all whitespace
+      .replace(/\s+/g, '')
+      .trim();
 
-    const binary = Uint8Array.from(atob(clean), c => c.charCodeAt(0));
-    return await crypto.subtle.importKey(
+    console.log("Importing public key, length:", cleanKey.length);
+    
+    // Validate base64
+    try {
+      atob(cleanKey);
+    } catch (e) {
+      throw new Error("Invalid base64 encoding in public key");
+    }
+
+    const binaryKey = base64ToArrayBuffer(cleanKey);
+    
+    const publicKey = await crypto.subtle.importKey(
       "spki",
-      binary.buffer,
-      { name: "RSA-OAEP", hash: "SHA-256" },
+      binaryKey,
+      {
+        name: "RSA-OAEP",
+        hash: "SHA-256"
+      },
       true,
       ["encrypt"]
     );
+    
+    console.log("✅ Public key imported successfully");
+    return publicKey;
   } catch (error) {
-    console.error("Error importing public key:", error);
+    console.error("❌ Public key import error:", error);
+    console.error("Key that failed:", base64Key?.substring(0, 100));
+    throw new Error("Failed to import public key: " + error.message);
+  }
+}
+
+async function importPrivateKey(base64Key) {
+  try {
+    if (!base64Key || typeof base64Key !== 'string') {
+      throw new Error("Invalid private key format");
+    }
+    
+    const binaryKey = base64ToArrayBuffer(base64Key);
+    
+    const privateKey = await crypto.subtle.importKey(
+      "pkcs8",
+      binaryKey,
+      {
+        name: "RSA-OAEP",
+        hash: "SHA-256"
+      },
+      true,
+      ["decrypt"]
+    );
+    
+    console.log("✅ Private key imported successfully");
+    return privateKey;
+  } catch (error) {
+    console.error("❌ Private key import error:", error);
+    throw new Error("Failed to import private key: " + error.message);
+  }
+}
+
+async function encryptMessage(publicKey, text) {
+  try {
+    const encoder = new TextEncoder();
+    const data = encoder.encode(text);
+    
+    const encrypted = await crypto.subtle.encrypt(
+      {
+        name: "RSA-OAEP"
+      },
+      publicKey,
+      data
+    );
+    
+    return arrayBufferToBase64(encrypted);
+  } catch (error) {
+    console.error("Encryption error:", error);
     throw error;
   }
 }
 
-async function encryptMessage(pubKey, text) {
-  const enc = new TextEncoder().encode(text);
-  const buf = await crypto.subtle.encrypt({ name: "RSA-OAEP" }, pubKey, enc);
-  return btoa(String.fromCharCode(...new Uint8Array(buf)));
-}
-
-// FIXED DECRYPTION FUNCTION WITH PROPER ERROR HANDLING
-async function decryptMessage(privKey, b64) {
+async function decryptMessage(privateKey, encryptedBase64) {
   try {
-    if (!b64 || !privKey) {
-      throw new Error('Missing decryption data');
+    if (!privateKey) throw new Error("No private key available");
+    if (!encryptedBase64 || typeof encryptedBase64 !== 'string') 
+      throw new Error("Invalid encrypted data");
+
+    const cleanBase64 = encryptedBase64.replace(/\s/g, '');
+    
+    // Better base64 validation
+    try {
+      atob(cleanBase64);
+    } catch (e) {
+      throw new Error("Invalid base64 encoding in encrypted message");
+    }
+
+    const encryptedData = base64ToArrayBuffer(cleanBase64);
+
+    const decrypted = await crypto.subtle.decrypt(
+      { name: "RSA-OAEP" },
+      privateKey,
+      encryptedData
+    );
+
+    return new TextDecoder().decode(decrypted);
+  } catch (error) {
+    console.error("❌ Decryption failed:", error);
+    
+    // Try with historical keys if available
+    const historicalResult = await tryDecryptWithHistoricalKeys(encryptedBase64);
+    if (historicalResult) {
+      return historicalResult;
     }
     
-    const bin = Uint8Array.from(atob(b64), c => c.charCodeAt(0));
-    const dec = await crypto.subtle.decrypt({ name: "RSA-OAEP" }, privKey, bin);
-    return new TextDecoder().decode(dec);
+    // More specific error handling
+    if (error.toString().includes("OAEP") || error.toString().includes("decrypt")) {
+      return "[Encrypted message - Key mismatch. Please reset encryption keys from the menu.]";
+    } else if (error.message.includes("base64")) {
+      return "[Encrypted message - Corrupted data]";
+    } else {
+      return "[Encrypted message - Decryption failed]";
+    }
+  }
+}
+// Add this new function to handle historical key decryption
+async function tryDecryptWithHistoricalKeys(encryptedBase64) {
+  if (!state.user) return null;
+  
+  try {
+    console.log("🔄 Attempting to decrypt with historical keys...");
+    
+    const keysToTry = [];
+    const currentUserId = state.user.uid;
+    
+    // Add current key first
+    const currentKeys = getPrivateKey(currentUserId);
+    if (currentKeys.priv) {
+      keysToTry.push({ 
+        key: currentKeys.priv, 
+        source: 'current',
+        uid: currentUserId
+      });
+    }
+    
+    // Look for historical key backups
+    const historicalKeys = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key.startsWith('historical-keys-') && key.includes(currentUserId)) {
+        try {
+          const keyData = JSON.parse(localStorage.getItem(key));
+          if (keyData.privateKey) {
+            historicalKeys.push({
+              key: keyData.privateKey,
+              source: 'historical',
+              timestamp: keyData.timestamp,
+              uid: currentUserId
+            });
+          }
+        } catch (e) {
+          console.warn('Invalid historical key format:', key);
+        }
+      }
+    }
+    
+    // Sort historical keys by timestamp (newest first)
+    historicalKeys.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+    keysToTry.push(...historicalKeys);
+    
+    // Try each key
+    for (const keyInfo of keysToTry) {
+      try {
+        const privateKey = await importPrivateKey(keyInfo.key);
+        const cleanBase64 = encryptedBase64.replace(/\s/g, '');
+        const encryptedData = base64ToArrayBuffer(cleanBase64);
+        
+        const decrypted = await crypto.subtle.decrypt(
+          { name: "RSA-OAEP" },
+          privateKey,
+          encryptedData
+        );
+        
+        console.log(`✅ Successfully decrypted with ${keyInfo.source} key`);
+        return new TextDecoder().decode(decrypted);
+      } catch (e) {
+        console.log(`❌ Failed with ${keyInfo.source} key`);
+        // Continue to next key
+      }
+    }
+    
+    return null;
   } catch (error) {
-    console.error("Decryption error:", error);
-    throw error;
+    console.error("Historical key recovery failed:", error);
+    return null;
   }
 }
 
-// SAFE DECRYPTION WITH FALLBACK
-async function decryptMessageSafe(encryptedData, messageId) {
-  if (!encryptedData) {
-    return '[Empty message]';
-  }
+// ==================== FIXED FINGERPRINT GENERATION ====================
 
-  if (!state.userKeys || !state.userKeys.privateKey) {
-    return '[Waiting for decryption keys...]';
-  }
+function isValidHexString(hexString) {
+  return /^[0-9A-Fa-f]+$/.test(hexString.replace(/\s/g, ''));
+}
 
-  try {
-    const decrypted = await decryptMessage(state.userKeys.privateKey, encryptedData);
-    console.log(`✅ Message ${messageId} decrypted successfully`);
-    return decrypted;
-  } catch (error) {
-    console.warn(`⚠️ Decryption failed for message ${messageId}:`, error.name);
-    
-    // Return user-friendly message instead of throwing error
-    if (error.name === 'OperationError') {
-      return '[Encrypted message - key mismatch]';
-    }
-    
-    return '[Encrypted message - decryption error]';
+function cleanFingerprint(fingerprint) {
+  // Remove all non-hex characters and ensure proper formatting
+  return fingerprint.replace(/[^0-9A-Fa-f]/g, '').toUpperCase();
+}
+
+function formatFingerprint(hexString) {
+  // Ensure we have a valid hex string
+  const cleanHex = cleanFingerprint(hexString);
+  if (cleanHex.length !== 64) {
+    console.warn('Invalid fingerprint length:', cleanHex.length);
+    return hexString; // Return original if invalid
   }
+  
+  // Format as groups of 4 characters
+  return cleanHex.match(/.{1,4}/g).join(' ').toUpperCase();
 }
 
 async function generateFingerprint(publicKeyBase64) {
   try {
-    const key = await importPublicKey(publicKeyBase64);
-    const spkiBuffer = await crypto.subtle.exportKey("spki", key);
-    const hashBuffer = await crypto.subtle.digest("SHA-256", spkiBuffer);
-
-    // Convert hash to spaced hex
-    const hashArray = Array.from(new Uint8Array(hashBuffer));
-    const hex = hashArray.map(b => b.toString(16).padStart(2, "0")).join("");
-    const formatted = hex.match(/.{1,4}/g).join(" "); // group 4 chars
-    return formatted.toUpperCase();
-  } catch (error) {
-    console.error("Error generating fingerprint:", error);
-    return "ERROR";
-  }
-}
-
-function compareFingerprints() {
-  const enteredFingerprint = $("#compare-fingerprint").value.trim().toUpperCase();
-  const actualPartnerFingerprint = currentVerificationData.partnerFingerprint;
-  const resultElement = $("#comparison-result");
-  
-  if (!enteredFingerprint) {
-    resultElement.innerHTML = "<p class='verification-warning'>Please enter fingerprint</p>";
-    return;
-  }
-  
-  const normalizedEntered = enteredFingerprint.replace(/\s/g, '').toUpperCase();
-  const normalizedActual = actualPartnerFingerprint.replace(/\s/g, '').toUpperCase();
-  
-  if (normalizedEntered === normalizedActual) {
-    resultElement.innerHTML = `<p class='verification-success'>✅ Match! Secure connection.</p>`;
-    addVerifiedPartner(currentVerificationData.partnerId);
-  } else {
-    resultElement.innerHTML = `<p class='verification-error'>❌ No match! Security warning.</p>`;
-  }
-}
-
-// Utility function to copy fingerprint to clipboard
-function copyToClipboard(text) {
-  navigator.clipboard.writeText(text).then(() => {
-    showTemporaryMessage("Fingerprint copied to clipboard!");
-  }).catch(err => {
-    console.error('Failed to copy: ', err);
-  });
-}
-
-function showTemporaryMessage(message) {
-  const msg = document.createElement('div');
-  msg.style.cssText = `
-    position: fixed;
-    top: 20px;
-    right: 20px;
-    background: #4CAF50;
-    color: white;
-    padding: 10px 20px;
-    border-radius: 4px;
-    z-index: 10000;
-    font-size: 14px;
-  `;
-  msg.textContent = message;
-  document.body.appendChild(msg);
-  
-  setTimeout(() => {
-    if (msg.parentNode) {
-      document.body.removeChild(msg);
+    console.log("🔑 Generating fingerprint from public key");
+    
+    if (!publicKeyBase64 || typeof publicKeyBase64 !== 'string') {
+      throw new Error("Invalid public key format");
     }
-  }, 2000);
-}
 
+    // Clean the key - remove any PEM headers/footers and whitespace
+    let cleanKey = publicKeyBase64
+      .replace(/-----BEGIN PUBLIC KEY-----/g, '')
+      .replace(/-----END PUBLIC KEY-----/g, '')
+      .replace(/\s+/g, '')
+      .trim();
+
+    console.log("Cleaned key length:", cleanKey.length);
+    console.log("Key starts with:", cleanKey.substring(0, 20));
+
+    // Validate base64
+    try {
+      const binaryKey = base64ToArrayBuffer(cleanKey);
+      console.log("Binary key length:", binaryKey.byteLength);
+    } catch (e) {
+      console.error("Base64 validation failed:", e);
+      throw new Error("Invalid base64 encoding in public key");
+    }
+
+    const publicKey = await importPublicKey(cleanKey);
+    
+    // Export to SPKI format to get consistent binary representation
+    const spkiBuffer = await crypto.subtle.exportKey("spki", publicKey);
+    console.log("SPKI buffer length:", spkiBuffer.byteLength);
+    
+    // Create SHA-256 hash
+    const hashBuffer = await crypto.subtle.digest("SHA-256", spkiBuffer);
+    console.log("Hash buffer length:", hashBuffer.byteLength);
+    
+    // Convert to hex string with proper validation
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    const hexString = hashArray.map(b => {
+      const hex = b.toString(16);
+      return hex.length === 1 ? '0' + hex : hex;
+    }).join('');
+    
+    console.log("Raw hex string:", hexString);
+    console.log("Hex string length:", hexString.length);
+    
+    if (hexString.length !== 64) {
+      throw new Error(`Invalid hash length: ${hexString.length}, expected 64`);
+    }
+    
+    if (!isValidHexString(hexString)) {
+      throw new Error("Generated hash contains invalid hex characters");
+    }
+    
+    const formatted = formatFingerprint(hexString);
+    console.log("✅ Generated fingerprint:", formatted);
+    return formatted;
+  } catch (error) {
+    console.error("❌ Fingerprint generation error:", error);
+    console.error("Public key that failed:", publicKeyBase64?.substring(0, 100));
+    return "ERROR: " + error.message;
+  }
+}
 // ==================== MONGODB INTEGRATION ====================
 
 async function getUsersFromMongoDB() {
   try {
     const token = await getJWTToken();
-    console.log('🔑 Token for MongoDB request:', token ? 'Exists' : 'Missing');
     
     if (!token) {
       throw new Error("JWT token missing - cannot fetch users");
@@ -420,18 +1017,16 @@ async function getUsersFromMongoDB() {
     }
 
     const data = await res.json();
-    console.log('👥 Users API response:', data);
 
     if (!data.success) {
       console.error("Failed to fetch users:", data.message || data);
       return [];
     }
 
-    console.log("✅ Users fetched from MongoDB:", data.users?.length || 0);
     return data.users || [];
 
   } catch (err) {
-    console.error("❌ Error fetching users:", err);
+    console.error("Error fetching users:", err);
     return [];
   }
 }
@@ -441,14 +1036,12 @@ async function fetchUserProfile(firebaseUid) {
 
   const cachedProfiles = getSessionData('userProfiles') || {};
   if (cachedProfiles[firebaseUid]) {
-    console.log('👤 User profile from cache:', firebaseUid);
     return cachedProfiles[firebaseUid];
   }
 
   try {
     const token = await getJWTToken();
     if (!token) {
-      console.warn('No token available for profile fetch');
       return null;
     }
 
@@ -465,7 +1058,6 @@ async function fetchUserProfile(firebaseUid) {
       if (data.success && data.user) {
         cachedProfiles[firebaseUid] = data.user;
         setSessionData('userProfiles', cachedProfiles);
-        console.log('✅ User profile fetched:', data.user.name);
         return data.user;
       }
     }
@@ -476,22 +1068,18 @@ async function fetchUserProfile(firebaseUid) {
   return null;
 }
 
-// ==================== FIXED USER PROFILE MANAGEMENT ====================
+// ==================== USER PROFILE MANAGEMENT ====================
 
 async function ensureUserProfile() {
-  console.log('🔄 Ensuring user profile...');
-  
-  // First try to get current user info from sessionStorage
   let userInfo = getCurrentUserInfo();
   
   if (userInfo && userInfo.name && userInfo.name !== 'Anonymous User') {
-    console.log('✅ User info from session storage:', userInfo);
-    updateUIWithUserInfo(userInfo);
     state.currentUserMongoId = userInfo.mongoId;
+    // Update the UI with the actual username
+    updateUserDisplay(userInfo.name);
     return userInfo.name;
   }
 
-  // If not found or anonymous, try to get from sessionStorage with different keys
   const userData = await getCurrentUserData();
   
   if (userData && userData.name) {
@@ -505,12 +1093,11 @@ async function ensureUserProfile() {
     
     storeCurrentUserInfo(userInfo);
     state.currentUserMongoId = userInfo.mongoId;
-    updateUIWithUserInfo(userInfo);
-    console.log('✅ User profile created from session data');
+    // Update the UI with the actual username
+    updateUserDisplay(userInfo.name);
     return userInfo.name;
   }
 
-  // Final fallback - try to get name from Firebase auth
   let displayName = 'Anonymous User';
   if (state.user && state.user.displayName) {
     displayName = state.user.displayName;
@@ -527,64 +1114,30 @@ async function ensureUserProfile() {
   };
   
   storeCurrentUserInfo(userInfo);
-  updateUIWithUserInfo(userInfo);
-  console.log('⚠️ Using fallback profile:', displayName);
+  // Update the UI with the actual username
+  updateUserDisplay(displayName);
   return displayName;
 }
 
-function updateUIWithUserInfo(userInfo) {
-  if ($("#current-user-name")) {
-    $("#current-user-name").textContent = userInfo.name;
+// Add this new function to update the user display
+function updateUserDisplay(userName) {
+  const currentUserNameEl = document.getElementById('current-user-name');
+  if (currentUserNameEl) {
+    currentUserNameEl.textContent = userName;
   }
   
-  const avatarEl = $("#current-user-avatar");
-  const initialsEl = $("#current-user-initials");
-  
-  if (avatarEl && userInfo.profilePic) {
-    avatarEl.src = userInfo.profilePic;
-    avatarEl.style.display = "block";
-    if (initialsEl) initialsEl.style.display = "none";
-  } else if (initialsEl) {
-    initialsEl.textContent = userInfo.name.substring(0, 2).toUpperCase();
-    initialsEl.style.display = "block";
-    if (avatarEl) avatarEl.style.display = "none";
-  }
-}
-
-async function getUserDisplayName(mongoId) {
-  if (!mongoId) return "Unknown User";
-
-  const currentUser = getCurrentUserInfo();
-  if (currentUser && mongoId === currentUser.mongoId) {
-    return currentUser.name || "You";
-  }
-
-  const cachedProfiles = getSessionData('userProfiles') || {};
-  for (const key in cachedProfiles) {
-    if (cachedProfiles[key]._id === mongoId) {
-      return cachedProfiles[key].name;
+  // Also update the header avatar if needed
+  const headerAvatar = document.getElementById('headerAvatar');
+  if (headerAvatar && !headerAvatar.src) {
+    // You can set the avatar image here if you have it
+    const userInfo = getCurrentUserInfo();
+    if (userInfo && userInfo.profilePic) {
+      headerAvatar.src = userInfo.profilePic;
+    } else {
+      // Set initials as fallback
+      headerAvatar.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(userName)}&background=random`;
     }
   }
-
-  return `User-${mongoId.substring(0,6)}`;
-}
-
-async function getUserProfilePic(mongoId) {
-  if (!mongoId) return '';
-
-  const currentUser = getCurrentUserInfo();
-  if (currentUser && mongoId === currentUser.mongoId) {
-    return currentUser.profilePic || '';
-  }
-
-  const cachedProfiles = getSessionData('userProfiles') || {};
-  for (const key in cachedProfiles) {
-    if (cachedProfiles[key]._id === mongoId) {
-      return cachedProfiles[key].profilePic || '';
-    }
-  }
-
-  return '';
 }
 
 // ==================== PROFILE DROPDOWN ====================
@@ -593,7 +1146,10 @@ function setupProfileDropdown() {
   const profileDropdown = $(".profile-dropdown");
   const dropdownContent = $(".dropdown-content");
 
-  if (!profileDropdown || !dropdownContent) return;
+  if (!profileDropdown || !dropdownContent) {
+    console.warn('Profile dropdown elements not found');
+    return;
+  }
 
   profileDropdown.addEventListener("click", (e) => {
     e.stopPropagation();
@@ -606,639 +1162,686 @@ function setupProfileDropdown() {
 
   dropdownContent.addEventListener("click", (e) => e.stopPropagation());
 
-  $("#logout-btn")?.addEventListener("click", async (e) => {
-    e.preventDefault();
-    try {
-      await signOut(auth);
-      sessionStorage.clear();
-      window.location.href = '/login.html';
-    } catch (error) {
-      console.error("Logout error:", error);
-      showError("Failed to logout. Please try again.");
-    }
-  });
+  const logoutBtn = $("#logout-btn");
+  if (logoutBtn) {
+    logoutBtn.addEventListener("click", async (e) => {
+      e.preventDefault();
+      try {
+        await signOut(auth);
+        sessionStorage.clear();
+        localStorage.clear();
+        window.location.href = '/login.html';
+      } catch (error) {
+        console.error("Logout error:", error);
+        showError("Failed to logout. Please try again.");
+      }
+    });
+  }
 }
 
-// ==================== FIXED ENCRYPTION KEYS MANAGEMENT ====================
+// ==================== IMPROVED KEY MANAGEMENT ====================
+
+async function validateKeyPair(publicKey, privateKey) {
+  try {
+    const testMessage = "key_validation_test_123";
+    console.log("🔑 Validating key pair...");
+    
+    const encrypted = await encryptMessage(publicKey, testMessage);
+    console.log("Encrypted test message length:", encrypted.length);
+    
+    const decrypted = await decryptMessage(privateKey, encrypted);
+    console.log("Decryption successful:", decrypted === testMessage);
+    
+    return decrypted === testMessage;
+  } catch (error) {
+    console.error("❌ Key validation failed:", error);
+    return false;
+  }
+}
 
 async function ensureUserKeys(uid) {
-  if (!uid) return console.warn('No UID provided for key generation');
+  if (!uid) {
+    console.error("No UID provided for key generation");
+    return;
+  }
 
-  // Try to load existing private key from localStorage
-  const existingPriv = getPrivateKey(uid);
+  console.log("🔑 Ensuring keys for user:", uid);
+  
+  if (state.keyGenerationAttempts >= state.maxKeyGenerationAttempts) {
+    console.error("❌ Maximum key generation attempts reached");
+    showError("Key setup failed after multiple attempts. Please refresh the page.");
+    return;
+  }
+  
+  state.keyGenerationAttempts++;
 
-  if (existingPriv) {
+  const existing = getPrivateKey(uid);
+  
+  if (existing.priv && existing.pub) {
     try {
-      console.log('🔄 Loading existing private key from localStorage...');
+      console.log("🔑 Found existing keys, validating...");
       
-      const privateKey = await crypto.subtle.importKey(
-        "pkcs8",
-        Uint8Array.from(atob(existingPriv), c => c.charCodeAt(0)).buffer,
-        { name: "RSA-OAEP", hash:"SHA-256" },
-        true,
-        ["decrypt"]
-      );
-
-      // Load public key from Firestore
-      const userSnap = await getDoc(doc(db, "users", uid));
-      let pubKey = null;
-      if (userSnap.exists() && userSnap.data().publicKey) {
-        pubKey = await importPublicKey(userSnap.data().publicKey);
-        console.log('✅ Public key loaded from Firestore');
+      const privateKey = await importPrivateKey(existing.priv);
+      const publicKey = await importPublicKey(existing.pub);
+      
+      const isValid = await validateKeyPair(publicKey, privateKey);
+      
+      if (isValid) {
+        state.userKeys = { privateKey, publicKey };
+        console.log("✅ Existing keys validated and loaded");
+        
+        await updatePublicKeyInFirestore(uid, existing.pub);
+        state.keyGenerationAttempts = 0;
+        return;
       } else {
-        console.warn('⚠️ No public key found in Firestore');
+        console.warn("❌ Key validation failed, backing up and generating new keys");
+        
+        // BACKUP OLD KEYS BEFORE REGENERATING
+        backupHistoricalKeys(uid, existing.priv, existing.pub);
+        
+        // Clear invalid keys and regenerate
+        const storageKey = `chat-keys-${uid}`;
+        localStorage.removeItem(storageKey);
+        throw new Error("Key validation failed");
       }
-
-      state.userKeys = { privateKey, publicKey: pubKey };
-      console.log('✅ Existing encryption keys loaded from localStorage');
-      return;
-
     } catch (error) {
-      console.error('❌ Error loading existing keys from localStorage:', error);
-      // Continue to generate new keys
+      console.warn("❌ Existing key validation failed, backing up and generating new keys:", error);
+      
+      // BACKUP OLD KEYS BEFORE REGENERATING
+      if (existing.priv && existing.pub) {
+        backupHistoricalKeys(uid, existing.priv, existing.pub);
+      }
+      
+      const storageKey = `chat-keys-${uid}`;
+      localStorage.removeItem(storageKey);
     }
   }
 
-  // Generate new keys if existing ones fail or don't exist
+  // Generate new keys
   try {
-    console.log('🔄 Generating new encryption keys...');
-    const keys = await generateKeys();
-    const pub = await exportKey(keys.publicKey);
-    const privExported = await crypto.subtle.exportKey("pkcs8", keys.privateKey);
-    const privBase64 = btoa(String.fromCharCode(...new Uint8Array(privExported)));
+    console.log("🔑 Generating new encryption keys...");
+    const keyPair = await generateKeys();
     
-    // Store in localStorage for persistence across sessions
-    storePrivateKey(uid, privBase64);
-
-    // Save public key in Firestore
-    const userRef = doc(db, "users", uid);
-    await setDoc(userRef, { 
-      publicKey: pub, 
-      lastUpdated: serverTimestamp() 
-    }, { merge: true });
-
-    state.userKeys = { privateKey: keys.privateKey, publicKey: keys.publicKey };
-    console.log('✅ New encryption keys generated and stored in localStorage');
-
+    const pubBase64 = await exportKey(keyPair.publicKey, "spki");
+    const privBase64 = await exportKey(keyPair.privateKey, "pkcs8");
+    
+    console.log("Public key length:", pubBase64.length);
+    console.log("Private key length:", privBase64.length);
+    
+    const isValid = await validateKeyPair(keyPair.publicKey, keyPair.privateKey);
+    
+    if (!isValid) {
+      throw new Error("Key validation failed after generation");
+    }
+    
+    storePrivateKey(uid, privBase64, pubBase64);
+    await updatePublicKeyInFirestore(uid, pubBase64);
+    
+    state.userKeys = {
+      privateKey: keyPair.privateKey,
+      publicKey: keyPair.publicKey
+    };
+    
+    state.keyGenerationAttempts = 0;
+    console.log("✅ New encryption keys generated and validated");
   } catch (error) {
     console.error('❌ Error generating new keys:', error);
+    
+    if (state.keyGenerationAttempts < state.maxKeyGenerationAttempts) {
+      console.log(`🔄 Retrying key generation (attempt ${state.keyGenerationAttempts})...`);
+      setTimeout(() => ensureUserKeys(uid), 1000);
+    } else {
+      showError("Failed to set up encryption keys. Chat functionality will be limited.");
+    }
+  }
+}
+
+function backupHistoricalKeys(uid, privateKeyBase64, publicKeyBase64) {
+  try {
+    if (!uid || !privateKeyBase64) return;
+    
+    const backupKey = `historical-keys-${uid}-${Date.now()}`;
+    const backupData = {
+      privateKey: privateKeyBase64,
+      publicKey: publicKeyBase64,
+      timestamp: Date.now(),
+      uid: uid
+    };
+    
+    localStorage.setItem(backupKey, JSON.stringify(backupData));
+    console.log("✅ Historical keys backed up:", backupKey);
+    
+    // Clean up old backups (keep only last 5)
+    const historicalKeys = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key.startsWith('historical-keys-') && key.includes(uid)) {
+        historicalKeys.push(key);
+      }
+    }
+    
+    if (historicalKeys.length > 5) {
+      historicalKeys.sort(); // Sort by timestamp (oldest first)
+      const keysToRemove = historicalKeys.slice(0, historicalKeys.length - 5);
+      keysToRemove.forEach(key => localStorage.removeItem(key));
+      console.log("🧹 Cleaned up old key backups");
+    }
+  } catch (error) {
+    console.error('Error backing up historical keys:', error);
+  }
+}
+
+async function recoverEncryptionKeys() {
+  if (!state.user) return;
+  
+  try {
+    console.log("🔄 Attempting to recover encryption...");
+    
+    // Clear partner key cache to force refresh
+    state.partnerPublicKeys = {};
+    
+    // Clear local keys and regenerate
+    localStorage.removeItem(`priv-${state.user.uid}`);
+    localStorage.removeItem(`pub-${state.user.uid}`);
+    state.userKeys = null;
+    state.keyGenerationAttempts = 0;
+    
+    await ensureUserKeys(state.user.uid);
+    
+    // Refresh current conversation
+    if (state.currentConversation) {
+      const convRef = doc(db, "conversations", state.currentConversation);
+      const convSnap = await getDoc(convRef);
+      if (convSnap.exists()) {
+        openConversation(state.currentConversation, convSnap.data());
+      }
+    }
+    
+    showError("Encryption keys recovered. Please ask your partner to resend any undecryptable messages.");
+  } catch (error) {
+    console.error("Recovery failed:", error);
+    showError("Recovery failed. Please refresh the page.");
+  }
+}
+
+async function updatePublicKeyInFirestore(uid, publicKeyBase64) {
+  try {
+    const userRef = doc(db, "users", uid);
+    await setDoc(userRef, {
+      publicKey: publicKeyBase64,
+      keyVersion: Date.now(),
+      lastUpdated: serverTimestamp()
+    }, { merge: true });
+    console.log("Public key updated in Firestore for user:", uid);
+  } catch (error) {
+    console.error("Error updating public key in Firestore:", error);
   }
 }
 
 // ==================== USER PRESENCE ====================
 
 function setupUserPresence() {
-  if (!state.user) {
-    console.warn('No user for presence setup');
-    return;
-  }
+  if (!state.user) return;
   
   const statusRef = ref(rtdb, `status/${state.user.uid}`);
   onDisconnect(statusRef).set({ state: "offline", lastChanged: Date.now() });
   set(statusRef, { state: "online", lastChanged: Date.now() });
-  console.log('✅ User presence setup completed');
+  console.log('✅ User presence system activated');
 }
 
-// ==================== FIXED CONVERSATIONS WITH PROPER DECRYPTION ====================
+// ==================== IMPROVED CONVERSATIONS ====================
 
 async function listConversations() {
-  if (!state.user) {
-    console.warn('No user for conversation listing');
-    return;
-  }
-  
-  const q = query(collection(db, "conversations"), where("participants", "array-contains", state.user.uid));
-  const unsubscribe = onSnapshot(q, async snap => {
-    const container = $("#contacts-list");
-    if (!container) return;
-    
-    container.innerHTML = "";
-    if (snap.empty) { 
-      container.innerHTML = `<p class="no-conversations">No conversations yet. Start a new chat!</p>`; 
-      return; 
-    }
+  if (!state.user) return;
 
-    for (const docSnap of snap.docs) {
-      const data = docSnap.data();
-      const partnerUid = data.participants.find(p => p !== state.user.uid);
-      
-      try {
-        const partnerProfile = await fetchUserProfile(partnerUid);
-        let partnerName, partnerPic;
-        
-        if (partnerProfile) {
-          partnerName = partnerProfile.name;
-          partnerPic = partnerProfile.profilePic;
-        } else {
-          partnerName = `Officer-${partnerUid.substring(0, 6)}`;
-          partnerPic = '';
-          console.warn('⚠️ Using fallback for partner UID:', partnerUid);
+  try {
+    const q = query(
+      collection(db, "conversations"),
+      where("participants", "array-contains", state.user.uid)
+    );
+
+    const unsubscribe = onSnapshot(
+      q,
+      async (snap) => {
+        const container = document.getElementById("contacts-list");
+        if (!container) {
+          console.warn("Contacts list container not found");
+          return;
         }
 
-        const el = document.createElement("div");
-        el.classList.add("contact-item");
-        el.innerHTML = `<div class="contact-avatar">${partnerPic ? `<img src="${partnerPic}" />` : partnerName.substring(0,2)}</div>
-                        <div class="contact-details"><h4>${partnerName}</h4><p>${data.lastMessage||'No messages yet'}</p></div>`;
-        el.onclick = () => openConversation(docSnap.id, data);
-        container.appendChild(el);
-      } catch (error) {
-        console.error('Error loading conversation:', error);
+        container.innerHTML = "";
+
+        if (snap.empty) {
+          container.innerHTML = `<p class="no-conversations">No conversations yet. Start a new chat!</p>`;
+          return;
+        }
+
+        for (const docSnap of snap.docs) {
+          try {
+            const data = docSnap.data();
+            const partnerUid = data.participants.find((p) => p !== state.user.uid);
+
+            // Fetch partner info
+            let partnerName = "";
+            let partnerPic = "";
+
+            if (data.participantNames && data.participantNames[partnerUid]) {
+              partnerName = data.participantNames[partnerUid];
+            } else if (data.participantInfo && data.participantInfo[partnerUid]) {
+              partnerName = data.participantInfo[partnerUid].name || `Officer-${partnerUid.substring(0, 6)}`;
+              partnerPic = data.participantInfo[partnerUid].profilePic || "";
+            } else {
+              const partnerProfile = await fetchUserProfile(partnerUid);
+              if (partnerProfile) {
+                partnerName = partnerProfile.name || `Officer-${partnerUid.substring(0, 6)}`;
+                partnerPic = partnerProfile.profilePic || "";
+              } else {
+                partnerName = `Officer-${partnerUid.substring(0, 6)}`;
+                partnerPic = "";
+              }
+            }
+
+            const lastMessage = data.lastMessage || "No messages yet";
+            const unreadCount = data.unreadCounts?.[state.user.uid] || 0;
+
+            // Create contact element
+            const el = document.createElement("div");
+            el.classList.add("contact-item");
+            addPartnerIdToContact(el, partnerUid);
+            el.innerHTML = `
+              <div class="contact-avatar">
+                ${partnerPic ? `<img src="${partnerPic}" alt="${partnerName}" />` : partnerName.substring(0, 2)}
+              </div>
+              <div class="contact-details">
+                <h4>${partnerName}</h4>
+                <p>${lastMessage}</p>
+              </div>
+              <span class="unread-badge" style="display: ${unreadCount > 0 ? "inline-block" : "none"};">
+                ${unreadCount}
+              </span>
+            `;
+            el.onclick = () => openConversation(docSnap.id, data);
+            container.appendChild(el);
+          } catch (convError) {
+            console.error("Error rendering conversation:", convError);
+          }
+        }
+      },
+      (error) => {
+        console.error("Conversations listener error:", error);
+        if (error.code === "permission-denied") {
+          showError("Please refresh the page to reload conversations");
+        }
       }
-    }
-  });
-  
-  state.listeners.push(unsubscribe);
-  console.log('✅ Conversation listener setup');
+    );
+
+    // Save unsubscribe function to state for cleanup
+    state.listeners.push(unsubscribe);
+  } catch (err) {
+    console.error("Failed to list conversations:", err);
+  }
 }
 
-// FIXED MESSAGE PROCESSING FUNCTION
-async function processMessageContent(msg, messageId) {
-  if (!msg.content) {
-    return '[No message content]';
-  }
 
-  // If it's our own message, show plain text
-  if (msg.sender === state.user.uid) {
-    return msg.plainText || '[Your message]';
+async function openConversationById(conversationId) {
+  try {
+    const convRef = doc(db, "conversations", conversationId);
+    const convSnap = await getDoc(convRef);
+    
+    if (convSnap.exists()) {
+      openConversation(conversationId, convSnap.data());
+    } else {
+      showError("Conversation not found");
+    }
+  } catch (error) {
+    console.error('Error opening conversation by ID:', error);
+    showError("Failed to open conversation");
   }
-
-  // For partner's messages, try to decrypt safely
-  return await decryptMessageSafe(msg.content, messageId);
 }
 
 async function openConversation(convId, data) {
-  if (!state.user || !state.userKeys?.privateKey) {
-    console.warn('Cannot open conversation: user or keys missing');
-    return;
+  if (state.user && state.user.uid) {
+    const partnerUid = data.participants.find(p => p !== state.user.uid);
+    if (partnerUid) {
+      await resetUnreadCount(state.user.uid, partnerUid);
+    }
   }
 
-  state.listeners.forEach(u => u()); 
+  if (!state.user || !state.userKeys?.privateKey) {
+    showError("Cannot open conversation: user not authenticated or keys not ready");
+    return;
+  }
+  // Clean up previous listeners
+  state.listeners.forEach(unsubscribe => {
+    if (typeof unsubscribe === 'function') unsubscribe();
+  });
   state.listeners = [];
+  
+  cleanupTypingIndicators();
 
   state.currentConversation = convId;
-  $("#chat-area").classList.remove("hidden");
-  $("#no-chat-selected").classList.add("hidden");
-  $("#message-container").innerHTML = "";
+  
+  // Update UI
+  const chatArea = $("#chat-area");
+  const noChatSelected = $("#no-chat-selected");
+  const messageContainer = $("#message-container");
+  
+  if (chatArea) chatArea.classList.remove("hidden");
+  if (noChatSelected) noChatSelected.classList.add("hidden");
+  if (messageContainer) messageContainer.innerHTML = "";
 
   const partnerUid = data.participants.find(p => p !== state.user.uid);
-  const partnerProfile = await fetchUserProfile(partnerUid);
-  const partnerName = partnerProfile ? partnerProfile.name : `User-${partnerUid.substring(0,6)}`;
-  const partnerPic = partnerProfile ? partnerProfile.profilePic : '';
+  
+  let partnerName, partnerPic;
+  
+  if (data.participantNames && data.participantNames[partnerUid]) {
+    partnerName = data.participantNames[partnerUid];
+  } else if (data.participantInfo && data.participantInfo[partnerUid]) {
+    partnerName = data.participantInfo[partnerUid].name;
+    partnerPic = data.participantInfo[partnerUid].profilePic;
+  } else {
+    const partnerProfile = await fetchUserProfile(partnerUid);
+    partnerName = partnerProfile ? partnerProfile.name : `User-${partnerUid.substring(0,6)}`;
+    partnerPic = partnerProfile ? partnerProfile.profilePic : '';
+  }
 
-  $("#partner-name").textContent = partnerName;
-  $("#partner-avatar").innerHTML = partnerPic ? `<img src="${partnerPic}" />` : partnerName.substring(0,2);
+  const partnerNameEl = $("#partner-name");
+  const partnerAvatarEl = $("#partner-avatar");
+  
+  if (partnerNameEl) partnerNameEl.textContent = partnerName;
+  if (partnerAvatarEl) {
+    partnerAvatarEl.innerHTML = partnerPic ? 
+      `<img src="${partnerPic}" alt="${partnerName}" />` : 
+      partnerName.substring(0,2);
+  }
 
   updatePresenceStatus(partnerUid);
+  setupTypingIndicator(convId, partnerUid);
 
-  const messagesQuery = query(collection(db, `conversations/${convId}/messages`), orderBy("createdAt"));
+  const messagesQuery = query(
+    collection(db, `conversations/${convId}/messages`), 
+    orderBy("createdAt")
+  );
   
-  const unsubscribe = onSnapshot(messagesQuery, async snap => {
+  const unsubscribe = onSnapshot(messagesQuery, async (snap) => {
     const container = $("#message-container");
     if (!container) return;
     
     container.innerHTML = "";
     
-    for(const docSnap of snap.docs) {
+    for (const docSnap of snap.docs) {
       const msg = docSnap.data();
-      const div = document.createElement("div");
-      div.classList.add("message", msg.sender === state.user.uid ? "sent" : "received");
-
-      const content = document.createElement("div"); 
-      content.classList.add("message-content");
-
-      // Use the fixed message processing function
-      content.textContent = await processMessageContent(msg, docSnap.id);
-      
-      // Add message status indicators for sent messages
-      if (msg.sender === state.user.uid) {
-        const status = document.createElement("div");
-        status.classList.add("message-status");
-        
-        if (msg.readBy && msg.readBy.length > 0) {
-          status.innerHTML = "✓✓"; // Read
-          status.title = "Read";
-        } else if (msg.deliveredTo && msg.readBy && msg.deliveredTo.length > msg.readBy.length) {
-          status.innerHTML = "✓"; // Delivered but not read
-          status.title = "Delivered";
-        } else {
-          status.innerHTML = "🕒"; // Sending
-          status.title = "Sending...";
-        }
-        
-        div.appendChild(status);
-      }
-
-      const time = document.createElement("div"); 
-      time.classList.add("message-time");
-      time.textContent = msg.createdAt ? new Date(msg.createdAt.toDate()).toLocaleTimeString() : "Sending...";
-      div.appendChild(content); 
-      div.appendChild(time);
-      container.appendChild(div);
+      await displayMessage(msg, docSnap.id, container, partnerUid);
     }
+    
     container.scrollTop = container.scrollHeight;
+    
+    // Mark messages as read when conversation is opened
+    markMessagesAsRead(convId);
   });
-  
+
   state.listeners.push(unsubscribe);
 }
 
-async function startNewChat(partnerMongoId) {
-  if (!partnerMongoId || !state.user) {
-    showError("Cannot start chat: missing partner or user data");
-    return;
-  }
-
-  const cachedProfiles = getSessionData('userProfiles') || {};
-  let partnerFirebaseUid = null;
-  let partnerProfile = null;
-
-  for (const key in cachedProfiles) {
-    if (cachedProfiles[key]._id === partnerMongoId) {
-      partnerProfile = cachedProfiles[key];
-      partnerFirebaseUid = partnerProfile.firebaseUid;
-      break;
-    }
-  }
-
-  if (!partnerFirebaseUid) {
-    showError("Failed to get partner information. Please try again.");
-    return;
-  }
-
-  // Check if conversation already exists
-  const q = query(collection(db, "conversations"), where("participants", "array-contains", state.user.uid));
-  const querySnapshot = await getDocs(q);
-
-  let existingConv = null;
-  querySnapshot.forEach(doc => {
-    const d = doc.data();
-    if (d.participants.includes(partnerFirebaseUid)) {
-      existingConv = { id: doc.id, data: d };
-    }
-  });
-
-  if (existingConv) {
-    return openConversation(existingConv.id, existingConv.data);
-  }
-
-  const partnerName = partnerProfile ? partnerProfile.name : `User-${partnerFirebaseUid.substring(0,6)}`;
-  const currentUserInfo = getCurrentUserInfo();
-  const userName = currentUserInfo ? currentUserInfo.name : "You";
-
-  const convData = {
-    participants: [state.user.uid, partnerFirebaseUid],
-    participantNames: { [state.user.uid]: userName, [partnerFirebaseUid]: partnerName },
-    createdAt: serverTimestamp(),
-    lastUpdated: serverTimestamp(),
-    name: `Chat with ${partnerName}`
-  };
-
-  try {
-    const convRef = await addDoc(collection(db, "conversations"), convData);
-    openConversation(convRef.id, convData);
-    console.log('✅ New chat started with:', partnerName);
-  } catch (error) {
-    console.error('Error creating new conversation:', error);
-    showError("Failed to create new chat. Please try again.");
-  }
-}
-
-// ==================== TYPING INDICATORS ====================
-
-function setupTypingIndicator(conversationId, partnerUid) {
-  const messageInput = $("#message-input");
-  const typingRef = ref(rtdb, `typing/${conversationId}/${state.user.uid}`);
-  let typingTimer;
+async function displayMessage(msg, messageId, container, partnerUid) {
+  const div = document.createElement("div");
   
-  messageInput.addEventListener('input', () => {
-    // Set typing status
-    set(typingRef, true);
-    
-    // Clear previous timer
-    clearTimeout(typingTimer);
-    
-    // Set timer to clear typing status
-    typingTimer = setTimeout(() => {
-      set(typingRef, false);
-    }, 1000);
-  });
+  // ✅ FIXED: Use senderId instead of sender for proper identification
+  const isOwnMessage = msg.senderId === state.user.uid;
+  div.classList.add("message", isOwnMessage ? "sent" : "received");
+
+  const content = document.createElement("div");
+  content.classList.add("message-content");
+
+  let messageText = "";
+  let decryptionError = null;
   
-  // Listen for partner's typing
-  const partnerTypingRef = ref(rtdb, `typing/${conversationId}/${partnerUid}`);
-  onValue(partnerTypingRef, (snapshot) => {
-    const indicator = $("#typing-indicator");
-    if (snapshot.val()) {
-      indicator.style.display = "block";
+  if (isOwnMessage) {
+    // For sent messages, use plainText if available
+    if (msg.plainText) {
+      messageText = msg.plainText;
+    } else if (msg.content) {
+      try {
+        messageText = await decryptMessage(state.userKeys.privateKey, msg.content);
+      } catch (error) {
+        messageText = "[Your encrypted message - decryption issue]";
+        decryptionError = error.message;
+      }
     } else {
-      indicator.style.display = "none";
+      messageText = "[Your message]";
     }
-  });
+  } else {
+    // For received messages, always try to decrypt
+    if (msg.content) {
+      try {
+        messageText = await decryptMessage(state.userKeys.privateKey, msg.content);
+      } catch (error) {
+        console.error("❌ Decryption failed for message:", messageId, error);
+        messageText = "[Encrypted message - decryption failed]";
+        decryptionError = error.message;
+        
+        // Try to refresh partner's public key
+        setTimeout(async () => {
+          try {
+            console.log("🔄 Attempting to refresh partner's public key...");
+            delete state.partnerPublicKeys[partnerUid]; // Clear cache
+            await getPartnerPublicKey(partnerUid);
+          } catch (e) {
+            console.error("❌ Could not recover partner key:", e);
+          }
+        }, 2000);
+      }
+    } else {
+      messageText = "[Encrypted message]";
+    }
+  }
+  
+  content.textContent = messageText;
+
+  // Add decryption error tooltip if there was an error
+  if (decryptionError) {
+    content.title = `Decryption Error: ${decryptionError}`;
+    content.style.border = "1px solid #ff4444";
+    content.style.background = "#fff0f0";
+  }
+
+  const time = document.createElement("div");
+  time.classList.add("message-time");
+  time.textContent = msg.createdAt ? 
+    new Date(msg.createdAt.toDate()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 
+    "Sending...";
+
+  // ✅ FIXED: Use isOwnMessage for status display
+  if (isOwnMessage) {
+    const status = document.createElement("div");
+    status.classList.add("message-status");
+    status.innerHTML = getStatusIcon(msg.status || 'sent', true);
+    div.appendChild(status);
+  }
+  
+  div.appendChild(content);
+  div.appendChild(time);
+  container.appendChild(div);
 }
 
-function updatePresenceStatus(firebaseUid) {
-  if (!firebaseUid) return;
-
-  const userStatusRef = ref(rtdb, `status/${firebaseUid}`);
-  onValue(userStatusRef, (snapshot) => {
-    const status = snapshot.val();
-    const dot = $("#presence-dot");
-    const text = $("#status-text");
-    
-    if (status?.state === "online") {
-      dot?.classList.add("online"); 
-      dot?.classList.remove("offline");
-      if (text) text.textContent = "Online";
-    } else {
-      dot?.classList.add("offline"); 
-      dot?.classList.remove("online");
-      if (text) text.textContent = "Offline";
-    }
-  });
-}
-
-// ==================== FIXED SEND MESSAGE FUNCTION ====================
+// ==================== SEND MESSAGE WITH TYPING INDICATOR ====================
 
 async function sendMessage() {
-  if(!state.user || !state.currentConversation) return showError("Cannot send message: not in a conversation");
+  if (!state.user || !state.currentConversation) {
+    showError("Cannot send message: not in a conversation");
+    return;
+  }
 
-  const input = $("#message-input"); 
-  const text = input.value.trim(); 
-  if(!text) return;
+  const input = $("#message-input");
+  const text = input ? input.value.trim() : '';
+  if (!text) return;
 
-  input.disabled = true; 
-  $("#send-btn").disabled = true; 
-  input.value = "";
+  if (input) input.disabled = true;
+  const sendBtn = $("#send-btn");
+  if (sendBtn) sendBtn.disabled = true;
+  if (input) input.value = "";
 
   try {
     const convRef = doc(db, "conversations", state.currentConversation);
-    const convSnap = await getDoc(convRef); 
-    if(!convSnap.exists()) return showError("Conversation not found");
+    const convSnap = await getDoc(convRef);
+    
+    if (!convSnap.exists()) {
+      showError("Conversation not found");
+      return;
+    }
 
     const convData = convSnap.data();
     const partnerUid = convData.participants.find(p => p !== state.user.uid);
-    if (!partnerUid) return showError("No partner found in conversation");
-
-    const partnerUserSnap = await getDoc(doc(db, "users", partnerUid));
-    if (!partnerUserSnap.exists() || !partnerUserSnap.data().publicKey) {
-      return showError("Cannot send message: partner's encryption key not available");
+    
+    if (!partnerUid) {
+      showError("No partner found in conversation");
+      return;
     }
 
-    const partnerPublicKey = await importPublicKey(partnerUserSnap.data().publicKey);
+    // Get partner's public key
+    const partnerPublicKey = await getPartnerPublicKey(partnerUid);
     const encryptedContent = await encryptMessage(partnerPublicKey, text);
 
     const messageData = {
-      sender: state.user.uid,
-      plainText: text,
-      content: encryptedContent,
+      senderId: state.user.uid,
+      plainText: text, // Store plaintext for sender's display
+      content: encryptedContent, // Encrypted version for recipient
       createdAt: serverTimestamp(),
-      recipients: [partnerUid]
+      recipients: [partnerUid],
+      status: 'sent'
     };
 
-    await addDoc(collection(db, `conversations/${state.currentConversation}/messages`), messageData);
-    await updateDoc(convRef, { lastMessage: text, lastUpdated: serverTimestamp() });
+    const messageRef = await addDoc(
+      collection(db, `conversations/${state.currentConversation}/messages`), 
+      messageData
+    );
+    
+    await incrementUnreadCount(partnerUid, state.user.uid);
+    // Update status to delivered after a delay
+    setTimeout(async () => {
+      await updateMessageStatus(state.currentConversation, messageRef.id, 'delivered');
+    }, 1000);
+    
+    await updateDoc(convRef, { 
+      lastMessage: text, 
+      lastUpdated: serverTimestamp() 
+    });
 
-    console.log('✅ Message sent successfully');
+    console.log("Message sent successfully");
 
-  } catch (error) { 
-    console.error("Send message error:", error); 
-    showError("Failed to send message"); 
-  } finally { 
-    input.disabled = false; 
-    $("#send-btn").disabled = false; 
-    input.focus(); 
+  } catch (error) {
+    console.error("Send message error:", error);
+    showError("Failed to send message: " + error.message);
+  } finally {
+    if (input) {
+      input.disabled = false;
+      input.focus();
+    }
+    if (sendBtn) sendBtn.disabled = false;
   }
 }
 
-// ==================== FIXED VERIFICATION FUNCTION ====================
-
-async function setupVerification() {
-  const verifyBtn = $("#verify-btn");
-  if (!verifyBtn) return;
-
-  verifyBtn.addEventListener("click", async () => {
-    if (!state.currentConversation) {
-      showError("Please select a conversation first");
-      return;
-    }
-    
-    try {
-      const convRef = doc(db, "conversations", state.currentConversation);
-      const convSnap = await getDoc(convRef);
-      if (!convSnap.exists()) {
-        showError("Conversation not found");
-        return;
-      }
-      
-      const convData = convSnap.data();
-      const partnerId = convData.participants.find(p => p !== state.user.uid);
-      
-      if (!partnerId) {
-        showError("No partner found in conversation");
-        return;
-      }
-      
-      // Get PARTNER'S public key
-      const partnerUserRef = doc(db, "users", partnerId);
-      const partnerUserSnap = await getDoc(partnerUserRef);
-      
-      if (!partnerUserSnap.exists() || !partnerUserSnap.data().publicKey) {
-        showError("Cannot verify: Partner's public key not available");
-        return;
-      }
-      
-      // Also get CURRENT USER'S public key for comparison
-      const currentUserRef = doc(db, "users", state.user.uid);
-      const currentUserSnap = await getDoc(currentUserRef);
-      
-      if (!currentUserSnap.exists() || !currentUserSnap.data().publicKey) {
-        showError("Cannot verify: Your public key is not available");
-        return;
-      }
-      
-      const partnerPublicKey = partnerUserSnap.data().publicKey;
-      const currentUserPublicKey = currentUserSnap.data().publicKey;
-      
-      // Generate fingerprints for BOTH users
-      const partnerFingerprint = await generateFingerprint(partnerPublicKey);
-      const currentUserFingerprint = await generateFingerprint(currentUserPublicKey);
-      
-      // Store both fingerprints for comparison
-      currentVerificationData = { 
-        partnerId, 
-        partnerFingerprint, 
-        currentUserFingerprint,
-        conversationId: state.currentConversation 
-      };
-      
-      // Update verification modal content with CLEAR instructions - COMPACT VERSION
-      const modalBody = $("#verification-modal .modal-body");
-      if (modalBody) {
-        modalBody.innerHTML = `
-          <div class="verification-instructions compact">
-            <h4>Identity Verification</h4>
-            
-            <div class="fingerprint-section">
-              <p class="verification-label">📱 Your Fingerprint (Share this):</p>
-              <div class="fingerprint-display compact" id="your-fingerprint">${currentUserFingerprint}</div>
-              <button class="copy-btn compact" onclick="copyToClipboard('${currentUserFingerprint}')">Copy</button>
-            </div>
-            
-            <div class="fingerprint-section">
-              <p class="verification-label">👥 Partner's Fingerprint (Expected):</p>
-              <div class="fingerprint-display compact" id="partner-fingerprint">${partnerFingerprint}</div>
-            </div>
-            
-            <div class="verification-comparison compact">
-              <p class="verification-label">✅ Verification:</p>
-              <textarea id="compare-fingerprint" placeholder="Paste partner's fingerprint here..." rows="2"></textarea>
-              <button id="compare-btn" class="verify-button compact">Compare</button>
-              <div id="comparison-result" class="compact-result"></div>
-            </div>
-          </div>
-        `;
-        
-        // Re-bind the compare button
-        setTimeout(() => {
-          const compareBtn = $("#compare-btn");
-          if (compareBtn) {
-            compareBtn.onclick = compareFingerprints;
-          }
-        }, 100);
-      }
-      
-      $("#verification-modal").style.display = "block";
-      
-    } catch (error) {
-      console.error("Error in verification:", error);
-      showError("Failed to generate verification code");
-    }
-  });
-}
-
-// Define copyToClipboard in global scope
-window.copyToClipboard = function(text) {
-  navigator.clipboard.writeText(text).then(() => {
-    showTemporaryMessage("Fingerprint copied to clipboard!");
-  }).catch(err => {
-    console.error('Failed to copy: ', err);
-    // Fallback for older browsers
-    const textArea = document.createElement('textarea');
-    textArea.value = text;
-    document.body.appendChild(textArea);
-    textArea.select();
-    document.execCommand('copy');
-    document.body.removeChild(textArea);
-    showTemporaryMessage("Fingerprint copied to clipboard!");
-  });
-};
-
-// ==================== IMPROVED INITIALIZATION ====================
-
-document.addEventListener("DOMContentLoaded", async () => {
-  try {
-    console.log('🚀 Starting chat application initialization...');
-    
-    // Step 1: Initialize Firebase authentication first
-    const firebaseAuthSuccess = await initializeChatWithFirebase();
-    
-    // Step 2: Ensure user profile is loaded
-    await ensureUserProfile();
-    
-    if (!firebaseAuthSuccess) {
-      showError("Chat authentication failed. Some features may not work.");
-    }
-
-    // Step 3: Setup UI components
-    setupProfileDropdown();
-    setupVerification();
-    
-    // Step 4: Initialize encryption keys (only if Firebase auth succeeded)
-    if (firebaseAuthSuccess && state.user) {
-      await ensureUserKeys(state.user.uid);
-      setupUserPresence();
-      await listConversations();
-    }
-
-    // Step 5: Setup event listeners
-    $("#send-btn").onclick = sendMessage;
-    $("#message-input").addEventListener("keypress", (e) => {
-      if (e.key === "Enter") sendMessage();
-    });
-
-    setupFileUpload();
-
-    // New Chat Modal setup
-    const newChatBtn = $("#new-chat-btn");
-    const newChatModal = $("#new-chat-modal");
-    const userList = $("#user-selection-list");
-    const startBtn = $("#start-chat-btn");
-
-    newChatBtn?.addEventListener("click", async () => {
-      newChatModal.style.display = "block";
-      await loadUsersForNewChat();
-    });
-
-    // Close modal handlers
-    document.querySelectorAll(".close-modal").forEach(btn => {
-      btn.addEventListener("click", (e) => {
-        e.preventDefault();
-        const modal = btn.closest(".modal");
-        if (modal) modal.style.display = "none";
-      });
-    });
-
-    window.addEventListener("click", (e) => {
-      if (e.target.classList.contains("modal")) {
-        e.target.style.display = "none";
-      }
-    });
-
-    startBtn?.addEventListener("click", async () => {
-      const partnerMongoId = userList.value;
-      if (!partnerMongoId) {
-        showError("Please select a user first");
-        return;
-      }
-
-      startBtn.disabled = true;
-      startBtn.textContent = "Starting chat...";
-
-      try {
-        await startNewChat(partnerMongoId);
-        $("#new-chat-modal").style.display = "none";
-      } catch (error) {
-        console.error("Error starting chat:", error);
-        showError("Failed to start chat. Please check your authentication.");
-      } finally {
-        startBtn.disabled = false;
-        startBtn.textContent = "Start Secure Chat";
-      }
-    });
-
-    console.log("✅ Chat application initialized successfully");
-
-  } catch (err) {
-    console.error("❌ Boot error:", err);
-    showError("Chat failed to load. Please refresh the page or check console for details.");
+async function getPartnerPublicKey(partnerUid) {
+  // Check cache first
+  if (state.partnerPublicKeys[partnerUid]) {
+    return state.partnerPublicKeys[partnerUid];
   }
-});
-
-// ==================== UTILITY FUNCTIONS ====================
-
-function showError(msg) {
-  console.error('Error:', msg);
-  // You can replace this with a better notification system
-  alert(msg);
-}
-
-function setupFileUpload() {
-  const uploadBtn = $("#upload-btn");
-  const fileInput = $("#file-input");
   
-  uploadBtn?.addEventListener("click", () => fileInput?.click());
-  fileInput?.addEventListener("change", (e) => {
-    if (e.target.files.length > 0) {
-      showError("File upload functionality is not implemented in this demo.");
-      e.target.value = "";
+  try {
+    const partnerUserSnap = await getDoc(doc(db, "users", partnerUid));
+    
+    if (!partnerUserSnap.exists()) {
+      throw new Error("Partner user document not found");
+    }
+    
+    const partnerData = partnerUserSnap.data();
+    if (!partnerData.publicKey) {
+      throw new Error("Partner public key not found");
+    }
+    
+    console.log("✅ Retrieved partner public key, length:", partnerData.publicKey.length);
+    
+    // ✅ FIXED: Better error handling for key import
+    let publicKey;
+    try {
+      publicKey = await importPublicKey(partnerData.publicKey);
+    } catch (importError) {
+      console.error("❌ Failed to import partner public key:", importError);
+      
+      // Try to clean and re-import
+      const cleanKey = partnerData.publicKey
+        .replace(/-----BEGIN PUBLIC KEY-----/g, '')
+        .replace(/-----END PUBLIC KEY-----/g, '')
+        .replace(/\s+/g, '')
+        .trim();
+      
+      publicKey = await importPublicKey(cleanKey);
+    }
+    
+    // Cache the key
+    state.partnerPublicKeys[partnerUid] = publicKey;
+    return publicKey;
+  } catch (error) {
+    console.error("❌ Error getting partner public key:", error);
+    
+    // ✅ FIXED: Retry mechanism for partner key retrieval
+    if (!state.partnerKeyRetries) state.partnerKeyRetries = {};
+    state.partnerKeyRetries[partnerUid] = (state.partnerKeyRetries[partnerUid] || 0) + 1;
+    
+    if (state.partnerKeyRetries[partnerUid] <= 3) {
+      console.log(`🔄 Retrying partner key retrieval (attempt ${state.partnerKeyRetries[partnerUid]})...`);
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      return getPartnerPublicKey(partnerUid);
+    }
+    
+    throw new Error(`Failed to get partner public key after 3 attempts: ${error.message}`);
+  }
+}
+
+// ==================== FIXED START NEW CHAT FUNCTIONALITY ====================
+
+function setupNewChatModal() {
+  const newChatBtn = $("#new-chat-btn");
+  const newChatModal = $("#new-chat-modal");
+  
+  if (!newChatBtn || !newChatModal) {
+    console.warn('New chat modal elements not found');
+    return;
+  }
+  
+  // Open modal
+  newChatBtn.addEventListener("click", async () => {
+    newChatModal.style.display = "block";
+    await loadUsersForNewChat();
+  });
+  
+  // Start chat button
+  const startChatBtn = $("#start-chat-btn");
+  if (startChatBtn) {
+    startChatBtn.addEventListener("click", () => {
+      const userSelectionList = $("#user-selection-list");
+      const selectedUserId = userSelectionList ? userSelectionList.value : null;
+      if (selectedUserId) {
+        startNewChat(selectedUserId);
+        newChatModal.style.display = "none";
+      } else {
+        showError("Please select an officer to start a chat");
+      }
+    });
+  }
+  
+  // Close modal handlers
+  document.querySelectorAll(".close-modal").forEach(btn => {
+    btn.addEventListener("click", (e) => {
+      e.preventDefault();
+      const modal = btn.closest(".modal");
+      if (modal) modal.style.display = "none";
+    });
+  });
+  
+  window.addEventListener("click", (e) => {
+    if (e.target.classList.contains("modal")) {
+      e.target.style.display = "none";
     }
   });
 }
@@ -1273,7 +1876,6 @@ async function loadUsersForNewChat() {
     const currentUser = getCurrentUserInfo();
 
     users.forEach(user => {
-      // Don't show current user in the list
       if (currentUser && user._id === currentUser.mongoId) return;
       
       const opt = document.createElement("option");
@@ -1287,10 +1889,639 @@ async function loadUsersForNewChat() {
     });
 
     setSessionData('userProfiles', cachedProfiles);
-    console.log(`✅ Loaded ${users.length} users for new chat`);
 
   } catch (err) {
     console.error("Error loading users:", err);
     userList.innerHTML = `<option value="" disabled>Error loading users. Please refresh.</option>`;
   }
 }
+
+async function startNewChat(partnerMongoId) {
+  if (!partnerMongoId || !state.user) {
+    showError("Cannot start chat: missing partner or user data");
+    return;
+  }
+
+  console.log('Starting new chat with partner:', partnerMongoId);
+
+  const cachedProfiles = getSessionData('userProfiles') || {};
+  let partnerFirebaseUid = null;
+  let partnerProfile = null;
+
+  // Find partner profile in cache
+  for (const key in cachedProfiles) {
+    if (cachedProfiles[key]._id === partnerMongoId) {
+      partnerProfile = cachedProfiles[key];
+      partnerFirebaseUid = partnerProfile.firebaseUid;
+      break;
+    }
+  }
+
+  // If not found in cache, try to fetch from MongoDB
+  if (!partnerFirebaseUid) {
+    try {
+      const users = await getUsersFromMongoDB();
+      partnerProfile = users.find(user => user._id === partnerMongoId);
+      if (partnerProfile) {
+        partnerFirebaseUid = partnerProfile.firebaseUid;
+        cachedProfiles[partnerFirebaseUid] = partnerProfile;
+        setSessionData('userProfiles', cachedProfiles);
+      }
+    } catch (error) {
+      console.error('Error fetching users:', error);
+    }
+  }
+
+  if (!partnerFirebaseUid) {
+    showError("Failed to get partner information. Please try again.");
+    return;
+  }
+
+  // Check if conversation already exists
+  const q = query(collection(db, "conversations"), where("participants", "array-contains", state.user.uid));
+  const querySnapshot = await getDocs(q);
+
+  let existingConv = null;
+  querySnapshot.forEach(doc => {
+    const d = doc.data();
+    if (d.participants.includes(partnerFirebaseUid)) {
+      existingConv = { id: doc.id, data: d };
+    }
+  });
+
+  if (existingConv) {
+    console.log('Opening existing conversation:', existingConv.id);
+    return openConversation(existingConv.id, existingConv.data);
+  }
+
+  const currentUserInfo = getCurrentUserInfo();
+  const userName = currentUserInfo ? currentUserInfo.name : "You";
+  const partnerName = partnerProfile ? partnerProfile.name : `User-${partnerFirebaseUid.substring(0,6)}`;
+
+  const convData = {
+    participants: [state.user.uid, partnerFirebaseUid],
+    participantNames: { 
+      [state.user.uid]: userName, 
+      [partnerFirebaseUid]: partnerName 
+    },
+    participantInfo: {
+      [state.user.uid]: {
+        name: userName,
+        profilePic: currentUserInfo?.profilePic || ''
+      },
+      [partnerFirebaseUid]: {
+        name: partnerName,
+        profilePic: partnerProfile?.profilePic || ''
+      }
+    },
+    createdAt: serverTimestamp(),
+    lastUpdated: serverTimestamp(),
+    lastMessage: "Chat started"
+  };
+
+  try {
+    console.log('Creating new conversation...');
+    const convRef = await addDoc(collection(db, "conversations"), convData);
+    console.log('New conversation created:', convRef.id);
+    openConversation(convRef.id, convData);
+  } catch (error) {
+    console.error('Error creating new conversation:', error);
+    showError("Failed to create new chat. Please try again.");
+  }
+}
+
+// Update presence status
+function updatePresenceStatus(firebaseUid) {
+  if (!firebaseUid) return;
+
+  const userStatusRef = ref(rtdb, `status/${firebaseUid}`);
+  onValue(userStatusRef, (snapshot) => {
+    const status = snapshot.val();
+    const dot = $("#presence-dot");
+    const text = $("#status-text");
+    
+    if (status?.state === "online") {
+      if (dot) {
+        dot.classList.add("online"); 
+        dot.classList.remove("offline");
+      }
+      if (text) text.textContent = "Online";
+    } else {
+      if (dot) {
+        dot.classList.add("offline"); 
+        dot.classList.remove("online");
+      }
+      if (text) text.textContent = "Offline";
+    }
+  });
+}
+
+// ==================== VERIFY IDENTITY FUNCTIONALITY ====================
+
+async function verifyIdentity() {
+  if (!state.currentConversation || !state.user) {
+    showError("Please select a conversation first");
+    return;
+  }
+  
+  if (!state.userKeys?.publicKey) {
+    showError("Encryption keys not ready. Please wait...");
+    return;
+  }
+  
+  try {
+    const convRef = doc(db, "conversations", state.currentConversation);
+    const convSnap = await getDoc(convRef);
+    
+    if (!convSnap.exists()) {
+      showError("Conversation not found");
+      return;
+    }
+    
+    const convData = convSnap.data();
+    const partnerUid = convData.participants.find(p => p !== state.user.uid);
+    
+    if (!partnerUid) {
+      showError("Partner not found in conversation");
+      return;
+    }
+    
+    // Get partner's public key with improved error handling
+    let partnerPublicKeyBase64;
+    try {
+      const partnerUserSnap = await getDoc(doc(db, "users", partnerUid));
+      
+      if (!partnerUserSnap.exists()) {
+        throw new Error("Partner user document not found in Firestore");
+      }
+      
+      const partnerData = partnerUserSnap.data();
+      partnerPublicKeyBase64 = partnerData.publicKey;
+      
+      if (!partnerPublicKeyBase64) {
+        throw new Error("Partner's public key not found in their user document");
+      }
+      
+      console.log("✅ Retrieved partner public key, length:", partnerPublicKeyBase64.length);
+    } catch (error) {
+      console.error("❌ Error getting partner public key:", error);
+      showError("Could not retrieve partner's security key. They may need to reload their chat.");
+      return;
+    }
+    
+    // Generate fingerprints
+    console.log("🔑 Generating fingerprints...");
+    const partnerFingerprint = await generateFingerprint(partnerPublicKeyBase64);
+    const ourPublicKeyBase64 = await exportKey(state.userKeys.publicKey, "spki");
+    const ourFingerprint = await generateFingerprint(ourPublicKeyBase64);
+    
+    // Validate fingerprints
+    if (partnerFingerprint.startsWith("ERROR") || ourFingerprint.startsWith("ERROR")) {
+      showError("Failed to generate security fingerprints. Please try again.");
+      return;
+    }
+    
+    showVerificationModal(partnerFingerprint, ourFingerprint, $("#partner-name")?.textContent || "Partner");
+    
+  } catch (error) {
+    console.error("❌ Error verifying identity:", error);
+    showError("Failed to verify identity: " + error.message);
+  }
+}
+
+function showVerificationModal(partnerFingerprint, ourFingerprint, partnerName) {
+  const modal = $("#verification-modal");
+  
+  if (!modal) {
+    console.error('Verification modal not found');
+    return;
+  }
+
+  // Clean and validate fingerprints
+  const cleanPartnerFp = cleanFingerprint(partnerFingerprint);
+  const cleanOurFp = cleanFingerprint(ourFingerprint);
+  
+  const partnerNameEl = modal.querySelector('#verification-partner-name');
+  const fingerprintEl = modal.querySelector('#verification-fingerprint');
+  
+  if (partnerNameEl) partnerNameEl.textContent = partnerName;
+  if (fingerprintEl) {
+    // FIX: Show YOUR fingerprint (not partner's) so you can compare with what partner sees
+    fingerprintEl.textContent = formatFingerprint(cleanOurFp);
+    fingerprintEl.style.fontFamily = 'monospace';
+    fingerprintEl.style.letterSpacing = '1px';
+  }
+
+  // FIX: Store fingerprints correctly - partner's fingerprint is what you should compare against
+  modal.dataset.partnerFingerprint = cleanPartnerFp;
+  modal.dataset.ourFingerprint = cleanOurFp;
+
+  const comparisonResult = modal.querySelector('#comparison-result');
+  if (comparisonResult) comparisonResult.innerHTML = '';
+
+  const compareTextarea = modal.querySelector('#compare-fingerprint');
+  if (compareTextarea) {
+    compareTextarea.value = '';
+    compareTextarea.placeholder = 'Paste partner\'s fingerprint here (without spaces)';
+  }
+
+  // FIX: Update instructions to be clearer
+  const instructions = modal.querySelector('#verification-instructions');
+  if (instructions) {
+    instructions.innerHTML = `
+      <p><strong>Instructions:</strong></p>
+      <ol>
+        <li>Share <strong>your fingerprint</strong> (shown above) with your partner</li>
+        <li>Ask your partner to share <strong>their fingerprint</strong> with you</li>
+        <li>Enter your partner's fingerprint below to verify</li>
+      </ol>
+      <p><strong>Your fingerprint:</strong> ${formatFingerprint(cleanOurFp)}</p>
+    `;
+  }
+
+  setupVerificationModalEvents(modal);
+  modal.style.display = 'block';
+  
+  console.log("🔑 Fingerprints for verification:");
+  console.log("Your fingerprint (show this to partner):", formatFingerprint(cleanOurFp));
+  console.log("Partner's fingerprint (enter this to verify):", formatFingerprint(cleanPartnerFp));
+}
+
+function setupVerificationModalEvents(modal) {
+  const compareBtn = modal.querySelector('#compare-btn');
+  const compareTextarea = modal.querySelector('#compare-fingerprint');
+  const comparisonResult = modal.querySelector('#comparison-result');
+  
+  if (compareBtn && compareTextarea && comparisonResult) {
+    compareBtn.onclick = () => {
+      // FIX: Compare entered fingerprint with PARTNER's fingerprint (not your own)
+      const enteredFingerprint = cleanFingerprint(compareTextarea.value);
+      const expectedFingerprint = modal.dataset.partnerFingerprint; // This should be partner's fingerprint
+      
+      if (!enteredFingerprint) {
+        comparisonResult.innerHTML = '<p class="verification-error">Please enter your partner\'s fingerprint to compare.</p>';
+        return;
+      }
+      
+      if (enteredFingerprint.length !== 64) {
+        comparisonResult.innerHTML = '<p class="verification-error">Invalid fingerprint length. Should be 64 characters.</p>';
+        return;
+      }
+      
+      if (!isValidHexString(enteredFingerprint)) {
+        comparisonResult.innerHTML = '<p class="verification-error">Fingerprint contains invalid characters. Use only 0-9 and A-F.</p>';
+        return;
+      }
+      
+      console.log("🔍 Comparing fingerprints:");
+      console.log("Expected (partner's):", expectedFingerprint);
+      console.log("Entered (what partner gave you):", enteredFingerprint);
+      
+      if (enteredFingerprint === expectedFingerprint) {
+        comparisonResult.innerHTML = '<p class="verification-success">✅ Fingerprints match! Identity verified.</p>';
+      } else {
+        comparisonResult.innerHTML = `
+          <p class="verification-error">❌ Fingerprints do not match.</p>
+          <div class="fingerprint-comparison">
+            <p><strong>Your fingerprint (you show this):</strong><br><code>${formatFingerprint(modal.dataset.ourFingerprint)}</code></p>
+            <p><strong>Partner's fingerprint (they show you):</strong><br><code>${formatFingerprint(expectedFingerprint)}</code></p>
+            <p><strong>You entered:</strong><br><code>${formatFingerprint(enteredFingerprint)}</code></p>
+          </div>
+          <p class="verification-warning">Make sure you are comparing the correct fingerprints:</p>
+          <ul>
+            <li>Your partner should see: <code>${formatFingerprint(modal.dataset.ourFingerprint)}</code></li>
+            <li>You should see from partner: <code>${formatFingerprint(expectedFingerprint)}</code></li>
+          </ul>
+        `;
+      }
+    };
+  }
+
+  const confirmBtn = modal.querySelector('#confirm-verification');
+  if (confirmBtn) {
+    confirmBtn.onclick = () => {
+      if (comparisonResult.innerHTML.includes('✅')) {
+        alert('✅ Identity verified successfully! This conversation is secure.');
+        modal.style.display = 'none';
+      } else {
+        alert('⚠️ Please verify that the fingerprints match before confirming.');
+      }
+    };
+  }
+
+  const cancelBtn = modal.querySelector('#cancel-verification');
+  if (cancelBtn) {
+    cancelBtn.onclick = () => {
+      modal.style.display = 'none';
+    };
+  }
+
+  const closeBtn = modal.querySelector('.close-modal');
+  if (closeBtn) {
+    closeBtn.onclick = () => {
+      modal.style.display = 'none';
+    };
+  }
+}
+
+// ==================== UNREAD MESSAGE COUNT FUNCTIONALITY ====================
+
+async function incrementUnreadCount(partnerUid, currentUserUid) {
+  try {
+    if (!partnerUid || !currentUserUid) {
+      console.warn('Missing UIDs for unread count update');
+      return;
+    }
+    
+    const userUnreadRef = doc(db, "userUnreadCounts", partnerUid);
+    
+    // Use setDoc with merge: true to handle both create and update scenarios
+    await setDoc(userUnreadRef, {
+      [currentUserUid]: increment(1),
+      updatedAt: serverTimestamp()
+    }, { merge: true });
+    
+    console.log('✅ Unread count incremented for partner:', partnerUid);
+  } catch (error) {
+    console.error('❌ Unread count update failed:', error);
+    // Don't block message sending for this non-critical feature
+  }
+}
+
+async function resetUnreadCount(currentUserUid, partnerUid) {
+  try {
+    if (!currentUserUid || !partnerUid) return;
+    
+    const userUnreadRef = doc(db, "userUnreadCounts", currentUserUid);
+    
+    // Use setDoc with merge: true
+    await setDoc(userUnreadRef, { 
+      [partnerUid]: 0,
+      updatedAt: serverTimestamp() 
+    }, { merge: true });
+    
+    console.log('✅ Unread count reset for partner:', partnerUid);
+  } catch (error) {
+    console.error('❌ Unread count reset failed:', error);
+  }
+}
+
+function setupUnreadCountListener(currentUserUid) {
+  if (!currentUserUid) return;
+  
+  console.log('👂 Setting up unread count listener for user:', currentUserUid);
+  
+  const unreadRef = doc(db, "userUnreadCounts", currentUserUid);
+  
+  const unsubscribe = onSnapshot(unreadRef, (docSnap) => {
+    if (!docSnap.exists()) {
+      console.log('No unread counts document found for user');
+      // Create initial document if it doesn't exist
+      setDoc(unreadRef, { updatedAt: serverTimestamp() }, { merge: true });
+      return;
+    }
+    
+    const data = docSnap.data();
+    
+    Object.entries(data).forEach(([partnerId, count]) => {
+      // Skip non-count fields like 'updatedAt'
+      if (typeof count === 'number' && partnerId !== 'updatedAt') {
+        console.log(`🔔 Unread count update: ${count} from ${partnerId}`);
+        
+        if (count > 0) {
+          showUnreadBadge(partnerId, count);
+        } else {
+          hideUnreadBadge(partnerId);
+        }
+      }
+    });
+  }, (error) => {
+    console.error('❌ Unread count listener error:', error);
+  });
+  
+  state.listeners.push(unsubscribe);
+}
+
+function showUnreadBadge(partnerId, count) {
+  // Find the contact item for this partner
+  const contactItems = $$('.contact-item');
+  contactItems.forEach(item => {
+    // We need to find which contact item corresponds to this partnerId
+    // Since we don't store partnerId in DOM, we'll need to track it differently
+    // Let's add data-partner-id attribute to contact items when we create them
+    if (item.dataset.partnerId === partnerId) {
+      let badge = item.querySelector('.unread-badge');
+      if (!badge) {
+        badge = document.createElement('span');
+        badge.className = 'unread-badge';
+        badge.style.cssText = `
+          background: #25D366;
+          color: white;
+          border-radius: 10px;
+          padding: 2px 6px;
+          font-size: 12px;
+          font-weight: bold;
+          margin-left: auto;
+          min-width: 18px;
+          text-align: center;
+        `;
+        item.querySelector('.contact-details')?.parentNode?.appendChild(badge);
+      }
+      badge.textContent = count > 99 ? '99+' : count;
+      badge.style.display = 'block';
+    }
+  });
+}
+
+function hideUnreadBadge(partnerId) {
+  const contactItems = $$('.contact-item');
+  contactItems.forEach(item => {
+    if (item.dataset.partnerId === partnerId) {
+      const badge = item.querySelector('.unread-badge');
+      if (badge) {
+        badge.style.display = 'none';
+      }
+    }
+  });
+}
+
+// Helper function to add partnerId to contact items
+function addPartnerIdToContact(contactElement, partnerUid) {
+  if (contactElement && partnerUid) {
+    contactElement.dataset.partnerId = partnerUid;
+  }
+}
+
+// ==================== INITIALIZATION ====================
+
+document.addEventListener("DOMContentLoaded", async () => {
+  try {
+    console.log('🚀 Starting chat application initialization...');
+    
+    // Add fingerprint comparison styles
+    const style = document.createElement('style');
+    style.textContent = `
+      .fingerprint-comparison {
+        background: #f5f5f5;
+        padding: 10px;
+        border-radius: 5px;
+        margin: 10px 0;
+      }
+      .fingerprint-comparison code {
+        font-family: monospace;
+        background: #fff;
+        padding: 5px;
+        border-radius: 3px;
+        display: block;
+        margin: 5px 0;
+        letter-spacing: 1px;
+      }
+      .verification-success {
+        color: #25D366;
+        font-weight: bold;
+      }
+      .verification-error {
+        color: #ff4444;
+        font-weight: bold;
+      }
+      .verification-warning {
+        color: #ff9800;
+        font-size: 14px;
+      }
+    `;
+    document.head.appendChild(style);
+    
+    const firebaseAuthSuccess = await initializeChatWithFirebase();
+    
+    await ensureUserProfile();
+    
+    if (!firebaseAuthSuccess) {
+      showError("Chat authentication failed. Some features may not work.");
+    }
+
+    setupProfileDropdown();
+    addChatStyles();
+    setupNewChatModal();
+    
+    const verifyIdentityBtn = $("#verify-btn");
+    if (verifyIdentityBtn) {
+      verifyIdentityBtn.addEventListener("click", verifyIdentity);
+      console.log('✅ Verify Identity button setup');
+    } else {
+      console.warn('❌ Verify Identity button not found');
+    }
+    
+    if (firebaseAuthSuccess && state.user) {
+      await ensureUserKeys(state.user.uid);
+      setupUserPresence();
+      await listConversations();
+      //Setup unread count listener
+      setupUnreadCountListener(state.user.uid);
+    }
+
+    const sendBtn = $("#send-btn");
+    const messageInput = $("#message-input");
+    
+    if (sendBtn) {
+      sendBtn.addEventListener("click", sendMessage);
+    }
+    
+    if (messageInput) {
+      messageInput.addEventListener("keypress", (e) => {
+        if (e.key === "Enter") sendMessage();
+      });
+      
+      messageInput.addEventListener("input", () => {
+        if (state.currentConversation) {
+          handleUserTyping(state.currentConversation);
+        }
+      });
+    }
+
+    console.log("✅ Chat application initialized successfully");
+
+  } catch (err) {
+    console.error("❌ Boot error:", err);
+    showError("Chat failed to load. Please refresh the page.");
+  }
+});
+
+// ==================== UTILITY FUNCTIONS ====================
+
+function showError(msg) {
+  console.error('Error:', msg);
+  const errorDiv = document.createElement('div');
+  errorDiv.style.cssText = `
+    position: fixed;
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #ff4444;
+    color: white;
+    padding: 10px 20px;
+    border-radius: 5px;
+    z-index: 10000;
+    font-family: Arial, sans-serif;
+    max-width: 80%;
+    text-align: center;
+  `;
+  errorDiv.textContent = msg;
+  document.body.appendChild(errorDiv);
+  
+  setTimeout(() => {
+    if (errorDiv.parentNode) {
+      errorDiv.parentNode.removeChild(errorDiv);
+    }
+  }, 5000);
+}
+
+// Make functions available globally
+window.startNewChat = startNewChat;
+window.verifyIdentity = verifyIdentity;
+window.sendMessage = sendMessage;
+window.recoverEncryptionKeys = recoverEncryptionKeys;
+window.openConversationById = openConversationById;
+window.resetEncryptionKeys = function() {
+  if (state.user) {
+    localStorage.removeItem(`priv-${state.user.uid}`);
+    localStorage.removeItem(`pub-${state.user.uid}`);
+    state.userKeys = null;
+    state.keyGenerationAttempts = 0;
+    ensureUserKeys(state.user.uid);
+    showError("Encryption keys reset. Please restart the conversation.");
+  }
+};
+window.resetBothUsersKeys = async function() {
+  if (!state.user || !state.currentConversation) {
+    showError("No active conversation to reset keys");
+    return;
+  }
+  
+  try {
+    // Get partner UID
+    const convRef = doc(db, "conversations", state.currentConversation);
+    const convSnap = await getDoc(convRef);
+    const convData = convSnap.data();
+    const partnerUid = convData.participants.find(p => p !== state.user.uid);
+    
+    // Reset local keys
+    localStorage.removeItem(`chat-keys-${state.user.uid}`);
+    state.userKeys = null;
+    state.keyGenerationAttempts = 0;
+    
+    // Clear partner key cache
+    if (partnerUid) {
+      delete state.partnerPublicKeys[partnerUid];
+      delete state.partnerKeyRetries[partnerUid];
+    }
+    
+    // Regenerate keys
+    await ensureUserKeys(state.user.uid);
+    
+    showError("Encryption keys reset. Please ask your partner to refresh their page.");
+    
+  } catch (error) {
+    console.error("Error resetting keys:", error);
+    showError("Failed to reset keys: " + error.message);
+  }
+};

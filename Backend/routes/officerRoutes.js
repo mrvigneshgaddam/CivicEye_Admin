@@ -204,22 +204,81 @@ router.get('/:id', async (req, res, next) => {
   }
 });
 
-// POST /api/officers - Create new officer
+// POST /api/officers - Create new officer (supports both Firebase and regular creation)
 router.post('/', async (req, res) => {
   try {
-    const { firebaseUid, name, profilePic } = req.body;
-    if (!firebaseUid || !name) {
-      return res.status(400).json({ success: false, message: "firebaseUid and name are required" });
+    const { 
+      firebaseUid, name, profilePic, email, phone, badgeId, officerId, 
+      rank, department, status, assignedCases, policeStation, password 
+    } = req.body;
+
+    // Handle Firebase officer creation
+    if (firebaseUid) {
+      if (!name) {
+        return res.status(400).json({ 
+          success: false, 
+          message: "firebaseUid and name are required" 
+        });
+      }
+
+      let user = await Police.findOne({ firebaseUid });
+      if (user) return res.json({ success: true, user });
+
+      user = await Police.create({ firebaseUid, name, profilePic });
+      return res.status(201).json({ success: true, user });
     }
 
-    let user = await Police.findOne({ firebaseUid });
-    if (user) return res.json({ success: true, user });
+    // Handle regular officer creation from admin panel
+    if (!name || !email || !password) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Name, email, and password are required for regular officer creation' 
+      });
+    }
 
-    user = await Police.create({ firebaseUid, name, profilePic });
+    // Check if email already exists
+    const existingOfficer = await Police.findOne({ 
+      email: email.toLowerCase().trim() 
+    });
 
-    res.status(201).json({ success: true, user });
-  } catch (err) {
-    res.status(500).json({ success: false, message: err.message });
+    if (existingOfficer) {
+      return res.status(409).json({ 
+        success: false, 
+        message: 'Email already exists' 
+      });
+    }
+
+    // Create regular officer
+    const officer = new Police({
+      name: name.trim(),
+      email: email.toLowerCase().trim(),
+      phone: phone?.trim(),
+      badgeId: badgeId?.trim(),
+      officerId: officerId?.trim(),
+      rank: rank?.trim(),
+      department: department?.trim(),
+      status: status || 'Active',
+      assignedCases: assignedCases || 0,
+      policeStation: policeStation?.trim(),
+      password: password
+    });
+
+    await officer.save();
+
+    const officerData = officer.toObject();
+    delete officerData.password;
+
+    res.status(201).json({ 
+      success: true, 
+      data: officerData 
+    });
+
+  } catch (error) {
+    console.error('Error creating officer:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: error.message 
+    });
   }
 });
 
