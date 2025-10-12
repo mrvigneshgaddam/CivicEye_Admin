@@ -88,10 +88,9 @@
                             <i class="fas fa-users" style="color: #4cc9f0;"></i>
                         </div>
                         <h3>Active Users</h3>
-                        <h2>1,248</h2>
-                        <div class="stats-card-change positive">
-                            <i class="fas fa-arrow-up"></i>
-                            <span>12.5%</span>
+                        <h2 id="activeUsers">0</h2>
+                        <div class="stats-card-change" id="activeUsersChange">
+                            <!-- Will be populated by JavaScript -->
                         </div>
                     </div>
                     <div class="stats-card">
@@ -99,10 +98,9 @@
                             <i class="fas fa-exclamation-triangle" style="color: #f8961e;"></i>
                         </div>
                         <h3>Total Incidents</h3>
-                        <h2>86</h2>
-                        <div class="stats-card-change negative">
-                            <i class="fas fa-arrow-down"></i>
-                            <span>5.2%</span>
+                        <h2 id="totalIncidents">0</h2>
+                        <div class="stats-card-change" id="totalIncidentsChange">
+                            <!-- Will be populated by JavaScript -->
                         </div>
                     </div>
                     <div class="stats-card">
@@ -110,10 +108,9 @@
                             <i class="fas fa-user-shield" style="color: #4361ee;"></i>
                         </div>
                         <h3>Active Officers</h3>
-                        <h2>56</h2>
-                        <div class="stats-card-change positive">
-                            <i class="fas fa-arrow-up"></i>
-                            <span>3.7%</span>
+                        <h2 id="activeOfficers">0</h2>
+                        <div class="stats-card-change" id="activeOfficersChange">
+                            <!-- Will be populated by JavaScript -->
                         </div>
                     </div>
                     <div class="stats-card">
@@ -121,10 +118,9 @@
                             <i class="fas fa-envelope" style="color: #f72585;"></i>
                         </div>
                         <h3>New Messages</h3>
-                        <h2>18</h2>
-                        <div class="stats-card-change positive">
-                            <i class="fas fa-arrow-up"></i>
-                            <span>22.2%</span>
+                        <h2 id="newMessages">0</h2>
+                        <div class="stats-card-change" id="newMessagesChange">
+                            <!-- Will be populated by JavaScript -->
                         </div>
                     </div>
                 </div>
@@ -248,6 +244,7 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
     <script src="/FrontEnd/Dashboard/dashboard.js"></script>
     <script src="/FrontEnd/shared/auth-guard.js"></script>
     <!-- <script src="/FrontEnd/login.js"></script> -->
