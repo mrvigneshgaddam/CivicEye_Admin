@@ -107,6 +107,43 @@ const mongoUri = process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/civiceye';
 // initializeFirebase();
 connectDB();
 
+/* -------------------- Socket.IO + Change Stream -------------------- */
+const { Server } = require('socket.io');
+const Notification = require('./models/Notification');
+
+const io = new Server(server, {
+  cors: {
+    origin: allowedOrigins,
+    credentials: true
+  }
+});
+
+app.set('io', io);
+
+mongoose.connection.once('open', () => {
+  console.log('✅ MongoDB connected — starting Change Stream for notifications');
+
+  const changeStream = Notification.watch([], { fullDocument: 'updateLookup' });
+
+  changeStream.on('change', change => {
+    if (change.operationType === 'insert') {
+      const notif = change.fullDocument;
+      console.log('📢 New Notification Detected:', notif.title);
+      io.emit('new-notification', notif);
+    }
+  });
+
+  changeStream.on('error', err => {
+    console.error('❌ Change Stream error:', err);
+  });
+});
+
+io.on('connection', socket => {
+  console.log('🟢 Admin connected to Socket.IO:', socket.id);
+  socket.on('disconnect', () => console.log('🔴 Admin disconnected:', socket.id));
+});
+
+
 /* ------------------------ Logging Middleware ------------------- */
 app.use((req, res, next) => {
     console.log(`${req.method} ${req.path} - ${new Date().toISOString()}`);
