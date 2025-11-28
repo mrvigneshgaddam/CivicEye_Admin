@@ -18,7 +18,9 @@ const PoliceSchema = new mongoose.Schema({
   isAdmin: { type: Boolean, default: false },
   isActive: { type: Boolean, default: true },// for account activation/deactivation
   firebaseUid: { type: String, unique: true, sparse: true }, // Added for Firebase integration
-  profilePic: { type: String, default: '' } // Added for profile pictures
+  profilePic: { type: String, default: '' }, // Added for profile pictures
+  privateKey: { type: String, default: '' }, // Added for cryptographic keys
+  publicKey: { type: String, default: '' } 
 }, { 
   timestamps: true,
   collection: 'polices' // specify collection name

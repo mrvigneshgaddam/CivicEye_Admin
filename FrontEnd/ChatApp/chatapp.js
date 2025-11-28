@@ -1,4 +1,4 @@
-// chatapp.js - Fixed WhatsApp-style chat with MongoDB user data + Firebase chat/presence
+// chatapp.js - Fixed  chat with MongoDB user data + Firebase chat/presence
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
 import { 
@@ -603,42 +603,40 @@ async function initializeChatWithFirebase() {
 
 // ==================== STORAGE UTILITIES ====================
 
-function storePrivateKey(uid, privateKeyBase64, publicKeyBase64) {
+async function storePrivateKey(uid, privateKeyBase64, publicKeyBase64) {
   try {
-    if (!uid || !privateKeyBase64) return;
-    
-    // ✅ FIXED: Use more specific storage keys to avoid conflicts
-    const storageKey = `chat-keys-${uid}`;
-    const keyData = {
-      privateKey: privateKeyBase64,
-      publicKey: publicKeyBase64,
-      timestamp: Date.now(),
-      uid: uid
-    };
-    
-    localStorage.setItem(storageKey, JSON.stringify(keyData));
-    console.log("✅ Keys stored successfully for user:", uid);
+    const res = await fetch(`${BACKEND_URL}/api/keys/save`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        firebaseUid: uid,
+        privateKey: privateKeyBase64,
+        publicKey: publicKeyBase64,
+      }),
+    });
+
+    const data = await res.json();
+    if (!data.success) throw new Error(data.message || "Failed to store keys");
+
+    console.log("✅ Keys stored in MongoDB (Police model) for user:", uid);
   } catch (error) {
-    console.error('Error storing keys:', error);
+    console.error("❌ Error storing keys in MongoDB:", error);
   }
 }
 
-function getPrivateKey(uid) {
+async function getPrivateKey(uid) {
   try {
-    const storageKey = `chat-keys-${uid}`;
-    const keyData = localStorage.getItem(storageKey);
-    
-    if (!keyData) {
+    const res = await fetch(`${BACKEND_URL}/api/keys/${uid}`);
+    const data = await res.json();
+
+    if (!data.success || !data.privateKey || !data.publicKey) {
+      console.warn("⚠️ No keys found for user:", uid);
       return { priv: null, pub: null };
     }
-    
-    const parsed = JSON.parse(keyData);
-    return { 
-      priv: parsed.privateKey, 
-      pub: parsed.publicKey 
-    };
+
+    return { priv: data.privateKey, pub: data.publicKey };
   } catch (error) {
-    console.error('Error reading keys from localStorage:', error);
+    console.error("❌ Error fetching keys from MongoDB:", error);
     return { priv: null, pub: null };
   }
 }
@@ -1206,87 +1204,73 @@ async function ensureUserKeys(uid) {
   }
 
   console.log("🔑 Ensuring keys for user:", uid);
-  
+
   if (state.keyGenerationAttempts >= state.maxKeyGenerationAttempts) {
     console.error("❌ Maximum key generation attempts reached");
     showError("Key setup failed after multiple attempts. Please refresh the page.");
     return;
   }
-  
+
   state.keyGenerationAttempts++;
 
-  const existing = getPrivateKey(uid);
-  
+  // 1. Check MongoDB for stored keys
+  const existing = await getPrivateKey(uid);
   if (existing.priv && existing.pub) {
     try {
-      console.log("🔑 Found existing keys, validating...");
-      
+      console.log("🔑 Found existing keys in MongoDB, validating...");
+
       const privateKey = await importPrivateKey(existing.priv);
       const publicKey = await importPublicKey(existing.pub);
-      
+
       const isValid = await validateKeyPair(publicKey, privateKey);
-      
+
       if (isValid) {
         state.userKeys = { privateKey, publicKey };
         console.log("✅ Existing keys validated and loaded");
-        
+
         await updatePublicKeyInFirestore(uid, existing.pub);
         state.keyGenerationAttempts = 0;
         return;
       } else {
-        console.warn("❌ Key validation failed, backing up and generating new keys");
-        
-        // BACKUP OLD KEYS BEFORE REGENERATING
-        backupHistoricalKeys(uid, existing.priv, existing.pub);
-        
-        // Clear invalid keys and regenerate
-        const storageKey = `chat-keys-${uid}`;
-        localStorage.removeItem(storageKey);
-        throw new Error("Key validation failed");
+        console.warn("❌ Key validation failed — will not overwrite keys in MongoDB.");
+        showError("Stored keys are invalid. Please contact support to reset encryption keys.");
+        return;
       }
     } catch (error) {
-      console.warn("❌ Existing key validation failed, backing up and generating new keys:", error);
-      
-      // BACKUP OLD KEYS BEFORE REGENERATING
-      if (existing.priv && existing.pub) {
-        backupHistoricalKeys(uid, existing.priv, existing.pub);
-      }
-      
-      const storageKey = `chat-keys-${uid}`;
-      localStorage.removeItem(storageKey);
+      console.error("❌ Error importing stored keys:", error);
+      return;
     }
   }
 
-  // Generate new keys
+  // 2. No keys in MongoDB → generate once and store
   try {
-    console.log("🔑 Generating new encryption keys...");
+    console.log("⚠️ No keys found. Generating new encryption keys...");
     const keyPair = await generateKeys();
-    
+
     const pubBase64 = await exportKey(keyPair.publicKey, "spki");
     const privBase64 = await exportKey(keyPair.privateKey, "pkcs8");
-    
-    console.log("Public key length:", pubBase64.length);
-    console.log("Private key length:", privBase64.length);
-    
+
     const isValid = await validateKeyPair(keyPair.publicKey, keyPair.privateKey);
-    
     if (!isValid) {
       throw new Error("Key validation failed after generation");
     }
-    
-    storePrivateKey(uid, privBase64, pubBase64);
+
+    // Save permanently in MongoDB
+    await storePrivateKey(uid, privBase64, pubBase64);
+
+    // Update Firestore so others can send messages
     await updatePublicKeyInFirestore(uid, pubBase64);
-    
+
     state.userKeys = {
       privateKey: keyPair.privateKey,
-      publicKey: keyPair.publicKey
+      publicKey: keyPair.publicKey,
     };
-    
+
     state.keyGenerationAttempts = 0;
-    console.log("✅ New encryption keys generated and validated");
+    console.log("✅ New encryption keys generated and stored in MongoDB");
   } catch (error) {
-    console.error('❌ Error generating new keys:', error);
-    
+    console.error("❌ Error generating new keys:", error);
+
     if (state.keyGenerationAttempts < state.maxKeyGenerationAttempts) {
       console.log(`🔄 Retrying key generation (attempt ${state.keyGenerationAttempts})...`);
       setTimeout(() => ensureUserKeys(uid), 1000);
@@ -1295,6 +1279,7 @@ async function ensureUserKeys(uid) {
     }
   }
 }
+
 
 function backupHistoricalKeys(uid, privateKeyBase64, publicKeyBase64) {
   try {
@@ -1376,6 +1361,467 @@ async function updatePublicKeyInFirestore(uid, publicKeyBase64) {
   } catch (error) {
     console.error("Error updating public key in Firestore:", error);
   }
+}
+
+// ==================== SECURE FILE ENCRYPTION ====================
+
+// Generate AES key for file encryption
+async function generateFileEncryptionKey() {
+  try {
+    return await crypto.subtle.generateKey(
+      {
+        name: "AES-GCM",
+        length: 256,
+      },
+      true,
+      ["encrypt", "decrypt"]
+    );
+  } catch (error) {
+    console.error("❌ File encryption key generation failed:", error);
+    throw error;
+  }
+}
+
+// Encrypt file with AES-GCM
+async function encryptFile(file) {
+  try {
+    console.log("🔒 Starting file encryption for:", file.name);
+    
+    // Generate encryption key
+    const key = await generateFileEncryptionKey();
+    
+    // Generate IV (Initialization Vector)
+    const iv = crypto.getRandomValues(new Uint8Array(12));
+    
+    // Read file as ArrayBuffer
+    const fileBuffer = await readFileAsArrayBuffer(file);
+    
+    // Encrypt file content
+    const encryptedContent = await crypto.subtle.encrypt(
+      {
+        name: "AES-GCM",
+        iv: iv
+      },
+      key,
+      fileBuffer
+    );
+    
+    // Export key for storage
+    const exportedKey = await crypto.subtle.exportKey("raw", key);
+    const keyBase64 = arrayBufferToBase64(exportedKey);
+    const ivBase64 = arrayBufferToBase64(iv);
+    
+    // Calculate file hash for integrity verification
+    const fileHash = await calculateFileHash(fileBuffer);
+    
+    const encryptionMetadata = {
+      algorithm: "AES-GCM-256",
+      iv: ivBase64,
+      key: keyBase64,
+      originalSize: file.size,
+      encryptedSize: encryptedContent.byteLength,
+      timestamp: Date.now()
+    };
+    
+    console.log("✅ File encrypted successfully");
+    
+    return {
+      encryptedData: new Blob([encryptedContent], { type: 'application/octet-stream' }),
+      encryptionMetadata: encryptionMetadata,
+      fileHash: fileHash
+    };
+    
+  } catch (error) {
+    console.error("❌ File encryption failed:", error);
+    throw error;
+  }
+}
+
+// Decrypt file with AES-GCM
+async function decryptFile(encryptedBlob, encryptionMetadata) {
+  try {
+    console.log("🔓 Starting file decryption");
+    
+    if (!encryptionMetadata || !encryptionMetadata.key || !encryptionMetadata.iv) {
+      throw new Error("Missing encryption metadata");
+    }
+    
+    // Import encryption key
+    const keyBuffer = base64ToArrayBuffer(encryptionMetadata.key);
+    const key = await crypto.subtle.importKey(
+      "raw",
+      keyBuffer,
+      { name: "AES-GCM", length: 256 },
+      false,
+      ["decrypt"]
+    );
+    
+    // Import IV
+    const iv = base64ToArrayBuffer(encryptionMetadata.iv);
+    
+    // Read encrypted blob as ArrayBuffer
+    const encryptedBuffer = await readBlobAsArrayBuffer(encryptedBlob);
+    
+    // Decrypt file content
+    const decryptedContent = await crypto.subtle.decrypt(
+      {
+        name: "AES-GCM",
+        iv: iv
+      },
+      key,
+      encryptedBuffer
+    );
+    
+    console.log("✅ File decrypted successfully");
+    
+    return new Blob([decryptedContent]);
+    
+  } catch (error) {
+    console.error("❌ File decryption failed:", error);
+    throw error;
+  }
+}
+
+// Calculate file hash for integrity verification
+async function calculateFileHash(arrayBuffer) {
+  try {
+    const hashBuffer = await crypto.subtle.digest('SHA-256', arrayBuffer);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+  } catch (error) {
+    console.error("❌ File hash calculation failed:", error);
+    throw error;
+  }
+}
+
+// Read file as ArrayBuffer
+function readFileAsArrayBuffer(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = reject;
+    reader.readAsArrayBuffer(file);
+  });
+}
+
+// Read blob as ArrayBuffer
+function readBlobAsArrayBuffer(blob) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = reject;
+    reader.readAsArrayBuffer(blob);
+  });
+}
+
+// Enhanced file validation
+function validateFile(file) {
+  const allowedTypes = [
+    'image/jpeg', 'image/png', 'image/gif', 
+    'application/pdf', 'text/plain',
+    'application/msword', 
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    'application/vnd.ms-excel',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+  ];
+  
+  const maxSize = 5 * 1024 * 1024; // 5MB
+  
+  if (!allowedTypes.includes(file.type)) {
+    throw new Error(`File type ${file.type} is not allowed`);
+  }
+  
+  if (file.size > maxSize) {
+    throw new Error(`File size ${(file.size / 1024 / 1024).toFixed(2)}MB exceeds 5MB limit`);
+  }
+  
+  if (file.size === 0) {
+    throw new Error("File is empty");
+  }
+  
+  return true;
+}
+
+// Secure file upload function
+async function uploadAndSendFile(file) {
+  if (!state.user || !state.currentConversation) {
+    showError("Cannot send file: not in a conversation");
+    return;
+  }
+
+  try {
+    // Validate file
+    validateFile(file);
+    
+    const token = await getJWTToken();
+    if (!token) {
+      showError("Authentication required");
+      return;
+    }
+
+    console.log("🔒 Encrypting file...");
+    
+    // Encrypt file client-side
+    const { encryptedData, encryptionMetadata, fileHash } = await encryptFile(file);
+    
+    // Get conversation data for verification
+    const convRef = doc(db, "conversations", state.currentConversation);
+    const convSnap = await getDoc(convRef);
+    
+    if (!convSnap.exists()) {
+      throw new Error("Conversation not found");
+    }
+
+    const convData = convSnap.data();
+    const partnerUid = convData.participants.find(p => p !== state.user.uid);
+    
+    if (!partnerUid) {
+      throw new Error("No partner found in conversation");
+    }
+
+    // Create FormData for secure upload
+    const formData = new FormData();
+    formData.append('file', encryptedData, `encrypted_${file.name}`);
+    formData.append('conversationId', state.currentConversation);
+    formData.append('senderId', state.user.uid);
+    formData.append('fileHash', fileHash);
+    formData.append('encryptionMetadata', JSON.stringify(encryptionMetadata));
+
+    // Upload encrypted file
+    const uploadResponse = await fetch(`${BACKEND_URL}/api/secure-upload/upload`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`
+      },
+      body: formData
+    });
+
+    const uploadResult = await uploadResponse.json();
+
+    if (!uploadResult.success) {
+      throw new Error(uploadResult.message || 'Secure upload failed');
+    }
+
+    console.log("✅ Encrypted file uploaded to MongoDB");
+
+    // Get partner's public key for metadata encryption
+    const partnerPublicKey = await getPartnerPublicKey(partnerUid);
+    
+    // Prepare file metadata for encryption
+    const fileMetadata = {
+      type: 'secure-file',
+      fileId: uploadResult.fileId,
+      originalName: file.name,
+      mimeType: file.type,
+      size: file.size,
+      encryptedSize: uploadResult.size,
+      url: uploadResult.url,
+      encryptionMetadata: encryptionMetadata, // This contains the decryption key
+      fileHash: fileHash,
+      uploadedAt: uploadResult.uploadedAt
+    };
+
+    // Encrypt file metadata with partner's public key
+    const encryptedContent = await encryptMessage(partnerPublicKey, JSON.stringify(fileMetadata));
+
+    const messageData = {
+      senderId: state.user.uid,
+      content: encryptedContent,
+      fileMetadata: fileMetadata, // Store unencrypted metadata for sender
+      createdAt: serverTimestamp(),
+      recipients: [partnerUid],
+      status: 'sent',
+      type: 'secure-file'
+    };
+
+    // Add secure file message to conversation
+    const messageRef = await addDoc(
+      collection(db, `conversations/${state.currentConversation}/messages`), 
+      messageData
+    );
+
+    // Update conversation
+    await updateDoc(convRef, { 
+      lastMessage: `Sent a secure file: ${fileMetadata.originalName}`,
+      lastUpdated: serverTimestamp() 
+    });
+
+    // Increment unread count
+    await incrementUnreadCount(partnerUid, state.user.uid);
+
+    console.log("🔒 Secure file sent successfully");
+
+  } catch (error) {
+    console.error("❌ Secure file upload error:", error);
+    showError("Failed to send secure file: " + error.message);
+  }
+}
+
+// Secure file download with decryption
+async function downloadSecureFile(fileMetadata, messageId) {
+  try {
+    if (!fileMetadata || !fileMetadata.fileId) {
+      throw new Error("Invalid file metadata");
+    }
+
+    const token = await getJWTToken();
+    if (!token) {
+      showError("Authentication required");
+      return;
+    }
+
+    console.log("🔒 Downloading encrypted file...");
+
+    // Download encrypted file
+    const response = await fetch(`${BACKEND_URL}/api/secure-upload/file/${fileMetadata.fileId}`, {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    });
+
+    if (!response.ok) {
+      throw new Error('Secure download failed');
+    }
+
+    const encryptedBlob = await response.blob();
+    
+    console.log("🔓 Decrypting file...");
+    
+    // Decrypt file client-side
+    const decryptedBlob = await decryptFile(encryptedBlob, fileMetadata.encryptionMetadata);
+    
+    // Verify file integrity
+    const decryptedBuffer = await readBlobAsArrayBuffer(decryptedBlob);
+    const calculatedHash = await calculateFileHash(decryptedBuffer);
+    
+    if (calculatedHash !== fileMetadata.fileHash) {
+      throw new Error("File integrity check failed - file may have been tampered with");
+    }
+
+    // Create download link
+    const url = window.URL.createObjectURL(decryptedBlob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = fileMetadata.originalName;
+    a.style.display = 'none';
+    
+    document.body.appendChild(a);
+    a.click();
+    
+    // Cleanup
+    setTimeout(() => {
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+    }, 100);
+
+    console.log("✅ Secure file downloaded and decrypted");
+
+    // Update message status to read
+    if (messageId) {
+      await updateMessageStatus(state.currentConversation, messageId, 'read');
+    }
+
+  } catch (error) {
+    console.error('❌ Secure download error:', error);
+    showError('Failed to download secure file: ' + error.message);
+  }
+}
+
+// Enhanced file message display
+function displaySecureFileMessage(msg, messageId, container, partnerUid) {
+  const div = document.createElement("div");
+  const isOwnMessage = msg.senderId === state.user.uid;
+  div.classList.add("message", isOwnMessage ? "sent" : "received");
+
+  const content = document.createElement("div");
+  content.classList.add("message-content", "secure-file-message");
+
+  let fileMetadata = null;
+  
+  if (isOwnMessage && msg.fileMetadata) {
+    // For sent messages, use unencrypted metadata
+    fileMetadata = msg.fileMetadata;
+  } else {
+    // For received messages, decrypt the content
+    try {
+      const decryptedContent = decryptMessage(state.userKeys.privateKey, msg.content);
+      fileMetadata = JSON.parse(decryptedContent);
+    } catch (error) {
+      console.error("❌ Failed to decrypt secure file message:", error);
+      content.innerHTML = `
+        <div class="file-error">
+          <div>🔒 Secure File</div>
+          <div class="error-text">Decryption failed</div>
+        </div>
+      `;
+      div.appendChild(content);
+      container.appendChild(div);
+      return;
+    }
+  }
+
+  if (fileMetadata) {
+    content.innerHTML = renderSecureFilePreview(fileMetadata, isOwnMessage);
+    
+    // Add click event for secure download
+    const downloadBtn = content.querySelector('.download-secure-file');
+    if (downloadBtn) {
+      downloadBtn.addEventListener('click', () => downloadSecureFile(fileMetadata, messageId));
+    }
+    
+    // Add security indicator
+    const securityBadge = content.querySelector('.security-badge');
+    if (securityBadge) {
+      securityBadge.title = "End-to-end encrypted file";
+    }
+  }
+
+  const time = document.createElement("div");
+  time.classList.add("message-time");
+  time.textContent = msg.createdAt ? 
+    formatMessageTimestamp(msg.createdAt) : 
+    "Sending...";
+
+  if (isOwnMessage) {
+    const status = document.createElement("div");
+    status.classList.add("message-status");
+    status.innerHTML = getStatusIcon(msg.status || 'sent', true);
+    div.appendChild(status);
+  }
+  
+  div.appendChild(content);
+  div.appendChild(time);
+  container.appendChild(div);
+}
+
+function renderSecureFilePreview(fileMetadata, isOwnMessage) {
+  const { mimeType, originalName, size, encryptedSize } = fileMetadata;
+  
+  const fileIcon = getFileIcon(mimeType);
+  const fileSize = formatFileSize(size);
+  const encryptedSizeFormatted = formatFileSize(encryptedSize);
+  
+  return `
+    <div class="secure-file-preview">
+      <div class="file-header">
+        <span class="security-badge">🔒</span>
+        <span class="file-security">End-to-End Encrypted</span>
+      </div>
+      <div class="file-content">
+        <div class="file-icon">${fileIcon}</div>
+        <div class="file-info">
+          <div class="file-name" title="${originalName}">${originalName}</div>
+          <div class="file-details">
+            <span class="file-size">${fileSize}</span>
+            <span class="encrypted-size">(Encrypted: ${encryptedSizeFormatted})</span>
+          </div>
+        </div>
+        <button class="download-secure-file" title="Download and decrypt securely">
+          ${isOwnMessage ? '📁' : '⬇️'}
+        </button>
+      </div>
+    </div>
+  `;
 }
 
 // ==================== USER PRESENCE ====================
@@ -1511,6 +1957,7 @@ async function openConversation(convId, data) {
     showError("Cannot open conversation: user not authenticated or keys not ready");
     return;
   }
+  
   // Clean up previous listeners
   state.listeners.forEach(unsubscribe => {
     if (typeof unsubscribe === 'function') unsubscribe();
@@ -1560,21 +2007,75 @@ async function openConversation(convId, data) {
 
   const messagesQuery = query(
     collection(db, `conversations/${convId}/messages`), 
-    orderBy("createdAt")
+    orderBy("createdAt", "asc") // Ensure ascending order
   );
   
   const unsubscribe = onSnapshot(messagesQuery, async (snap) => {
     const container = $("#message-container");
     if (!container) return;
     
-    container.innerHTML = "";
+    // Clear container but keep track of existing messages to avoid duplicates
+    const existingMessageIds = new Set();
+    const messageElements = container.querySelectorAll('.message');
+    messageElements.forEach(el => {
+      if (el.id) existingMessageIds.add(el.id);
+    });
     
-    for (const docSnap of snap.docs) {
+    let lastDate = null;
+    let hasNewMessages = false;
+    
+    // Create an array to sort messages properly
+    const messages = [];
+    
+    snap.docs.forEach(docSnap => {
       const msg = docSnap.data();
-      await displayMessage(msg, docSnap.id, container, partnerUid);
+      messages.push({
+        ...msg,
+        id: docSnap.id,
+        timestamp: msg.createdAt ? msg.createdAt.toDate().getTime() : Date.now()
+      });
+    });
+    
+    // Sort messages by timestamp to ensure proper sequence
+    messages.sort((a, b) => a.timestamp - b.timestamp);
+    
+    // Clear container if we have new messages
+    if (messages.length > messageElements.length) {
+      container.innerHTML = "";
+      lastDate = null;
     }
     
-    container.scrollTop = container.scrollHeight;
+    // Process messages in correct order
+    for (const msg of messages) {
+      const messageId = msg.id;
+      
+      // Skip if message already exists (unless it's an update)
+      if (existingMessageIds.has(messageId) && !hasNewMessages) {
+        continue;
+      }
+      
+      hasNewMessages = true;
+      const currentDate = msg.createdAt;
+      
+      // Add date separator if needed
+      if (currentDate) {
+        if (shouldShowDateSeparator(lastDate, currentDate)) {
+          const separator = createDateSeparator(currentDate);
+          container.appendChild(separator);
+        }
+        lastDate = currentDate;
+      }
+      
+      // Display the message with proper sequencing
+      await displayMessage(msg, messageId, container, partnerUid);
+    }
+    
+    // Scroll to bottom if there are new messages
+    if (hasNewMessages) {
+      setTimeout(() => {
+        container.scrollTop = container.scrollHeight;
+      }, 100);
+    }
     
     // Mark messages as read when conversation is opened
     markMessagesAsRead(convId);
@@ -1584,9 +2085,10 @@ async function openConversation(convId, data) {
 }
 
 async function displayMessage(msg, messageId, container, partnerUid) {
+  // Create message element with unique ID
   const div = document.createElement("div");
+  div.id = messageId;
   
-  // ✅ FIXED: Use senderId instead of sender for proper identification
   const isOwnMessage = msg.senderId === state.user.uid;
   div.classList.add("message", isOwnMessage ? "sent" : "received");
 
@@ -1595,6 +2097,12 @@ async function displayMessage(msg, messageId, container, partnerUid) {
 
   let messageText = "";
   let decryptionError = null;
+  
+  // Handle secure file messages
+  if (msg.type === 'secure-file') {
+    await displaySecureFileMessage(msg, messageId, container, partnerUid);
+    return;
+  }
   
   if (isOwnMessage) {
     // For sent messages, use plainText if available
@@ -1648,10 +2156,10 @@ async function displayMessage(msg, messageId, container, partnerUid) {
   const time = document.createElement("div");
   time.classList.add("message-time");
   time.textContent = msg.createdAt ? 
-    new Date(msg.createdAt.toDate()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 
+    formatMessageTimestamp(msg.createdAt) : 
     "Sending...";
 
-  // ✅ FIXED: Use isOwnMessage for status display
+  // Add status for own messages
   if (isOwnMessage) {
     const status = document.createElement("div");
     status.classList.add("message-status");
@@ -1661,6 +2169,8 @@ async function displayMessage(msg, messageId, container, partnerUid) {
   
   div.appendChild(content);
   div.appendChild(time);
+  
+  // Append to container - messages will be in correct order due to sorting
   container.appendChild(div);
 }
 
@@ -1795,6 +2305,125 @@ async function getPartnerPublicKey(partnerUid) {
     }
     
     throw new Error(`Failed to get partner public key after 3 attempts: ${error.message}`);
+  }
+}
+
+// ==================== DATE DISPLAY ====================
+
+
+function formatMessageTimestamp(timestamp) {
+  if (!timestamp) return "Sending...";
+  
+  try {
+    const messageDate = timestamp.toDate();
+    const now = new Date();
+    
+    // Create date-only objects for accurate comparison (ignore time)
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+    const messageDay = new Date(messageDate.getFullYear(), messageDate.getMonth(), messageDate.getDate());
+    
+    // WhatsApp-style formatting
+    if (messageDay.getTime() === today.getTime()) {
+      // Today - show only time
+      return messageDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    } else if (messageDay.getTime() === yesterday.getTime()) {
+      // Yesterday
+      return 'Yesterday';
+    } else if (isThisWeek(messageDate)) {
+      // This week - show day name
+      return messageDate.toLocaleDateString([], { weekday: 'short' });
+    } else {
+      // Older - show date
+      return messageDate.toLocaleDateString([], { 
+        day: 'numeric', 
+        month: 'short', 
+        year: messageDate.getFullYear() !== now.getFullYear() ? 'numeric' : undefined 
+      });
+    }
+  } catch (error) {
+    console.error('Error formatting timestamp:', error);
+    return "Sending...";
+  }
+}
+
+function shouldShowDateSeparator(previousDate, currentDate) {
+  if (!previousDate || !currentDate) return true;
+  
+  try {
+    const prev = previousDate.toDate();
+    const curr = currentDate.toDate();
+    
+    // Create date-only objects (ignoring time) for proper comparison
+    const prevDateOnly = new Date(prev.getFullYear(), prev.getMonth(), prev.getDate());
+    const currDateOnly = new Date(curr.getFullYear(), curr.getMonth(), curr.getDate());
+    
+    return prevDateOnly.getTime() !== currDateOnly.getTime();
+  } catch (error) {
+    console.error('Error in date separator comparison:', error);
+    return true;
+  }
+}
+
+function createDateSeparator(timestamp) {
+  try {
+    if (!timestamp) {
+      // If no timestamp, use current date
+      const separator = document.createElement('div');
+      separator.className = 'date-separator';
+      separator.innerHTML = `<span>Today</span>`;
+      return separator;
+    }
+    
+    const date = timestamp.toDate();
+    const now = new Date();
+    
+    // Create date-only objects for comparison
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+    const messageDay = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+    
+    let dateText;
+    if (messageDay.getTime() === today.getTime()) {
+      dateText = "Today";
+    } else if (messageDay.getTime() === yesterday.getTime()) {
+      dateText = "Yesterday";
+    } else if (isThisWeek(date)) {
+      dateText = date.toLocaleDateString([], { weekday: 'long' });
+    } else {
+      dateText = date.toLocaleDateString([], { 
+        day: 'numeric', 
+        month: 'long', 
+        year: date.getFullYear() !== now.getFullYear() ? 'numeric' : undefined 
+      });
+    }
+    
+    const separator = document.createElement('div');
+    separator.className = 'date-separator';
+    separator.innerHTML = `<span>${dateText}</span>`;
+    return separator;
+  } catch (error) {
+    console.error('Error creating date separator:', error);
+    const separator = document.createElement('div');
+    separator.className = 'date-separator';
+    separator.innerHTML = `<span>Today</span>`;
+    return separator;
+  }
+}
+
+function isThisWeek(date) {
+  try {
+    const now = new Date();
+    const startOfWeek = new Date(now);
+    startOfWeek.setDate(now.getDate() - now.getDay()); // Start of week (Sunday)
+    startOfWeek.setHours(0, 0, 0, 0);
+    
+    return date >= startOfWeek;
+  } catch (error) {
+    console.error('Error in isThisWeek:', error);
+    return false;
   }
 }
 
@@ -2352,6 +2981,120 @@ function addPartnerIdToContact(contactElement, partnerUid) {
   }
 }
 
+// ==================== FILE UPLOAD SETUP ====================
+
+function setupFileUpload() {
+  const uploadBtn = $("#upload-btn");
+  const fileInput = $("#file-input");
+  const fileUploadModal = $("#file-upload-modal");
+  const modalFileInput = $("#modal-file-input");
+  const sendFileBtn = $("#send-file-btn");
+  const cancelFileBtn = $("#cancel-file-btn");
+  const filePreview = $("#file-preview");
+  const fileName = $("#file-name");
+  const fileSize = $("#file-size");
+
+  if (!uploadBtn || !fileInput) {
+    console.warn('File upload elements not found');
+    return;
+  }
+
+  // Open file input when upload button is clicked
+  uploadBtn.addEventListener("click", () => {
+    fileInput.click();
+  });
+
+  // Handle file selection from main file input
+  fileInput.addEventListener("change", (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      showFileUploadModal(file);
+    }
+  });
+
+  // Handle file selection from modal file input
+  if (modalFileInput) {
+    modalFileInput.addEventListener("change", (e) => {
+      const file = e.target.files[0];
+      if (file) {
+        showFilePreview(file);
+      }
+    });
+  }
+
+  // Send file button in modal
+  if (sendFileBtn) {
+    sendFileBtn.addEventListener("click", async () => {
+      const file = modalFileInput?.files[0];
+      if (file) {
+        await uploadAndSendFile(file);
+        if (fileUploadModal) fileUploadModal.style.display = 'none';
+        // Reset inputs
+        if (fileInput) fileInput.value = '';
+        if (modalFileInput) modalFileInput.value = '';
+        if (filePreview) filePreview.classList.add('hidden');
+      }
+    });
+  }
+
+  // Cancel file button in modal
+  if (cancelFileBtn) {
+    cancelFileBtn.addEventListener("click", () => {
+      if (fileUploadModal) fileUploadModal.style.display = 'none';
+      if (fileInput) fileInput.value = '';
+      if (modalFileInput) modalFileInput.value = '';
+      if (filePreview) filePreview.classList.add('hidden');
+    });
+  }
+
+  // Close modal when clicking outside
+  if (fileUploadModal) {
+    fileUploadModal.addEventListener("click", (e) => {
+      if (e.target === fileUploadModal) {
+        fileUploadModal.style.display = 'none';
+      }
+    });
+  }
+}
+
+function showFileUploadModal(file) {
+  const fileUploadModal = $("#file-upload-modal");
+  if (fileUploadModal) {
+    showFilePreview(file);
+    fileUploadModal.style.display = 'block';
+  }
+}
+
+function showFilePreview(file) {
+  const filePreview = $("#file-preview");
+  const fileName = $("#file-name");
+  const fileSize = $("#file-size");
+
+  if (filePreview && fileName && fileSize) {
+    fileName.textContent = file.name;
+    fileSize.textContent = formatFileSize(file.size);
+    filePreview.classList.remove('hidden');
+  }
+}
+
+function formatFileSize(bytes) {
+  if (bytes === 0) return '0 Bytes';
+  const k = 1024;
+  const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+}
+
+function getFileIcon(mimeType) {
+  if (mimeType.startsWith('image/')) return '🖼️';
+  if (mimeType.startsWith('video/')) return '🎥';
+  if (mimeType === 'application/pdf') return '📄';
+  if (mimeType.includes('word') || mimeType.includes('document')) return '📝';
+  if (mimeType.includes('excel') || mimeType.includes('spreadsheet')) return '📊';
+  if (mimeType.includes('zip') || mimeType.includes('archive')) return '📦';
+  return '📎';
+}
+
 // ==================== INITIALIZATION ====================
 
 document.addEventListener("DOMContentLoaded", async () => {
@@ -2403,6 +3146,9 @@ document.addEventListener("DOMContentLoaded", async () => {
     addChatStyles();
     setupNewChatModal();
     
+    // ✅ FIXED: Add secure file upload setup
+    setupFileUpload();
+    
     const verifyIdentityBtn = $("#verify-btn");
     if (verifyIdentityBtn) {
       verifyIdentityBtn.addEventListener("click", verifyIdentity);
@@ -2415,7 +3161,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       await ensureUserKeys(state.user.uid);
       setupUserPresence();
       await listConversations();
-      //Setup unread count listener
+      // Setup unread count listener
       setupUnreadCountListener(state.user.uid);
     }
 
